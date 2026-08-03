@@ -5,7 +5,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from hermes_peek.auth import TelegramAuthError, verify_telegram_init_data
@@ -146,7 +146,25 @@ def create_app(
             "mime_type": inspected.mime_type,
             "content": content,
             "rendered_html": rendered.html,
+            **({"sandbox": ""} if inspected.kind.value == "html" else {}),
         }
+
+    @application.get("/api/previews/{preview_id}/files/{file_id}/raw")
+    def preview_raw_file(
+        file_id: str,
+        record: PreviewRecord = Depends(require_session),
+    ) -> FileResponse:
+        entry = _file_entry(record, file_id)
+        inspected = _inspect_live_file(preview_service, entry)
+        if inspected.kind.value not in {"image", "pdf"}:
+            raise HTTPException(status_code=415, detail="Raw preview is not available")
+        return FileResponse(
+            inspected.resolved_path,
+            media_type=inspected.mime_type,
+            filename=entry.display_path.rsplit("/", 1)[-1],
+            content_disposition_type="inline",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
 
     return application
 

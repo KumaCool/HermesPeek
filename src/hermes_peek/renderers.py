@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+import bleach
 from markdown_it import MarkdownIt
 
 
@@ -29,6 +30,22 @@ def render_text_preview(
     content: str,
 ) -> RenderedText:
     suffix = Path(display_path).suffix.lower()
+    if kind == "html":
+        cleaned = bleach.clean(
+            content,
+            tags={
+                "a", "article", "aside", "b", "blockquote", "br", "code", "div",
+                "em", "figcaption", "figure", "footer", "h1", "h2", "h3", "h4",
+                "header", "hr", "i", "li", "main", "nav", "ol", "p", "pre",
+                "section", "span", "strong", "table", "tbody", "td", "th", "thead",
+                "tr", "ul",
+            },
+            attributes={"a": ["href", "title"], "*": ["class"]},
+            protocols={"http", "https", "mailto"},
+            strip=True,
+        )
+        return RenderedText(cleaned, content)
+
     if kind == "markdown":
         safe_content = re.sub(
             r"\]\(\s*(?:javascript|data|vbscript):[^)]*\)",
