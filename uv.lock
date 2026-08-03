@@ -107,6 +107,7 @@ source = { editable = "." }
 dependencies = [
     { name = "bleach" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "markdown-it-py" },
     { name = "pyyaml" },
     { name = "uvicorn" },
@@ -122,6 +123,7 @@ dev = [
 requires-dist = [
     { name = "bleach", specifier = ">=6,<7" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "markdown-it-py", specifier = ">=3,<4" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "uvicorn", specifier = ">=0.34,<1" },
