@@ -4,8 +4,11 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
+from pathlib import Path
+
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from hermes_peek.auth import TelegramAuthError, verify_telegram_init_data
@@ -38,6 +41,11 @@ def create_app(
         ),
     )
     application = FastAPI(title="HermesPeek", version="0.1.0")
+    application.mount(
+        "/static",
+        StaticFiles(directory=Path(__file__).with_name("static")),
+        name="static",
+    )
     sessions: dict[str, tuple[str, str, datetime]] = {}
 
     def require_session(
@@ -111,9 +119,13 @@ def create_app(
             "<!doctype html><html lang=\"zh-CN\"><head>"
             '<meta charset="utf-8"><meta name="viewport" '
             'content="width=device-width,initial-scale=1,viewport-fit=cover">'
-            f"<title>{_escape(record.title)}</title></head>"
-            f"<body><main><h1>{_escape(record.title)}</h1>"
-            '<div id="preview-app"></div></main></body></html>'
+            f"<title>{_escape(record.title)}</title>"
+            '<link rel="stylesheet" href="/static/app.css">'
+            '<script src="https://telegram.org/js/telegram-web-app.js"></script>'
+            '<script src="/static/app.js" defer></script></head>'
+            f"<body><header><h1>{_escape(record.title)}</h1></header><main>"
+            f'<div id="preview-app" class="state loading" data-preview-id="{_escape(record.preview_id)}">'
+            "<p>正在加载预览…</p></div></main></body></html>"
         )
 
     @application.get("/api/previews/{preview_id}")
