@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `TODO`
+**当前总体状态：** `阶段 0 DONE；阶段 1 待开始`
 
 ---
 
@@ -22,8 +22,8 @@
 
 | TASK | 名称 | 阶段 | 状态 | 核心验收证据 |
 |---|---|---:|---|---|
-| TASK 0.1 | 建立可复现基线 | 0 | `TODO` | `uv sync --locked`; `uv run pytest`；工作区变更符合预期 |
-| TASK 0.2 | 落地架构与安全文档 | 0 | `TODO` | 架构、安全、集成文档完整且能力边界准确 |
+| TASK 0.1 | 建立可复现基线 | 0 | `DONE` | `uv sync --locked`; `uv run pytest`；工作区变更符合预期 |
+| TASK 0.2 | 落地架构与安全文档 | 0 | `DONE` | 架构、安全、集成文档完整且能力边界准确 |
 | TASK 1.1 | 类型化配置 | 1 | `TODO` | 配置单元测试；缺失配置与多允许根场景通过 |
 | TASK 1.2 | 安全路径策略 | 1 | `TODO` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
 | TASK 1.3 | 文件系统 Preview Registry | 1 | `TODO` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
@@ -62,7 +62,7 @@
 
 ### TASK 0.1：建立可复现基线
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 当前无 commit 的仓库状态；项目负责人的“每个 TASK 验收后独立 commit”规则。
 
@@ -83,9 +83,16 @@ uv run pytest
 
 **Commit：** `chore: establish HermesPeek baseline`
 
+**验收记录（2026-08-04 03:11 CST）：**
+
+- 命令：`uv sync --locked && uv run pytest`
+- 结果：依赖锁定同步成功；`5 passed, 1 warning`。警告来自 FastAPI TestClient 对 Starlette/httpx 兼容层的弃用提示，不影响本 TASK 基线行为。
+- 提交：`d7898ce chore: establish HermesPeek baseline`
+- 提交前 staged diff 敏感信息扫描：0 命中；`git diff --cached --check` 通过。
+
 ### TASK 0.2：落地架构与安全文档
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 本方案第 2 节；`docs/00-product-decisions.md`。
 
@@ -99,6 +106,15 @@ uv run pytest
 **验收依据：** 文档明确列出数据流、信任边界、API、模块职责、Hermes 能力边界，且不把“最终消息内合并按钮”写成当前已具备能力。
 
 **Commit：** `docs: define architecture and security model`
+
+**验收记录（2026-08-04 03:15 CST）：**
+
+- 文档结构断言：架构、安全、Hermes 集成三份文档各 6 项必需边界全部存在。
+- README Markdown 链接检查：6 个链接全部存在。
+- 回归命令：`uv run pytest && git diff --check`
+- 结果：`5 passed, 1 warning`；diff 检查通过。
+- 提交：`9a65028 docs: define architecture and security model`
+- 提交前 staged diff 敏感信息扫描：0 命中。
 
 **阶段验收：** `uv run pytest` 全绿；Git 工作区干净。
 
