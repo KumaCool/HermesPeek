@@ -144,6 +144,7 @@ uv run pytest
 - RED：`uv run pytest tests/unit/test_config.py -q` 因 `hermes_peek.config` 尚不存在而按预期失败。
 - GREEN：目标配置测试 `7 passed`；全量回归 `12 passed, 1 warning`；`git diff --check` 通过。
 - 覆盖显式允许根、多允许根、状态目录、默认值、HTTPS 外部 URL、开发模式与无效配置；测试使用显式环境映射，不读取真实用户配置。
+- 提交：`242677e feat: add typed application settings`；提交前 staged diff 敏感信息扫描 0 命中。
 
 ### TASK 1.2：安全路径策略
 
@@ -166,6 +167,7 @@ uv run pytest
 - RED：目标测试因 `hermes_peek.paths` 尚不存在而按预期失败。
 - GREEN：路径策略测试 `14 passed`；全量回归 `26 passed, 1 warning`；`git diff --check` 通过。
 - 覆盖正常 UTF-8/PNG、根外与 `..`、敏感路径、任意软链接、缺失/目录、类型、大小、UTF-8 与 MIME 签名；错误不回显提交路径。
+- 提交：`a600aa2 feat: enforce preview path security policy`；提交前 staged diff 敏感信息扫描 0 命中。
 
 ### TASK 1.3：文件系统 Preview Registry
 
@@ -188,6 +190,7 @@ uv run pytest
 - RED：目标测试因 `hermes_peek.models` 尚不存在而按预期失败。
 - GREEN：Registry 测试 `7 passed`；全量回归 `33 passed, 1 warning`；`git diff --check` 通过。
 - 已验证密码学随机 Preview ID、独立 JSON、原子写与目录 fsync、读取、幂等撤销、过期语义、损坏隔离、40 路并发创建及公开 DTO 不含绝对路径。
+- 提交：`5e4846e feat: add filesystem preview registry`；提交前 staged diff 敏感信息扫描 0 命中。
 
 ### TASK 1.4：发布服务与 CLI
 
@@ -221,6 +224,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 - RED：目标测试因 `hermes_peek.service` 尚不存在而按预期失败。
 - GREEN：服务与 subprocess CLI 目标测试 `5 passed`；全量回归 `38 passed, 1 warning`；`uv sync --locked` 与 `git diff --check` 通过。
 - 真实 CLI 闭环：临时允许根与状态目录中执行 `publish → inspect → revoke`，得到 `REAL_CLI_ROUND_TRIP_OK`；输出包含不透明 Preview ID、HTTPS URL、相对显示路径与撤销时间，不含临时绝对路径或 `absolute_path` 字段。
+- 提交：`a438793 feat: add explicit preview publishing CLI`；提交前 staged diff 敏感信息扫描 0 命中。
 
 **阶段验收：** 全量 pytest；创建真实 Preview 记录并现场读取、撤销；Git 工作区干净。
 
