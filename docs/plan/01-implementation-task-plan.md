@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 待开始`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 待开始`
 
 ---
 
@@ -28,11 +28,11 @@
 | TASK 1.2 | 安全路径策略 | 1 | `DONE` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
 | TASK 1.3 | 文件系统 Preview Registry | 1 | `DONE` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
 | TASK 1.4 | 发布服务与 CLI | 1 | `DONE` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
-| TASK 2.1 | FastAPI app factory 与 Preview API | 2 | `TODO` | Preview API 集成测试；未知/过期/撤销状态正确且无路径泄漏 |
-| TASK 2.2 | Telegram initData 验证 | 2 | `TODO` | Telegram 固定向量、篡改、过期、错误用户和日志脱敏测试通过 |
-| TASK 2.3 | 文本、代码、Markdown 与结构化文本 | 2 | `TODO` | XSS/转义/结构化解析/错误降级/磁盘实时更新测试通过 |
-| TASK 2.4 | 图片、PDF 与受限 HTML | 2 | `TODO` | 未授权 raw、MIME 欺骗、CSP 与 iframe sandbox 测试通过 |
-| TASK 2.5 | Telegram Mini App 前端 | 2 | `TODO` | 移动端布局、认证先行、主题、文件切换及浏览器控制台检查通过 |
+| TASK 2.1 | FastAPI app factory 与 Preview API | 2 | `DONE` | Preview API 集成测试；未知/过期/撤销状态正确且无路径泄漏 |
+| TASK 2.2 | Telegram initData 验证 | 2 | `DONE` | Telegram 固定向量、篡改、过期、错误用户和日志脱敏测试通过 |
+| TASK 2.3 | 文本、代码、Markdown 与结构化文本 | 2 | `DONE` | XSS/转义/结构化解析/错误降级/磁盘实时更新测试通过 |
+| TASK 2.4 | 图片、PDF 与受限 HTML | 2 | `DONE` | 未授权 raw、MIME 欺骗、CSP 与 iframe sandbox 测试通过 |
+| TASK 2.5 | Telegram Mini App 前端 | 2 | `DONE` | 移动端布局、认证先行、主题、文件切换及浏览器控制台检查通过 |
 | TASK 3.1 | Bot API 客户端与按钮构造 | 3 | `TODO` | MockTransport 验证 DM/群组/Topic payload 与 Token 脱敏 |
 | TASK 3.2 | CLI 发布后通知 | 3 | `TODO` | Mock E2E；获授权后补充真实 Telegram 点击验收 |
 | TASK 4.1 | Hermes 写文件收集插件 | 4 | `TODO` | 成功 write/patch 精确收集、失败忽略、去重和安全过滤测试通过 |
@@ -234,7 +234,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 2.1：FastAPI app factory 与 Preview API
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 第 2.3、2.5 节请求模型。
 
@@ -248,9 +248,15 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: expose preview API by opaque ID`
 
+**验收记录（2026-08-04）：**
+
+- RED：集成测试因 `create_app` 不存在按预期失败；GREEN：目标测试 `5 passed`，全量回归 `38 passed`。
+- 未知 Preview 返回 404；过期和撤销返回 410；Shell、元数据与内容 API 均不返回绝对路径。
+- 提交：`cbf5ec9 feat: expose preview API by opaque ID`；提交前 staged 敏感信息扫描 0 命中。
+
 ### TASK 2.2：Telegram initData 验证
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** Telegram Mini Apps HMAC 验证要求；默认仅任务发起人可访问。
 
@@ -265,9 +271,16 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: verify Telegram Mini App identity`
 
+**验收记录（2026-08-04）：**
+
+- RED：认证模块不存在；后续测试捕获请求模型绑定、204 Response 与 Secure Cookie 测试协议问题，并逐项修复。
+- 目标测试 `9 passed`；全量回归 `45 passed`。有效 HMAC、篡改、过期/未来时间、错误 owner、未知和撤销 Preview 均覆盖。
+- 会话 Cookie 为 HttpOnly、Secure、SameSite=Lax；服务端仅存随机 Token 哈希；响应不包含 initData、Bot Token、Cookie 或绝对路径。
+- 提交：`b448f87 feat: authenticate Telegram preview sessions`；提交前 staged 敏感信息扫描 0 命中。
+
 ### TASK 2.3：文本、代码、Markdown 与结构化文本
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 首版格式范围；服务端安全渲染策略。
 
@@ -283,9 +296,15 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: render text and markdown previews safely`
 
+**验收记录（2026-08-04）：**
+
+- RED：渲染模块不存在；首轮 GREEN 暴露不安全 Markdown URI 仍留在输出，修复后目标测试 `8 passed`。
+- 全量回归 `51 passed`；文本/代码转义、Markdown 禁止原始 HTML 与危险协议、JSON/YAML/TOML 校验和磁盘实时读取通过。
+- 提交：`1d60704 feat: render safe text previews`；提交前 staged 敏感信息扫描 0 命中。
+
 ### TASK 2.4：图片、PDF 与受限 HTML
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 首版格式范围；HTML sandbox 最小权限设计。
 
@@ -301,9 +320,16 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: add protected media and sandboxed HTML previews`
 
+**验收记录（2026-08-04）：**
+
+- RED：图片/PDF raw 路由缺失且 HTML 危险协议仍存在；GREEN：目标测试 `8 passed`，全量回归 `53 passed`。
+- raw 只允许 image/pdf，返回 inline、正确 MIME 与 `X-Content-Type-Options: nosniff`；HTML 经 allowlist 清洗并由无权限 sandbox iframe 展示。
+- PathPolicy 既有伪扩展/MIME 签名与未授权 API 测试继续全绿。
+- 提交：`fb9e24b feat: serve safe binary and HTML previews`；提交前 staged 敏感信息扫描 0 命中。
+
 ### TASK 2.5：Telegram Mini App 前端
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** compact 浮窗体验和 Telegram 主题要求。
 
@@ -317,6 +343,19 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 手机宽度下无横向页面溢出（代码块除外）；调用 `Telegram.WebApp.ready()`；不主动 `expand()`；首次加载先认证再取内容；切换文件不会泄漏路径。
 
 **Commit：** `feat: build Telegram Mini App preview interface`
+
+**验收记录（2026-08-04）：**
+
+- RED：静态资源路由缺失；GREEN：Mini App 目标测试通过，全量回归 `54 passed`。
+- Shell 使用 Telegram SDK 与主题变量；调用 `ready()` 且不主动 `expand()`；认证先于元数据；具备加载/错误态、文件切换、刷新、复制链接及各格式展示。
+- 提交：`5b82e2f feat: add Telegram Mini App preview UI`；补全计划所列控件与不主动展开约束：`7dc13c3 fix: complete Mini App preview controls`。两次 staged 敏感信息扫描均 0 命中。
+
+**阶段验收记录（2026-08-04）：**
+
+- `uv run pytest -q`：`54 passed, 1 warning`；`python3 -m compileall -q src` 通过。警告仍为 TestClient 兼容层弃用提示。
+- Uvicorn 临时绑定 `127.0.0.1:18765`；健康、Shell、元数据与 Markdown 渲染均返回 200，响应无绝对路径。
+- 使用真实临时 Markdown、Python、JSON、PNG、PDF、HTML 六个文件完成 HTTP 现场验证，结果 `SIX_FORMAT_HTTP_OK`；HTML 无脚本，PNG/PDF MIME 正确。
+- 浏览器 daemon 与 computer-use backend 在本机超时/不可用，因此未取得浏览器控制台现场证据；静态前端集成测试和本机 HTTP 已通过。未修改网络入口或 Hermes/Telegram 配置。
 
 **阶段验收：** 全量 pytest；本机 Uvicorn 启动后使用真实 Markdown、代码、JSON、图片、PDF、HTML 各做一次 HTTP 现场验证；浏览器检查控制台无错误。此阶段仅绑定 `127.0.0.1`，不改网络入口。
 
