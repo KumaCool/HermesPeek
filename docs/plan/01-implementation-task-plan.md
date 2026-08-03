@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE（真实 Telegram 验收待授权）`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE；阶段 4 OFFLINE DONE（真实 profile 安装待授权）`
 
 ---
 
@@ -35,9 +35,9 @@
 | TASK 2.5 | Telegram Mini App 前端 | 2 | `DONE` | 移动端布局、认证先行、主题、文件切换及浏览器控制台检查通过 |
 | TASK 3.1 | Bot API 客户端与按钮构造 | 3 | `DONE` | MockTransport 验证 DM/群组/Topic payload 与 Token 脱敏 |
 | TASK 3.2 | CLI 发布后通知 | 3 | `DONE` | Mock E2E 通过；真实 Telegram 点击验收待明确授权 |
-| TASK 4.1 | Hermes 写文件收集插件 | 4 | `TODO` | 成功 write/patch 精确收集、失败忽略、去重和安全过滤测试通过 |
-| TASK 4.2 | agent:end Gateway Hook | 4 | `TODO` | 无文件静默、幂等、异常隔离、Topic 路由集成测试通过 |
-| TASK 4.3 | 安装与运维说明 | 4 | `TODO` | 临时 HERMES_HOME 安装/卸载通过；不修改真实配置 |
+| TASK 4.1 | Hermes 写文件收集插件 | 4 | `DONE` | 成功 write/patch 精确收集、失败忽略、去重和安全过滤测试通过 |
+| TASK 4.2 | agent:end Gateway Hook | 4 | `DONE` | 无文件静默、幂等、异常隔离、Topic 路由集成测试通过 |
+| TASK 4.3 | 安装与运维说明 | 4 | `DONE` | 临时 HERMES_HOME 安装/卸载通过；不修改真实配置 |
 | TASK 5.1 | 本机服务封装 | 5 | `TODO` | 本地服务仅绑定批准地址；重启恢复；健康检查通过 |
 | TASK 5.2 | WireGuard 受控入口验证 | 5 | `TODO` | 获授权后记录 WireGuard + HTTPS + Telegram WebView 现场证据 |
 | TASK 5.3 | Cloudflare Tunnel 生产入口（仅在批准后） | 5 | `TODO` | 获授权后验证最小公网暴露、未授权拒绝和 Tunnel 回滚 |
@@ -426,7 +426,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 4.1：Hermes 写文件收集插件
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** Hermes 官方 `post_tool_call` Plugin Hook。
 
@@ -442,9 +442,11 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: collect Hermes file tool outputs`
 
+**验收记录（2026-08-04）：** RED 为集成文件不存在，4 个测试按预期失败；GREEN 为目标测试 `4 passed`、全量回归 `69 passed`。仅成功 `write_file`/`patch` 被收集；根外、敏感、缺失文件与 terminal 猜测均忽略；同 session/task 去重并原子写 spool。提交 `bd82a70`，敏感信息扫描 0 命中。
+
 ### TASK 4.2：agent:end Gateway Hook
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** Hermes 官方 Gateway Event Hook 与现场源码字段。
 
@@ -459,9 +461,11 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: publish previews from Hermes gateway hook`
 
+**验收记录（2026-08-04）：** RED 为 handler 缺失，3 个测试按预期失败；GREEN 为目标测试 `3 passed`、全量回归 `72 passed`。非 Telegram/无文件静默；Forum Topic 使用整数 thread ID；成功后消费 spool，发送失败保留 spool，重复事件不重复发送；异常隔离。提交 `88816aa`，敏感信息扫描 0 命中。
+
 ### TASK 4.3：安装与运维说明
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** Hermes 插件需显式启用，Gateway Hook 从 profile-local `hooks/` 加载。
 
@@ -474,6 +478,10 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 全新临时 `HERMES_HOME` 中可安装和移除；不触碰真实 `~/.hermes/config.yaml`、`hermes.json`、`exec-approvals.json` 或 Gateway 配置。
 
 **Commit：** `docs: document Hermes integration operations`
+
+**验收记录（2026-08-04）：** 临时 `HERMES_HOME` 安装/卸载测试通过，安装前后测试 config 字节完全一致；集成目标测试 `8 passed`，全量回归 `73 passed`。文档覆盖安装、启用边界、升级、卸载、日志和故障排查。提交 `bab573a`，敏感信息扫描 0 命中。
+
+**离线阶段验收记录（2026-08-04）：** 全量 pytest、compileall 与 diff 检查通过；未向真实 default profile 复制集成文件，未修改真实 Hermes 配置，未启用插件或重启 Gateway，也未调用真实 Telegram。真实 profile 安装与 Telegram 自动闭环仍待项目负责人明确授权。
 
 **阶段验收：** 获得项目负责人明确授权后，在当前 profile 安装但不自动修改 Hermes 配置；由项目负责人启用插件/重启 Gateway；随后让 Hermes 修改一个测试文件，现场确认正常答复后出现第二条预览消息，按钮对应本轮文件而不是旧记录。
 
