@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 待开始`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE（真实 Telegram 验收待授权）`
 
 ---
 
@@ -33,8 +33,8 @@
 | TASK 2.3 | 文本、代码、Markdown 与结构化文本 | 2 | `DONE` | XSS/转义/结构化解析/错误降级/磁盘实时更新测试通过 |
 | TASK 2.4 | 图片、PDF 与受限 HTML | 2 | `DONE` | 未授权 raw、MIME 欺骗、CSP 与 iframe sandbox 测试通过 |
 | TASK 2.5 | Telegram Mini App 前端 | 2 | `DONE` | 移动端布局、认证先行、主题、文件切换及浏览器控制台检查通过 |
-| TASK 3.1 | Bot API 客户端与按钮构造 | 3 | `TODO` | MockTransport 验证 DM/群组/Topic payload 与 Token 脱敏 |
-| TASK 3.2 | CLI 发布后通知 | 3 | `TODO` | Mock E2E；获授权后补充真实 Telegram 点击验收 |
+| TASK 3.1 | Bot API 客户端与按钮构造 | 3 | `DONE` | MockTransport 验证 DM/群组/Topic payload 与 Token 脱敏 |
+| TASK 3.2 | CLI 发布后通知 | 3 | `DONE` | Mock E2E 通过；真实 Telegram 点击验收待明确授权 |
 | TASK 4.1 | Hermes 写文件收集插件 | 4 | `TODO` | 成功 write/patch 精确收集、失败忽略、去重和安全过滤测试通过 |
 | TASK 4.2 | agent:end Gateway Hook | 4 | `TODO` | 无文件静默、幂等、异常隔离、Topic 路由集成测试通过 |
 | TASK 4.3 | 安装与运维说明 | 4 | `TODO` | 临时 HERMES_HOME 安装/卸载通过；不修改真实配置 |
@@ -365,7 +365,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 3.1：Bot API 客户端与按钮构造
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 私聊 `web_app`、群组/Topic Direct Link 的已确认决策。
 
@@ -380,9 +380,17 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit：** `feat: send Telegram preview notifications`
 
+**验收记录（2026-08-04）：**
+
+- RED：`hermes_peek.telegram` 不存在，目标测试在收集阶段按预期失败。
+- GREEN：目标测试 `8 passed`；全量回归 `62 passed, 1 warning`。
+- MockTransport 验证私聊使用 `web_app`，群组/Topic 使用 Direct Link；Topic 的 `message_thread_id` 为整数；非法 chat/thread 组合和非 HTTPS URL 被拒绝。
+- Bot Token 仅由调用方注入；API 与网络异常转换为固定安全错误，异常文本不含 Token。
+- 提交：`24c1da7 feat: send Telegram preview notifications`；提交前 staged 敏感信息扫描 0 命中。
+
 ### TASK 3.2：CLI 发布后通知
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 显式发布先于自动集成。
 
@@ -395,6 +403,20 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 使用 Mock Bot API 完成发布→发送链路；真实 Telegram 验收前必须由项目负责人明确授权使用当前 Bot 与当前 Topic。
 
 **Commit：** `feat: notify Telegram from publish command`
+
+**验收记录（2026-08-04）：**
+
+- RED：CLI 不认识 `--notify` 等参数，且无可注入 Telegram transport；3 个目标测试按预期失败。
+- GREEN：CLI 与既有 subprocess 测试 `5 passed`；全量回归 `65 passed, 1 warning`。
+- Mock E2E 验证 publish→构造 Topic payload→sendMessage→输出 `message_id`；通知失败返回非零状态且已创建 Preview 仍保留。
+- `--notify` 强制要求 chat ID、chat type、HTTPS 外部 URL 与 secret env Token；输出和错误不含绝对路径或 Token。
+- 提交：`3f85f57 feat: notify Telegram from publish command`；提交前 staged 敏感信息扫描 0 命中。
+
+**阶段验收记录（2026-08-04）：**
+
+- 阶段 3 Mock 范围全量回归 `65 passed, 1 warning`，工作区提交后干净。
+- 未读取或使用真实 Bot Token，未向任何 Telegram chat/topic 发送消息，未修改 Hermes 或 Bot 配置。
+- 真实 Telegram 按钮点击、Telegram 内 WebView 与 owner 现场验证仍需项目负责人单独明确授权；本记录不宣称真实闭环通过。
 
 **阶段验收：** 在获得明确授权后，发布本项目 Markdown，当前 Topic 收到带按钮消息；点击后在 Telegram 内打开；仅项目负责人可读取；其他用户或无效 initData 被拒绝。未获网络/真实 Bot 授权时只完成 Mock E2E，不宣称真实闭环通过。
 
