@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE；阶段 4 OFFLINE DONE（真实 profile 安装待授权）`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE；阶段 4 OFFLINE DONE；TASK 5.1 OFFLINE DONE（真实服务安装、HTTPS/WireGuard/Tunnel 待授权）`
 
 ---
 
@@ -38,7 +38,7 @@
 | TASK 4.1 | Hermes 写文件收集插件 | 4 | `DONE` | 成功 write/patch 精确收集、失败忽略、去重和安全过滤测试通过 |
 | TASK 4.2 | agent:end Gateway Hook | 4 | `DONE` | 无文件静默、幂等、异常隔离、Topic 路由集成测试通过 |
 | TASK 4.3 | 安装与运维说明 | 4 | `DONE` | 临时 HERMES_HOME 安装/卸载通过；不修改真实配置 |
-| TASK 5.1 | 本机服务封装 | 5 | `TODO` | 本地服务仅绑定批准地址；重启恢复；健康检查通过 |
+| TASK 5.1 | 本机服务封装 | 5 | `DONE` | 本地服务仅绑定批准地址；重启恢复；健康检查通过 |
 | TASK 5.2 | WireGuard 受控入口验证 | 5 | `TODO` | 获授权后记录 WireGuard + HTTPS + Telegram WebView 现场证据 |
 | TASK 5.3 | Cloudflare Tunnel 生产入口（仅在批准后） | 5 | `TODO` | 获授权后验证最小公网暴露、未授权拒绝和 Tunnel 回滚 |
 | TASK 6.1 | 设计通用 Hermes Gateway 扩展点 | 6 | `TODO` | Hermes 上游单元/集成测试证明扩展点跨平台且不破坏现有不变量 |
@@ -493,7 +493,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 5.1：本机服务封装
 
-**状态：** `TODO`
+**状态：** `DONE（离线验收；真实 user service 未安装）`
 
 **方案来源：** 应用只监听本地地址、外层入口可替换。
 
@@ -506,6 +506,8 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 服务仅绑定批准的本地地址和端口；重启后恢复；容器/进程仅能读取批准根；`/healthz` 现场通过。
 
 **Commit：** `ops: add local HermesPeek service definition`
+
+**验收记录（2026-08-04）：** RED 为 unit 缺失且 CLI 不支持 `serve`，2 个测试按预期失败。GREEN 为目标测试 `2 passed`、全量回归 `75 passed`；`systemd-analyze verify`、compileall、diff 检查通过。测试实际启动临时 Uvicorn，绑定随机 `127.0.0.1` 端口，`/healthz` 返回预期 JSON 后终止进程。unit 使用回环监听、失败重启、journal 日志及 systemd 加固；未安装真实 user unit、未持久监听端口、未配置外部入口。提交 `ffaeb1c`，敏感信息扫描 0 命中。
 
 ### TASK 5.2：WireGuard 受控入口验证
 
