@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 待开始`
+**当前总体状态：** `阶段 0 DONE；阶段 1 IN_PROGRESS（TASK 1.1 DONE）`
 
 ---
 
@@ -24,7 +24,7 @@
 |---|---|---:|---|---|
 | TASK 0.1 | 建立可复现基线 | 0 | `DONE` | `uv sync --locked`; `uv run pytest`；工作区变更符合预期 |
 | TASK 0.2 | 落地架构与安全文档 | 0 | `DONE` | 架构、安全、集成文档完整且能力边界准确 |
-| TASK 1.1 | 类型化配置 | 1 | `TODO` | 配置单元测试；缺失配置与多允许根场景通过 |
+| TASK 1.1 | 类型化配置 | 1 | `DONE` | 配置单元测试；缺失配置与多允许根场景通过 |
 | TASK 1.2 | 安全路径策略 | 1 | `TODO` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
 | TASK 1.3 | 文件系统 Preview Registry | 1 | `TODO` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
 | TASK 1.4 | 发布服务与 CLI | 1 | `TODO` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
@@ -124,7 +124,7 @@ uv run pytest
 
 ### TASK 1.1：类型化配置
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 模块化单体设计；秘密与行为配置分离原则。
 
@@ -138,6 +138,12 @@ uv run pytest
 **验收依据：** 缺失必需配置时错误可读；多允许根解析正确；测试不读取真实用户配置。
 
 **Commit：** `feat: add typed application settings`
+
+**验收记录（2026-08-04）：**
+
+- RED：`uv run pytest tests/unit/test_config.py -q` 因 `hermes_peek.config` 尚不存在而按预期失败。
+- GREEN：目标配置测试 `7 passed`；全量回归 `12 passed, 1 warning`；`git diff --check` 通过。
+- 覆盖显式允许根、多允许根、状态目录、默认值、HTTPS 外部 URL、开发模式与无效配置；测试使用显式环境映射，不读取真实用户配置。
 
 ### TASK 1.2：安全路径策略
 
