@@ -14,6 +14,7 @@ from hermes_peek.config import Settings
 from hermes_peek.models import FileEntry, PreviewRecord
 from hermes_peek.paths import PathPolicy, PathPolicyError
 from hermes_peek.registry import CorruptPreviewError, PreviewNotFoundError, PreviewRegistry
+from hermes_peek.renderers import RenderError, render_text_preview
 from hermes_peek.service import PreviewService
 
 
@@ -128,12 +129,23 @@ def create_app(
         inspected = _inspect_live_file(preview_service, entry)
         if inspected.kind.value in {"image", "pdf"}:
             raise HTTPException(status_code=415, detail="Binary preview is not available")
+        content = inspected.resolved_path.read_text(encoding="utf-8")
+        try:
+            rendered = render_text_preview(
+                kind=inspected.kind.value,
+                mime_type=inspected.mime_type,
+                display_path=entry.display_path,
+                content=content,
+            )
+        except RenderError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {
             "id": entry.id,
             "display_path": entry.display_path,
             "kind": inspected.kind.value,
             "mime_type": inspected.mime_type,
-            "content": inspected.resolved_path.read_text(encoding="utf-8"),
+            "content": content,
+            "rendered_html": rendered.html,
         }
 
     return application
