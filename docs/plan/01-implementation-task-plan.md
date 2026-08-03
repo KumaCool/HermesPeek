@@ -25,7 +25,7 @@
 | TASK 0.1 | 建立可复现基线 | 0 | `DONE` | `uv sync --locked`; `uv run pytest`；工作区变更符合预期 |
 | TASK 0.2 | 落地架构与安全文档 | 0 | `DONE` | 架构、安全、集成文档完整且能力边界准确 |
 | TASK 1.1 | 类型化配置 | 1 | `DONE` | 配置单元测试；缺失配置与多允许根场景通过 |
-| TASK 1.2 | 安全路径策略 | 1 | `TODO` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
+| TASK 1.2 | 安全路径策略 | 1 | `DONE` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
 | TASK 1.3 | 文件系统 Preview Registry | 1 | `TODO` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
 | TASK 1.4 | 发布服务与 CLI | 1 | `TODO` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
 | TASK 2.1 | FastAPI app factory 与 Preview API | 2 | `TODO` | Preview API 集成测试；未知/过期/撤销状态正确且无路径泄漏 |
@@ -147,7 +147,7 @@ uv run pytest
 
 ### TASK 1.2：安全路径策略
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** `docs/00-product-decisions.md` 默认安全规则。
 
@@ -160,6 +160,12 @@ uv run pytest
 **验收依据：** 正常文件通过；`..`、根外文件、`.env`、`.git`、`.ssh`、`.hermes`、软链接逃逸、超大文件和不支持类型均被拒绝。
 
 **Commit：** `feat: enforce preview path security policy`
+
+**验收记录（2026-08-04）：**
+
+- RED：目标测试因 `hermes_peek.paths` 尚不存在而按预期失败。
+- GREEN：路径策略测试 `14 passed`；全量回归 `26 passed, 1 warning`；`git diff --check` 通过。
+- 覆盖正常 UTF-8/PNG、根外与 `..`、敏感路径、任意软链接、缺失/目录、类型、大小、UTF-8 与 MIME 签名；错误不回显提交路径。
 
 ### TASK 1.3：文件系统 Preview Registry
 
