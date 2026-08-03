@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -16,6 +17,12 @@ from hermes_peek.registry import (
     PreviewRegistry,
 )
 from hermes_peek.service import PreviewService, PublishError
+from hermes_peek.telegram import TelegramClient, TelegramNotificationError
+
+
+def telegram_transport():
+    """Production uses httpx's default transport; tests inject MockTransport here."""
+    return None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--entry", required=True, type=Path)
     publish.add_argument("--title", required=True)
     publish.add_argument("--owner", required=True)
+    publish.add_argument("--notify", action="store_true")
+    publish.add_argument("--chat-id")
+    publish.add_argument("--thread-id", type=int)
+    publish.add_argument("--chat-type", choices=("private", "group", "supergroup"))
 
     inspect = subparsers.add_parser("inspect", help="Inspect public preview metadata")
     inspect.add_argument("preview_id")
@@ -62,6 +73,34 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 owner_telegram_user_id=args.owner,
             )
             output = {"preview_id": result.record.preview_id, "url": result.url}
+            if args.notify:
+                if not args.chat_id or not args.chat_type:
+                    raise ValueError("--notify requires --chat-id and --chat-type")
+                if result.url is None:
+                    raise ValueError("--notify requires HERMES_PEEK_EXTERNAL_BASE_URL")
+                token = os.environ.get("HERMES_PEEK_TELEGRAM_BOT_TOKEN")
+                if not token:
+                    raise ValueError(
+                        "--notify requires HERMES_PEEK_TELEGRAM_BOT_TOKEN"
+                    )
+                try:
+                    message = TelegramClient(
+                        token, transport=telegram_transport()
+                    ).send_preview(
+                        chat_id=args.chat_id,
+                        chat_type=args.chat_type,
+                        preview_url=result.url,
+                        title=args.title,
+                        thread_id=args.thread_id,
+                    )
+                except TelegramNotificationError as exc:
+                    print(
+                        "error: Preview was published, but Telegram notification "
+                        f"failed: {exc}",
+                        file=sys.stderr,
+                    )
+                    return 3
+                output.update(notified=True, message_id=message.get("message_id"))
         elif args.command == "inspect":
             output = service.inspect(args.preview_id).model_dump(mode="json")
         else:
