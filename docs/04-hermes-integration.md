@@ -134,7 +134,73 @@ Hook 从上下文读取 Telegram user/chat/thread/chat type/session，并读取�
 
 未执行真实步骤时，只能声称离线集成测试通过，不能声称 Hermes/Telegram 自动闭环完成。
 
-## 10. 最终回复按钮融合
+## 10. 安装、卸载与升级操作
+
+> 以下命令必须由项目负责人在目标 profile 上手动执行。先把 `<HERMES_HOME>` 替换为目标 Hermes Home；默认 profile 通常是 `~/.hermes`。不要把其他 profile 的路径混用。
+
+### 10.1 前置检查
+
+```bash
+cd /path/to/HermesPeek
+uv sync --dev
+uv run pytest tests/integration/test_hermes_collector.py \
+  tests/integration/test_gateway_hook.py \
+  tests/integration/test_hermes_install.py -q
+```
+
+运行时必须提供：
+
+- `HERMES_PEEK_ALLOWED_ROOTS`：允许发布的工作目录列表；
+- `HERMES_PEEK_STATE_DIR`：HermesPeek 状态目录；
+- `HERMES_PEEK_EXTERNAL_BASE_URL`：Telegram 可访问的 HTTPS 地址；
+- `HERMES_PEEK_TELEGRAM_BOT_TOKEN`：只放在目标 Hermes Home 的 secret 环境文件或服务环境中。
+
+### 10.2 安装文件（不启用）
+
+```bash
+mkdir -p <HERMES_HOME>/plugins/hermes-peek <HERMES_HOME>/hooks/hermes-peek
+cp integrations/hermes/plugin.yaml integrations/hermes/__init__.py \
+   integrations/hermes/collector.py <HERMES_HOME>/plugins/hermes-peek/
+cp integrations/hermes/HOOK.yaml integrations/hermes/handler.py \
+   <HERMES_HOME>/hooks/hermes-peek/
+```
+
+上述操作不修改 `config.yaml`。安装后由项目负责人手动执行：
+
+```bash
+HERMES_HOME=<HERMES_HOME> hermes plugins list
+HERMES_HOME=<HERMES_HOME> hermes plugins enable hermes-peek
+HERMES_HOME=<HERMES_HOME> hermes gateway restart
+```
+
+`plugins enable` 会修改目标 profile 配置，因此不得由安装脚本自动执行。Gateway Hook 会在 Gateway 启动时从 `hooks/` 发现；重启同样必须明确授权。
+
+### 10.3 升级
+
+先停止目标 Gateway，在保留配置和状态目录的前提下重新复制上述五个集成文件，再运行离线测试并手动重启。升级不得覆盖 `config.yaml`、`.env`、collector spool 或 Preview Registry。
+
+### 10.4 卸载
+
+先手动禁用插件并重启 Gateway，再删除集成自身目录：
+
+```bash
+HERMES_HOME=<HERMES_HOME> hermes plugins disable hermes-peek
+HERMES_HOME=<HERMES_HOME> hermes gateway restart
+rm -rf <HERMES_HOME>/plugins/hermes-peek <HERMES_HOME>/hooks/hermes-peek
+```
+
+卸载不删除 HermesPeek Preview Registry 或 collector spool；确认不再需要后另行按运维策略清理。
+
+### 10.5 日志与故障排查
+
+- `hermes plugins list` 未显示：检查 `plugin.yaml` 和目录名；
+- collector 无记录：确认插件已启用、工具结果成功、工具是 `write_file`/`patch`、路径处于允许根；
+- 无第二条通知：确认 Gateway Hook 已加载、平台为 Telegram、session 对应 spool 存在、外部 URL 为 HTTPS；
+- Topic 路由错误：确认 Hook context 的 `chat_type=forum` 且 `thread_id` 可转为整数；
+- 发送失败：保留 spool 供重试；检查脱敏日志，不打印 Token 或文件内容；
+- 任何异常均不应阻断 Hermes 正常答复。若发生阻断，应立即禁用插件、移除 Hook 并重启 Gateway。
+
+## 11. 最终回复按钮融合
 
 独立通知稳定后，可以向 Hermes 上游设计平台无关的 final-message actions/attachments 扩展点。该扩展点必须默认无行为，并保护非 Telegram 平台、流式输出、消息拆分、缓存和失败降级。
 
