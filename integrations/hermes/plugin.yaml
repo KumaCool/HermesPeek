@@ -1,0 +1,5 @@
+name: hermes-peek
+version: 0.1.0
+description: Collect successful Hermes file writes for secure preview publication.
+hooks:
+  - post_tool_call
