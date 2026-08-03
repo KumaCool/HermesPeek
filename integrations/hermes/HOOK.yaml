@@ -1,0 +1,4 @@
+name: hermes-peek-publish
+description: Publish files collected during a Hermes turn and send a separate Telegram preview notification.
+events:
+  - agent:end
