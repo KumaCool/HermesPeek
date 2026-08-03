@@ -41,8 +41,10 @@ def test_preview_shell_is_a_mobile_telegram_app_with_auth_loading_and_error_stat
     assert "Mini Preview" in shell.text
     assert "fetch(`/api/auth/telegram`" in script.text
     assert "Telegram.WebApp.initData" in script.text
+    assert ".expand(" not in script.text
     assert "loading" in script.text and "error" in script.text
     assert "rendered_html" in script.text and "/raw" in script.text
+    assert "file-switcher" in script.text and "refresh" in script.text and "copy" in script.text
     assert "var(--tg-theme-bg-color" in style.text
     assert "@media" in style.text
     assert str(tmp_path) not in shell.text + script.text + style.text

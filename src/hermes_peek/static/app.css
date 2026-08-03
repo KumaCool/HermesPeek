@@ -6,6 +6,9 @@ h1 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 main { width: min(100%, 960px); margin: auto; padding: 12px; }
 .state.loading, .state.error { min-height: 50vh; display: grid; place-items: center; color: var(--tg-theme-hint-color, #6b7280); text-align: center; }
 .file-panel { margin-bottom: 16px; overflow: hidden; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 12px; background: var(--tg-theme-secondary-bg-color, #f8fafc); }
+.toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+.toolbar select { min-width: 0; flex: 1; }
+.toolbar select, .toolbar button { padding: 9px 10px; color: var(--tg-theme-text-color, #202124); background: var(--tg-theme-secondary-bg-color, #f3f4f6); border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 8px; }
 .file-panel h2 { margin: 0; padding: 10px 12px; font-size: 13px; color: var(--tg-theme-hint-color, #64748b); }
 .file-panel article, .file-panel pre { margin: 0; padding: 14px; overflow: auto; background: var(--tg-theme-bg-color, #fff); }
 .file-panel img { display: block; max-width: 100%; height: auto; margin: auto; }
