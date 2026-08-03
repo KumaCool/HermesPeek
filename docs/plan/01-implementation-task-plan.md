@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 IN_PROGRESS（TASK 1.1 DONE）`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 待开始`
 
 ---
 
@@ -27,7 +27,7 @@
 | TASK 1.1 | 类型化配置 | 1 | `DONE` | 配置单元测试；缺失配置与多允许根场景通过 |
 | TASK 1.2 | 安全路径策略 | 1 | `DONE` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
 | TASK 1.3 | 文件系统 Preview Registry | 1 | `DONE` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
-| TASK 1.4 | 发布服务与 CLI | 1 | `TODO` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
+| TASK 1.4 | 发布服务与 CLI | 1 | `DONE` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
 | TASK 2.1 | FastAPI app factory 与 Preview API | 2 | `TODO` | Preview API 集成测试；未知/过期/撤销状态正确且无路径泄漏 |
 | TASK 2.2 | Telegram initData 验证 | 2 | `TODO` | Telegram 固定向量、篡改、过期、错误用户和日志脱敏测试通过 |
 | TASK 2.3 | 文本、代码、Markdown 与结构化文本 | 2 | `TODO` | XSS/转义/结构化解析/错误降级/磁盘实时更新测试通过 |
@@ -191,7 +191,7 @@ uv run pytest
 
 ### TASK 1.4：发布服务与 CLI
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 已确认“先实现 `hermes-peek publish`”。
 
@@ -215,6 +215,12 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 命令输出 Preview ID 和 URL，不输出绝对路径；`inspect` 可见脱敏元数据；`revoke` 后不可读取。
 
 **Commit：** `feat: add explicit preview publishing CLI`
+
+**验收记录（2026-08-04）：**
+
+- RED：目标测试因 `hermes_peek.service` 尚不存在而按预期失败。
+- GREEN：服务与 subprocess CLI 目标测试 `5 passed`；全量回归 `38 passed, 1 warning`；`uv sync --locked` 与 `git diff --check` 通过。
+- 真实 CLI 闭环：临时允许根与状态目录中执行 `publish → inspect → revoke`，得到 `REAL_CLI_ROUND_TRIP_OK`；输出包含不透明 Preview ID、HTTPS URL、相对显示路径与撤销时间，不含临时绝对路径或 `absolute_path` 字段。
 
 **阶段验收：** 全量 pytest；创建真实 Preview 记录并现场读取、撤销；Git 工作区干净。
 
