@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+import uvicorn
 from pydantic import ValidationError
+
+from hermes_peek.app import create_app
 
 from hermes_peek.config import Settings
 from hermes_peek.paths import PathPolicy, PathPolicyError
@@ -44,7 +47,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     revoke = subparsers.add_parser("revoke", help="Revoke a preview")
     revoke.add_argument("preview_id")
+
+    serve = subparsers.add_parser("serve", help="Run the local preview service")
+    serve.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1", "::1"))
+    serve.add_argument("--port", default=8765, type=_port)
     return parser
+
+
+def _port(value: str) -> int:
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError("port must be between 1 and 65535")
+    return port
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -52,6 +66,20 @@ def main(arguments: Sequence[str] | None = None) -> int:
     args = parser.parse_args(arguments)
     try:
         settings = Settings.from_env()
+        if args.command == "serve":
+            token = os.environ.get("HERMES_PEEK_TELEGRAM_BOT_TOKEN")
+            if not settings.development and not token:
+                raise ValueError(
+                    "serve requires HERMES_PEEK_TELEGRAM_BOT_TOKEN outside development"
+                )
+            uvicorn.run(
+                create_app(settings, bot_token=token),
+                host=args.host,
+                port=args.port,
+                log_level="info",
+                access_log=False,
+            )
+            return 0
         service = PreviewService(
             registry=PreviewRegistry(settings.state_dir),
             path_policy=PathPolicy(

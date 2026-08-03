@@ -1,0 +1,25 @@
+[Unit]
+Description=HermesPeek local preview service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/hermes-peek/hermes-peek.env
+ExecStart=/usr/bin/env hermes-peek serve --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=%h/.local/state/hermes-peek
+
+[Install]
+WantedBy=default.target
