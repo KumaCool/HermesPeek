@@ -26,7 +26,7 @@
 | TASK 0.2 | 落地架构与安全文档 | 0 | `DONE` | 架构、安全、集成文档完整且能力边界准确 |
 | TASK 1.1 | 类型化配置 | 1 | `DONE` | 配置单元测试；缺失配置与多允许根场景通过 |
 | TASK 1.2 | 安全路径策略 | 1 | `DONE` | 路径穿越、敏感路径、软链接逃逸、大小/MIME 测试通过 |
-| TASK 1.3 | 文件系统 Preview Registry | 1 | `TODO` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
+| TASK 1.3 | 文件系统 Preview Registry | 1 | `DONE` | Registry 创建/读取/撤销/过期/并发原子写测试通过 |
 | TASK 1.4 | 发布服务与 CLI | 1 | `TODO` | 真实 CLI publish→inspect→revoke 闭环；输出无绝对路径 |
 | TASK 2.1 | FastAPI app factory 与 Preview API | 2 | `TODO` | Preview API 集成测试；未知/过期/撤销状态正确且无路径泄漏 |
 | TASK 2.2 | Telegram initData 验证 | 2 | `TODO` | Telegram 固定向量、篡改、过期、错误用户和日志脱敏测试通过 |
@@ -169,7 +169,7 @@ uv run pytest
 
 ### TASK 1.3：文件系统 Preview Registry
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 最小化方案；无需数据库；每记录独立原子 JSON。
 
@@ -182,6 +182,12 @@ uv run pytest
 **验收依据：** Preview ID 使用密码学安全随机数；创建、读取、撤销、过期、损坏记录隔离、并发原子写入测试通过；API 模型不序列化绝对路径。
 
 **Commit：** `feat: add filesystem preview registry`
+
+**验收记录（2026-08-04）：**
+
+- RED：目标测试因 `hermes_peek.models` 尚不存在而按预期失败。
+- GREEN：Registry 测试 `7 passed`；全量回归 `33 passed, 1 warning`；`git diff --check` 通过。
+- 已验证密码学随机 Preview ID、独立 JSON、原子写与目录 fsync、读取、幂等撤销、过期语义、损坏隔离、40 路并发创建及公开 DTO 不含绝对路径。
 
 ### TASK 1.4：发布服务与 CLI
 
