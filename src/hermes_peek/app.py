@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import hashlib
+import secrets
+from datetime import UTC, datetime, timedelta
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+
+from hermes_peek.auth import TelegramAuthError, verify_telegram_init_data
 
 from hermes_peek.config import Settings
 from hermes_peek.models import FileEntry, PreviewRecord
@@ -12,7 +17,17 @@ from hermes_peek.registry import CorruptPreviewError, PreviewNotFoundError, Prev
 from hermes_peek.service import PreviewService
 
 
-def create_app(settings: Settings, *, service: PreviewService | None = None) -> FastAPI:
+class TelegramAuthRequest(BaseModel):
+    preview_id: str
+    init_data: str
+
+
+def create_app(
+    settings: Settings,
+    *,
+    service: PreviewService | None = None,
+    bot_token: str | None = None,
+) -> FastAPI:
     preview_service = service or PreviewService(
         registry=PreviewRegistry(settings.state_dir),
         path_policy=PathPolicy(settings.allowed_roots, max_file_bytes=settings.max_file_bytes),
@@ -22,6 +37,63 @@ def create_app(settings: Settings, *, service: PreviewService | None = None) -> 
         ),
     )
     application = FastAPI(title="HermesPeek", version="0.1.0")
+    sessions: dict[str, tuple[str, str, datetime]] = {}
+
+    def require_session(
+        preview_id: str,
+        session_token: str | None = Cookie(default=None, alias="hermes_peek_session"),
+    ) -> PreviewRecord:
+        if settings.development and bot_token is None:
+            return _available_record(preview_service, preview_id)
+        if session_token is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        stored = sessions.get(_token_hash(session_token))
+        if stored is None or stored[0] != preview_id or stored[2] <= datetime.now(UTC):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        record = _available_record(preview_service, preview_id)
+        if record.owner_telegram_user_id != stored[1]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        return record
+
+    @application.post("/api/auth/telegram", status_code=204)
+    def telegram_auth(payload: TelegramAuthRequest, response: Response) -> Response:
+        if bot_token is None:
+            raise HTTPException(status_code=503, detail="Telegram authentication unavailable")
+        record = _available_record(preview_service, payload.preview_id)
+        try:
+            identity = verify_telegram_init_data(payload.init_data, bot_token=bot_token)
+        except TelegramAuthError as exc:
+            raise HTTPException(status_code=401, detail="Invalid Telegram authentication") from exc
+        if identity.user_id != record.owner_telegram_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        token = secrets.token_urlsafe(32)
+        sessions[_token_hash(token)] = (
+            record.preview_id,
+            identity.user_id,
+            datetime.now(UTC) + timedelta(minutes=15),
+        )
+        response.set_cookie(
+            "hermes_peek_session",
+            token,
+            max_age=900,
+            httponly=True,
+            secure=not settings.development,
+            samesite="lax",
+            path="/",
+        )
+        response.status_code = 204
+        return response
+
+    @application.delete("/api/auth/session", status_code=204)
+    def logout(
+        response: Response,
+        session_token: str | None = Cookie(default=None, alias="hermes_peek_session"),
+    ) -> Response:
+        if session_token is not None:
+            sessions.pop(_token_hash(session_token), None)
+        response.delete_cookie("hermes_peek_session", path="/")
+        response.status_code = 204
+        return response
 
     @application.get("/healthz")
     def healthz() -> dict[str, str]:
@@ -44,13 +116,14 @@ def create_app(settings: Settings, *, service: PreviewService | None = None) -> 
         )
 
     @application.get("/api/previews/{preview_id}")
-    def preview_metadata(preview_id: str) -> dict[str, object]:
-        record = _available_record(preview_service, preview_id)
+    def preview_metadata(record: PreviewRecord = Depends(require_session)) -> dict[str, object]:
         return record.to_public().model_dump(mode="json")
 
     @application.get("/api/previews/{preview_id}/files/{file_id}")
-    def preview_file(preview_id: str, file_id: str) -> dict[str, object]:
-        record = _available_record(preview_service, preview_id)
+    def preview_file(
+        file_id: str,
+        record: PreviewRecord = Depends(require_session),
+    ) -> dict[str, object]:
         entry = _file_entry(record, file_id)
         inspected = _inspect_live_file(preview_service, entry)
         if inspected.kind.value in {"image", "pdf"}:
@@ -93,6 +166,10 @@ def _inspect_live_file(service: PreviewService, entry: FileEntry):
     except PathPolicyError as exc:
         status = 404 if exc.code == "NOT_FOUND" else 422
         raise HTTPException(status_code=status, detail="File is not available") from exc
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def _escape(value: str) -> str:
