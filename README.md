@@ -115,6 +115,9 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 
 - [00 产品决策](docs/00-product-decisions.md)
 - [01 设计与开发方案](docs/01-design-development-plan.md)
+- [02 系统架构](docs/02-architecture.md)
+- [03 安全模型](docs/03-security.md)
+- [04 Hermes 集成](docs/04-hermes-integration.md)
 - [01 实施任务计划、TASK 状态与验收矩阵](docs/plan/01-implementation-task-plan.md)
 
 ## 路线图
