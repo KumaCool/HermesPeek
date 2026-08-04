@@ -19,6 +19,8 @@ from hermes_peek.lifecycle import (
     InstallPaths,
     LifecycleError,
     install as install_application,
+    plan_purge,
+    purge as purge_application,
     read_bot_token,
     uninstall as uninstall_application,
 )
@@ -80,7 +82,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     uninstall = subparsers.add_parser("uninstall", help="Safely remove HermesPeek integration")
     uninstall.add_argument("--hermes-home", type=Path)
-    uninstall.add_argument("--purge-data", action="store_true")
+    uninstall.add_argument("--purge", "--purge-data", dest="purge", action="store_true")
+    uninstall.add_argument("--dry-run", action="store_true")
+    uninstall.add_argument("--yes", action="store_true")
     uninstall.add_argument("--no-deactivate", action="store_true")
     status = subparsers.add_parser("status", help="Show lifecycle status")
     status.add_argument("--json", action="store_true")
@@ -135,11 +139,23 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     activate=not args.no_activate,
                 )
             else:
-                result = uninstall_application(
-                    paths=paths,
-                    purge_data=args.purge_data,
-                    deactivate=not args.no_deactivate,
-                )
+                if args.dry_run and not args.purge:
+                    raise LifecycleError("--dry-run requires --purge")
+                if args.purge and args.dry_run:
+                    result = plan_purge(paths)
+                elif args.purge:
+                    if not args.yes:
+                        if not sys.stdin.isatty():
+                            raise LifecycleError("non-interactive purge requires --yes")
+                        expected = json.loads(paths.manifest_file.read_text()).get("transaction_id") if paths.manifest_file.is_file() else "PURGE"
+                        if input(f"Type {expected} to permanently purge HermesPeek data: ") != expected:
+                            raise LifecycleError("purge confirmation did not match")
+                    uninstall_application(paths=paths, purge_data=False,
+                                          deactivate=not args.no_deactivate)
+                    result = purge_application(paths, confirmed=True)
+                else:
+                    result = uninstall_application(paths=paths, purge_data=False,
+                                                   deactivate=not args.no_deactivate)
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         settings = Settings.from_env()

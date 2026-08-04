@@ -57,7 +57,7 @@
 | TASK 8.4 | Setup transaction、备份与 rollback | `DONE_OFFLINE` | 8.3 | 文件与 service/plugin/Gateway 状态可恢复；显式 transaction rollback 已实现 |
 | TASK 8.5 | Service backend、健康检查与激活策略 | `DONE_OFFLINE` | 8.4 | bus/端口 preflight 与 loopback health、PID、监听验证已用 fake 验收 |
 | TASK 8.6 | 安全 uninstall 与资源所有权 | `DONE_OFFLINE` | 8.5 | schema v2 记录全文件 ownership/hash/transaction；target/path/symlink 校验与漂移备份已验收 |
-| TASK 8.7 | Purge、dry-run 和恢复 | `PARTIAL` | 8.6 | plan/确认/活动安装阻断已实现；CLI `--dry-run/--yes` 待完成 |
+| TASK 8.7 | Purge、dry-run 和恢复 | `DONE_OFFLINE` | 8.6 | CLI `--purge/--dry-run/--yes`、交互确认、先卸载及越界保护已用临时目录验收 |
 | TASK 8.8 | Telegram 检测与可回滚自动配置 | `PARTIAL` | 8.3 | 可注入 client、getMe/webhook/menu 条件回滚已实现；CLI/事务接线待完成 |
 | TASK 8.9 | status、doctor、service UX | `PARTIAL` | 8.5/8.8 | 基础命令已实现；完整 schema 与探测矩阵待增强 |
 | TASK 8.10 | 打包、文档与隔离 E2E | `IN_PROGRESS` | 8.2–8.9 | 现场 103 tests、compileall/build/wheel smoke 通过 |
