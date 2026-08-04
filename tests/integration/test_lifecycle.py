@@ -460,6 +460,22 @@ def test_setup_refuses_unowned_legacy_hook_without_removing_it(tmp_path: Path) -
     assert user_file.read_text() == "keep"
 
 
+def test_setup_refuses_symlinked_plugin_directory_without_writing_outside_target(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    outside = tmp_path / "outside"; outside.mkdir()
+    target.plugin_dir.parent.mkdir(parents=True)
+    target.plugin_dir.symlink_to(outside, target_is_directory=True)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+
+    with pytest.raises(LifecycleError, match="plugin directory"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                external_url="https://preview.example.test", bot_token="123456789:" + "S" * 35,
+                activate=False)
+
+    assert list(outside.iterdir()) == []
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
