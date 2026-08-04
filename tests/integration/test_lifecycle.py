@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from hermes_peek.lifecycle import LifecycleError, InstallPaths, install, read_bot_token, uninstall
+from hermes_peek.lifecycle import plan_purge, purge
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -281,3 +282,22 @@ def test_uninstall_backs_up_modified_owned_plugin(tmp_path: Path) -> None:
     result = uninstall(paths=target, deactivate=False)
     assert result["modified_backups"]
     assert Path(result["modified_backups"][0]).read_text() == "user modification"
+
+
+def test_purge_dry_run_has_zero_side_effects_and_reports_size(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.state_dir.mkdir(parents=True)
+    data = target.state_dir / "registry.json"; data.write_bytes(b"1234")
+    plan = plan_purge(target)
+    assert plan["dry_run"] is True and plan["total_bytes"] == 4
+    assert data.exists()
+
+
+def test_purge_requires_confirmation_and_never_deletes_allowed_roots(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.state_dir.mkdir(parents=True)
+    original = tmp_path / "workspace" / "source.txt"; original.parent.mkdir(); original.write_text("keep")
+    with pytest.raises(LifecycleError):
+        purge(target, confirmed=False)
+    purge(target, confirmed=True)
+    assert original.exists() and not target.state_dir.exists()

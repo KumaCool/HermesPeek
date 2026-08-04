@@ -342,3 +342,26 @@ def read_bot_token(env_file: Path) -> str:
             if _BOT_TOKEN.fullmatch(value):
                 return value
     raise LifecycleError("Telegram Bot Token was not found in the credential file")
+
+
+def plan_purge(paths: InstallPaths) -> dict[str, object]:
+    approved = (paths.state_dir, paths.config_dir)
+    entries: list[dict[str, object]] = []
+    total = 0
+    for root in approved:
+        if root.exists() and root.is_dir() and not root.is_symlink():
+            size = sum(item.stat().st_size for item in root.rglob("*") if item.is_file() and not item.is_symlink())
+            total += size
+            entries.append({"path": str(root), "type": "directory", "bytes": size, "recoverable": False})
+    return {"dry_run": True, "entries": entries, "total_bytes": total, "original_files_excluded": True}
+
+
+def purge(paths: InstallPaths, *, confirmed: bool) -> dict[str, object]:
+    if not confirmed:
+        raise LifecycleError("purge requires explicit confirmation")
+    for root in (paths.state_dir, paths.config_dir):
+        resolved = root.resolve()
+        if resolved == Path("/") or resolved == Path.home().resolve() or root.is_symlink():
+            raise LifecycleError("unsafe purge target")
+        shutil.rmtree(root, ignore_errors=True)
+    return {"purged": True, "original_files_preserved": True}
