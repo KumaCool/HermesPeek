@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -13,6 +14,13 @@ from pydantic import ValidationError
 from hermes_peek.app import create_app
 
 from hermes_peek.config import Settings
+from hermes_peek.lifecycle import (
+    InstallPaths,
+    LifecycleError,
+    install as install_application,
+    read_bot_token,
+    uninstall as uninstall_application,
+)
 from hermes_peek.paths import PathPolicy, PathPolicyError
 from hermes_peek.registry import (
     CorruptPreviewError,
@@ -51,6 +59,22 @@ def build_parser() -> argparse.ArgumentParser:
     serve = subparsers.add_parser("serve", help="Run the local preview service")
     serve.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1", "::1"))
     serve.add_argument("--port", default=8765, type=_port)
+
+    setup = subparsers.add_parser("setup", help="Install and integrate HermesPeek")
+    setup.add_argument("--allowed-root", action="append", required=True, type=Path)
+    setup.add_argument("--external-url", required=True)
+    setup.add_argument(
+        "--telegram-env",
+        type=Path,
+        help="Credential file containing TELEGRAM_BOT_TOKEN (defaults to the active Hermes .env)",
+    )
+    setup.add_argument("--hermes-home", type=Path)
+    setup.add_argument("--no-activate", action="store_true")
+
+    uninstall = subparsers.add_parser("uninstall", help="Safely remove HermesPeek integration")
+    uninstall.add_argument("--hermes-home", type=Path)
+    uninstall.add_argument("--purge-data", action="store_true")
+    uninstall.add_argument("--no-deactivate", action="store_true")
     return parser
 
 
@@ -65,6 +89,30 @@ def main(arguments: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(arguments)
     try:
+        if args.command in {"setup", "uninstall"}:
+            paths = InstallPaths.for_user(hermes_home=args.hermes_home)
+            if args.command == "setup":
+                token_file = args.telegram_env or paths.hermes_home / ".env"
+                executable_name = shutil.which("hermes-peek")
+                if executable_name is None:
+                    raise LifecycleError("hermes-peek executable was not found on PATH")
+                result = install_application(
+                    paths=paths,
+                    integration_dir=Path(__file__).with_name("hermes_plugin"),
+                    executable=Path(executable_name),
+                    allowed_roots=args.allowed_root,
+                    external_url=args.external_url,
+                    bot_token=read_bot_token(token_file),
+                    activate=not args.no_activate,
+                )
+            else:
+                result = uninstall_application(
+                    paths=paths,
+                    purge_data=args.purge_data,
+                    deactivate=not args.no_deactivate,
+                )
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            return 0
         settings = Settings.from_env()
         if args.command == "serve":
             token = os.environ.get("HERMES_PEEK_TELEGRAM_BOT_TOKEN")
@@ -142,6 +190,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         PreviewNotFoundError,
         CorruptPreviewError,
         PublishError,
+        LifecycleError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

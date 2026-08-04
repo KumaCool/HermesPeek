@@ -30,3 +30,9 @@ dev = [
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hermes_peek"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "integrations", "deploy", "docs", "README.md", "LICENSE"]
