@@ -11,6 +11,7 @@ import pytest
 
 from hermes_peek.lifecycle import LifecycleError, InstallPaths, install, read_bot_token, rollback_transaction, uninstall
 from hermes_peek.lifecycle import plan_purge, purge
+from hermes_peek.telegram_lifecycle import TelegramLifecycle
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,6 +80,19 @@ class FakeServiceBackend:
         if isinstance(self.runner, StatefulRunner):
             self.runner.service_enabled = self.runner.service_active = True
         return {"active": True, "enabled": True}
+
+
+class SetupTelegramTransport:
+    def __init__(self, *, fail_set=False): self.calls=[]; self.menu={"type":"default"}; self.fail_set=fail_set
+    def call(self, method, token, payload=None):
+        self.calls.append((method,payload))
+        if method == "getMe": return {"ok":True,"result":{"id":7,"username":"peek_bot"}}
+        if method == "getWebhookInfo": return {"ok":True,"result":{"url":""}}
+        if method == "getChatMenuButton": return {"ok":True,"result":self.menu}
+        if method == "setChatMenuButton":
+            if self.fail_set: return {"ok":False,"description":"contains secret"}
+            self.menu=payload["menu_button"]; return {"ok":True,"result":True}
+        raise AssertionError(method)
 
 
 def paths(tmp_path: Path) -> InstallPaths:
@@ -323,6 +337,29 @@ def test_committed_transaction_can_be_rolled_back_by_id(tmp_path: Path) -> None:
     assert rolled_back["rolled_back"] is True
     assert not target.manifest_file.exists() and not target.plugin_dir.exists()
     assert runner.service_active is False and runner.plugin_enabled is False
+
+
+def test_setup_validates_and_records_telegram_change_in_transaction(tmp_path: Path) -> None:
+    target=paths(tmp_path); allowed=tmp_path/"workspace"; allowed.mkdir(); executable=tmp_path/"hermes-peek"; executable.write_text("x")
+    transport=SetupTelegramTransport(); telegram=TelegramLifecycle(transport)
+    result=install(paths=target,integration_dir=PLUGIN,executable=executable,allowed_roots=(allowed,),
+                   external_url="https://preview.example.test",bot_token="123456789:"+"V"*35,
+                   activate=False,telegram=telegram,configure_telegram_menu=True,expected_bot_id=7)
+    journal=json.loads((target.state_dir/"journal"/f'{result["transaction_id"]}.json').read_text())
+    assert [call[0] for call in transport.calls[:3]] == ["getMe","getWebhookInfo","getChatMenuButton"]
+    assert journal["telegram_changes"][0]["before"] == {"type":"default"}
+
+
+def test_later_setup_failure_conditionally_restores_telegram_menu(tmp_path: Path) -> None:
+    target=paths(tmp_path); allowed=tmp_path/"workspace"; allowed.mkdir(); executable=tmp_path/"hermes-peek"; executable.write_text("x")
+    transport=SetupTelegramTransport(); telegram=TelegramLifecycle(transport)
+    def fail_verify(): raise RuntimeError("simulated final verification failure")
+    with pytest.raises(LifecycleError):
+        install(paths=target,integration_dir=PLUGIN,executable=executable,allowed_roots=(allowed,),
+                external_url="https://preview.example.test",bot_token="123456789:"+"W"*35,
+                activate=False,telegram=telegram,configure_telegram_menu=True,expected_bot_id=7,
+                final_verify=fail_verify)
+    assert transport.menu == {"type":"default"}
 
 
 def test_uninstall_keeps_resources_when_service_stop_fails(tmp_path: Path) -> None:

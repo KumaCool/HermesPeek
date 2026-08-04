@@ -253,6 +253,7 @@ def _install_apply(
         backend = service_backend or SystemdUserBackend(runner)
         backend.preflight()
 
+
     paths.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(paths.state_dir, 0o700)
     paths.plugin_dir.mkdir(parents=True, exist_ok=True)
@@ -326,13 +327,32 @@ def install(**kwargs) -> dict[str, object]:
     before = _probe_runtime(paths, kwargs["runner"]) if kwargs.get("activate", True) else {}
     record: dict[str, Any] = {"id": transaction_id, "state": "applying", "backup": str(backup),
                               "resources": [str(path) for path in resources], "existed": existed,
-                              "before": before, "rollback_errors": []}
+                              "before": before, "rollback_errors": [], "telegram_changes": []}
     _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+    telegram = kwargs.pop("telegram", None)
     try:
+        configure_menu = kwargs.pop("configure_telegram_menu", False)
+        expected_bot_id = kwargs.pop("expected_bot_id", None)
+        final_verify = kwargs.pop("final_verify", None)
+        if telegram is not None:
+            telegram.inspect(kwargs["bot_token"], expected_bot_id=expected_bot_id)
+            if configure_menu:
+                record["telegram_changes"].append(
+                    telegram.set_menu(kwargs["bot_token"], kwargs["external_url"].rstrip("/")))
+                _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
         result = _install_apply(**kwargs)
+        if final_verify is not None:
+            final_verify()
     except Exception as exc:
+        for change in reversed(record["telegram_changes"]):
+            try:
+                if telegram is not None:
+                    telegram.rollback(kwargs["bot_token"], change)
+            except Exception:
+                record["rollback_errors"].append("telegram")
         _restore_files(resources, existed, backup)
         errors = _restore_runtime(paths, kwargs["runner"], before) if before else []
+        errors = record["rollback_errors"] + errors
         record.update(state="rollback_incomplete" if errors else "rolled_back", rollback_errors=errors)
         _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
         if not errors:
