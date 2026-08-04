@@ -130,7 +130,7 @@ Preview 页面仍执行 Telegram `initData` 和 owner 授权。Preview URL 本�
 - Gateway 配置；
 - 当前 profile 之外的 Hermes profile。
 
-生命周期目标方案允许单一 CLI 在用户明确执行 setup 后自动启用准确 profile 的插件和管理 Gateway，但必须先具备 `--plan`、profile 作用域、事务回滚、健康检查与自杀式重启保护。当前未完成原型不满足这些门槛。插件启用和真实 Gateway 重启仍必须由项目负责人明确授权；测试首先使用临时 `HERMES_HOME`，不得拿真实配置做测试夹具。详见 [`06-installation-uninstallation.md`](06-installation-uninstallation.md)。
+生命周期 CLI 已在离线临时 `HERMES_HOME` 中实现 `--plan`、profile 作用域、事务回滚、健康检查与安全重启保护。插件启用和真实 Gateway 重启仍必须由项目负责人明确授权；测试不得拿真实配置做夹具。详见 [`06-installation-uninstallation.md`](06-installation-uninstallation.md)。
 
 ## 9. 安装、升级与卸载（当前手工回退路径）
 

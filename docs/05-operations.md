@@ -94,7 +94,21 @@ journalctl --user -u hermes-peek.service --since today
 hermes-peek uninstall
 ```
 
-目标语义是默认保留状态目录，只有 dry-run、删除清单和明确确认后才执行 purge。当前原型的 `--purge-data` 不代表最终安全接口。完整方案与实施状态见 [`06-installation-uninstallation.md`](06-installation-uninstallation.md) 和 [`plan/03-lifecycle-setup-uninstall-rollout.md`](plan/03-lifecycle-setup-uninstall-rollout.md)。以下手工命令也只作为经批准维护窗口中的故障恢复参考，不应由普通用户盲目执行：
+```bash
+hermes-peek status --json
+hermes-peek doctor
+hermes-peek service restart
+hermes-peek rollback <TRANSACTION_ID>
+```
+
+默认保留状态目录。先预览再明确确认 purge：
+
+```bash
+hermes-peek uninstall --purge --dry-run
+hermes-peek uninstall --purge --yes
+```
+
+离线实现和临时 profile 验收已完成，但真实 profile/systemd/Gateway 验收仍待授权。完整方案与实施状态见 [`06-installation-uninstallation.md`](06-installation-uninstallation.md) 和 [`plan/03-lifecycle-setup-uninstall-rollout.md`](plan/03-lifecycle-setup-uninstall-rollout.md)。以下手工命令也只作为经批准维护窗口中的故障恢复参考，不应由普通用户盲目执行：
 
 ```bash
 systemctl --user disable --now hermes-peek.service

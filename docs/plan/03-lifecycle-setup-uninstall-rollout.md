@@ -2,7 +2,7 @@
 
 > 本计划执行 [`../06-installation-uninstallation.md`](../06-installation-uninstallation.md)。本文维护任务、依赖、当前代码进度、验收命令、回滚门槛和提交边界。
 
-**计划状态（2026-08-05）：** `REVIEW_APPROVED / PROTOTYPE_EXISTS / READY_TO_CONTINUE`
+**计划状态（2026-08-05）：** `OFFLINE_ACCEPTED / REAL_ENVIRONMENT_APPROVAL_REQUIRED`
 
 **执行约束：**
 
@@ -27,8 +27,8 @@
 
 ### 1.2 已验证证据
 
-- 生命周期定向测试：`6 passed`；
-- 全量回归：`82 passed`，1 条 Starlette/httpx 弃用警告；
+- 生命周期隔离 E2E：`2 passed`；
+- 全量回归：`123 passed`，1 条 Starlette/httpx 弃用警告；
 - `compileall` 通过；
 - `uv build` 成功生成 sdist 和 wheel；
 - Wheel 中确认包含 4 个 Hermes plugin 文件；
@@ -60,14 +60,14 @@
 | TASK 8.7 | Purge、dry-run 和恢复 | `DONE_OFFLINE` | 8.6 | CLI `--purge/--dry-run/--yes`、交互确认、先卸载及越界保护已用临时目录验收 |
 | TASK 8.8 | Telegram 检测与可回滚自动配置 | `DONE_OFFLINE` | 8.3 | getMe/webhook/menu 已接入 setup transaction，变更 journal 化并条件回滚；仅 fake 验收 |
 | TASK 8.9 | status、doctor、service UX | `DONE_OFFLINE` | 8.5/8.8 | 完整只读 schema、探测矩阵、脱敏输出及 `setup --plan` 已用 fake 验收 |
-| TASK 8.10 | 打包、文档与隔离 E2E | `IN_PROGRESS` | 8.2–8.9 | 现场 121 tests、compileall 通过；待最终 wheel/sdist smoke 与独立审查 |
+| TASK 8.10 | 打包、文档与隔离 E2E | `DONE_OFFLINE` | 8.2–8.9 | 多轮独立审查 blockers 已修复；最终全量测试、build、wheel smoke、链接/Secret 扫描通过 |
 | TASK 8.11 | 真实安装/卸载/purge 验收 | `BLOCKED_PENDING_APPROVAL` | 8.10 | Release |
 
 ## 3. TASK 细化
 
 ### TASK 8.0：方案、计划与进度同步
 
-**状态：** `DONE_UNCOMMITTED`
+**状态：** `DONE`
 
 **交付物：**
 
@@ -89,7 +89,7 @@
 
 ### TASK 8.1：原型基线冻结与失败测试
 
-**状态：** `DONE_UNCOMMITTED`
+**状态：** `DONE`
 
 **目标：** 在继续实现前把审计发现转成可复现失败测试，避免直接修代码掩盖风险。
 
@@ -116,7 +116,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.2：Hermes target/profile 作用域
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **目标：** 保证文件、CLI、Gateway 和 manifest 始终作用于同一目标 profile。
 
@@ -139,7 +139,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.3：共享配置与 Secret 分离
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **目标：** service 和 Gateway plugin 使用同一非敏感配置，Token 独立保存。
 
@@ -160,7 +160,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.4：Setup transaction、备份与 rollback
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 所有 setup/upgrade 副作用可追踪、可逆、可恢复。
 
@@ -180,7 +180,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.5：Service backend、健康检查与激活策略
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 不把“文件已写”误报为“服务已安装并激活”。
 
@@ -203,7 +203,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.6：安全 uninstall 与资源所有权
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 先可靠解除运行态，再删除且只删除 installer-owned 资源。
 
@@ -227,7 +227,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.7：Purge、dry-run 和恢复
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 永久删除必须显式、可预览、可确认且不触及原始文件。
 
@@ -249,7 +249,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.8：Telegram 检测与可回滚自动配置
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 自动处理公开 Bot API 能力，并诚实暴露 BotFather 限制。
 
@@ -266,7 +266,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.9：status、doctor、service UX
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 用户不需要读取多个日志或手工执行 systemctl/Hermes 命令。
 
@@ -281,7 +281,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 ### TASK 8.10：打包、文档与隔离 E2E
 
-**状态：** `TODO`
+**状态：** `DONE_OFFLINE`
 
 **目标：** 形成可进入真实验收的 Release Candidate。
 

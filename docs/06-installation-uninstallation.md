@@ -1,8 +1,8 @@
 # HermesPeek 生命周期方案：安装、升级、安全卸载与 Purge
 
-> **文档状态：** 方案已于 2026-08-05 经项目负责人评审通过。当前仓库已有未经真实环境验收的原型代码；原型不等于可发布能力。
+> **文档状态：** 方案已于 2026-08-05 经项目负责人评审通过。当前仓库已有未经真实环境验收的离线实现；离线验收不等于生产发布。
 >
-> **当前实现状态（2026-08-05）：** `PROTOTYPE / NOT PRODUCTION READY`。`setup`、`uninstall`、`--purge-data` 的初版 CLI 和离线测试已存在，全量测试曾达到 `82 passed`，但审计发现 profile 作用域、Gateway 共享配置、事务回滚、停服硬门槛和所有权保护尚未闭环。未经项目负责人明确授权，不得在真实 Hermes profile 上执行安装、卸载或 Gateway 重启。
+> **当前实现状态（2026-08-05）：** `OFFLINE ACCEPTED / NOT PRODUCTION READY`。profile 作用域、共享配置、事务回滚、service 健康验证、所有权卸载、purge、Telegram 条件回滚和诊断 UX 已完成隔离测试；真实 Hermes profile、systemd、Gateway 与 Telegram 验收仍待项目负责人明确授权。
 
 ## 1. 目标与非目标
 

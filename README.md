@@ -98,19 +98,39 @@ hermes-peek setup \
   --external-url https://preview.example.test
 ```
 
+如需由 setup 设置 Telegram 菜单按钮，必须显式加上 `--configure-telegram-menu`；不加时仅执行只读 Bot 身份和 webhook 检查。
+
+先查看不读取凭据、不写文件、不启停服务的计划：
+
+```bash
+hermes-peek setup \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test \
+  --plan
+```
+
 安全卸载默认停止服务、禁用 Hermes 插件并删除配置，同时保留 Preview Registry：
 
 ```bash
 hermes-peek uninstall
 ```
 
+检查状态、诊断或回滚已提交的 setup transaction：
+
+```bash
+hermes-peek status --json
+hermes-peek doctor
+hermes-peek rollback <TRANSACTION_ID>
+```
+
 确认无需恢复时才永久删除状态：
 
 ```bash
-hermes-peek uninstall --purge-data
+hermes-peek uninstall --purge --dry-run
+hermes-peek uninstall --purge --yes
 ```
 
-当前原型仍有 profile 作用域、Gateway 共享配置、事务回滚、安全停服和资源所有权等阻断缺口，不应直接用于真实卸载。Telegram Main Mini App 的首次绑定没有公开 Bot API，必须由 Bot owner 在 BotFather 完成一次；普通用户可使用维护者预配置的 Bot。完整目标方案、当前进度和发布门槛见 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md) 与 [`docs/plan/03-lifecycle-setup-uninstall-rollout.md`](docs/plan/03-lifecycle-setup-uninstall-rollout.md)。
+阶段 8 的生命周期能力已完成离线临时 profile/fake backend 验收，但尚未获准在真实 profile、systemd、Gateway 或 Telegram 上执行验收，因此仍不是生产就绪。Telegram Main Mini App 的首次绑定没有公开 Bot API，必须由 Bot owner 在 BotFather 完成一次；普通用户可使用维护者预配置的 Bot。完整目标方案、当前进度和发布门槛见 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md) 与 [`docs/plan/03-lifecycle-setup-uninstall-rollout.md`](docs/plan/03-lifecycle-setup-uninstall-rollout.md)。
 
 ## 安全模型
 
@@ -163,7 +183,7 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 6. 经授权验证 HTTPS 与生产入口；
 7. 通过 Hermes 通用 `final_message_actions` 扩展点，将预览按钮融合进最终回复（代码与离线集成已完成，真实 Gateway 验收待授权）。
 8. 通过 Main Mini App Direct Link、短期 opaque launch reference 和服务端 `initData`/owner 校验，实现 Telegram Topic Mini App 闭环（方案已落地，代码与真实验收待执行）。
-9. 通过带事务、回滚、资源所有权、状态诊断和显式 purge 的单一 CLI 管理完整生命周期（方案与计划已落地；当前仅有未完成原型）。
+9. 通过带事务、回滚、资源所有权、状态诊断和显式 purge 的单一 CLI 管理完整生命周期（离线实现与隔离验收已完成；真实环境验收待授权）。
 
 路线图不代表相关能力已经实现，实时进度以任务计划中的 TASK 状态为准。
 
