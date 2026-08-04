@@ -398,6 +398,15 @@ def test_install_refuses_concurrent_lifecycle_operation(tmp_path: Path) -> None:
                     activate=False)
 
 
+def test_rollback_refuses_concurrent_lifecycle_operation(tmp_path: Path) -> None:
+    from hermes_peek.lifecycle import lifecycle_lock
+    target = paths(tmp_path)
+
+    with lifecycle_lock(target):
+        with pytest.raises(LifecycleError, match="already in progress"):
+            rollback_transaction(target, "a" * 32)
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")

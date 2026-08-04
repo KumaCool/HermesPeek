@@ -388,7 +388,7 @@ def install(**kwargs) -> dict[str, object]:
         return _install_transaction(**kwargs)
 
 
-def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: CommandRunner = _default_runner) -> dict[str, object]:
+def _rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: CommandRunner = _default_runner) -> dict[str, object]:
     if not re.fullmatch(r"[0-9a-f]{32}", transaction_id):
         raise LifecycleError("invalid transaction ID")
     journal = paths.state_dir / "journal" / f"{transaction_id}.json"
@@ -410,6 +410,11 @@ def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: Co
         raise LifecycleError(f"transaction {transaction_id} rollback incomplete: {', '.join(errors)}")
     shutil.rmtree(backup, ignore_errors=True)
     return {"rolled_back": True, "transaction_id": transaction_id}
+
+
+def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: CommandRunner = _default_runner) -> dict[str, object]:
+    with lifecycle_lock(paths):
+        return _rollback_transaction(paths, transaction_id, runner=runner)
 
 
 def _verify_plugin_unloaded(paths: InstallPaths, runner: CommandRunner) -> None:
