@@ -2,10 +2,10 @@
 
 > Preview files produced by Hermes securely inside Telegram.
 
-HermesPeek 是面向 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的轻量、只读产物预览服务。它计划把 Hermes 在任务中创建或修改的 Markdown、代码、结构化数据、图片、PDF 和受限 HTML 转换为受控预览入口，并通过 Telegram Mini App 打开。
+HermesPeek 是面向 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的轻量、只读产物预览服务。它把 Hermes 在任务中创建或修改的 Markdown、代码、结构化数据、图片、PDF 和受限 HTML 转换为受控 Preview，并通过 Telegram 打开。
 
 > [!IMPORTANT]
-> HermesPeek 目前处于早期开发阶段。仓库中已实现的是本地文本预览原型；Preview ID、Telegram 身份认证、Mini App 和 Hermes 插件仍在开发计划中。请勿将当前版本直接暴露到公网。
+> HermesPeek 的核心服务、Preview Registry、Telegram 身份认证、多格式预览、Hermes 自动收集和最终消息 action 已实现并通过离线测试。当前仓库的真实本机服务与私网 HTTPS 入口已有单独验收记录，但阶段 6 插件尚未安装到当前运行的 Hermes profile，也未重启 Gateway。未完成目标环境安全评审前，请勿直接暴露到公网。
 
 ## 为什么需要 HermesPeek
 
@@ -25,23 +25,28 @@ HermesPeek 预览的是磁盘当前内容，而不是任务结束时的静态快
 
 ## 当前实现
 
-当前原型支持：
+当前实现支持：
 
 - `GET /healthz` 健康检查；
 - `GET /` 项目介绍页；
-- `GET /preview?path=...` 本地文本、代码和 Markdown 预览；
+- 不透明 Preview ID 和文件系统 Registry；
+- `hermes-peek publish/inspect/revoke/serve`；
+- Telegram `initData` 验证、owner 授权和短期会话；
+- Markdown、代码/文本、JSON/YAML/TOML、图片、PDF 与受限 HTML；
+- Hermes `post_tool_call` 精确收集成功的 `write_file`/`patch`；
+- Hermes `final_message_actions` 在最终回复同一条消息附加 `Open preview` URL 按钮；
 - 使用 `HERMES_PEEK_ALLOWED_ROOTS` 限制可读取目录；
 - 拒绝敏感文件名、目录穿越、根目录外文件和超大文件；
-- HTML 转义，避免文本内容直接注入预览页面。
+- 每次读取重新执行路径和文件安全检查；
+- HTML sandbox、CSP 和安全响应头；
+- 本机回环 systemd user service 模板。
 
-当前原型尚未实现：
+当前仍待完成或单独授权：
 
-- 不透明 Preview ID；
-- Telegram `initData` 验证和访问者授权；
-- Telegram Mini App；
-- 图片、PDF、结构化文本和受限 HTML 渲染；
-- Hermes Plugin 与 Gateway Hook 自动集成；
-- 面向公网部署的完整安全边界。
+- 在当前真实 Hermes profile 安装/启用阶段 6 插件并重启 Gateway；
+- 私聊、群组和 Topic 的真实单消息按钮验收；
+- 未批准的公网入口（TASK 5.3 不执行）；
+- 面向广泛公网使用的完整部署评审。
 
 完整范围和 TASK 状态请查看[项目文档](#项目文档)。
 
@@ -95,7 +100,7 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 - HTML 使用受限 sandbox；Markdown 原始 HTML 默认禁用或清洗；
 - 不提供编辑、删除、执行或写回工作区的接口。
 
-其中部分规则属于目标架构，尚未全部在当前原型中实现。当前 `/preview?path=...` 接口接收服务器路径，**只适用于本机开发验证，不应暴露到不受信任网络**。
+安全边界和实际部署状态以 [`docs/03-security.md`](docs/03-security.md)、[`docs/05-operations.md`](docs/05-operations.md) 和任务计划中的验收记录为准。Preview URL 不包含绝对路径，但随机 ID 也不替代 Telegram 身份认证。
 
 如发现安全问题，请不要在公开 Issue 中粘贴漏洞利用细节、真实凭据、个人信息或部署地址。发布前应在仓库托管平台配置私密安全报告渠道，并在此处补充链接。
 
@@ -118,6 +123,7 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 - [02 系统架构](docs/02-architecture.md)
 - [03 安全模型](docs/03-security.md)
 - [04 Hermes 集成](docs/04-hermes-integration.md)
+- [05 本机服务运维](docs/05-operations.md)
 - [01 实施任务计划、TASK 状态与验收矩阵](docs/plan/01-implementation-task-plan.md)
 
 ## 路线图
@@ -128,7 +134,7 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 4. Telegram 显式通知闭环；
 5. Hermes Plugin 和 Gateway Hook 自动收集；
 6. 经授权验证 HTTPS 与生产入口；
-7. Hermes 提供通用扩展点后，将预览按钮融合进最终回复。
+7. 通过 Hermes 通用 `final_message_actions` 扩展点，将预览按钮融合进最终回复（代码与离线集成已完成，真实 Gateway 验收待授权）。
 
 路线图不代表相关能力已经实现，实时进度以任务计划中的 TASK 状态为准。
 

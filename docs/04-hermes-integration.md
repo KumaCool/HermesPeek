@@ -1,24 +1,34 @@
 # 04 HermesPeek 与 Hermes 集成
 
-## 1. 集成目标
+## 1. 集成目标与当前状态
 
-Hermes 自动集成的目标是：精确记录一次 Agent 任务中成功写入的文件，在任务结束时通过 HermesPeek 发布这些文件，并发送一条独立的 Telegram 预览通知。
+Hermes 自动集成会精确记录一次 Agent turn 中成功写入的文件，在最终回复阶段通过 HermesPeek 发布这些文件，并把 `Open preview` URL action 附加到 Hermes 的**同一条最终消息**。
 
-首个可用版本先实现显式 `hermes-peek publish`。只有文件安全、身份认证、Mini App 和通知闭环稳定后，才启用自动集成。
+代码与离线集成已经完成；当前真实 Hermes profile 尚未安装这版插件、启用配置或重启 Gateway。因此本文区分：
 
-## 2. 已确认的 Hermes 能力
+- **已实现并离线验证**：collector、`final_message_actions`、Preview 发布、Telegram send/edit action 渲染和失败降级；
+- **尚待授权的真实验收**：在当前 profile 安装、启用、重启 Gateway，并在私聊、群组和 Topic 验证单消息按钮。
 
-依据 Hermes 官方 Hooks/Plugins 文档和当前源码：
+显式 `hermes-peek publish` 与旧 `agent:end` 独立通知 handler 仍作为兼容路径保留，但阶段 6 的首选自动集成不再直接调用 Telegram Bot API。
 
-- General Plugin 的 `post_tool_call` 可取得工具名、参数、结果以及 task/session 上下文；
-- Gateway Event Hook 的 `agent:end` 可取得 platform、user、chat、thread、chat type 和 session 等路由上下文；
-- Plugin 与 Gateway Hook 的异常不应阻断 Agent 主流程；
-- `agent:end` 在最终普通消息发送前触发，但它是观察者，不能修改随后最终消息的发送参数；
-- `transform_llm_output` 只能变换文本，不能安全地注入 Telegram `reply_markup`。
+## 2. Hermes 扩展能力
 
-因此，当前可实现的是**第二条独立预览通知**，不能把“最终答复自带按钮”描述为已经支持。
+Hermes 与 HermesPeek 的协作边界如下：
 
-## 3. 自动集成组件
+- General Plugin 的 `post_tool_call` 提供工具名、参数、结果和 task/session 上下文，用于精确收集 `write_file`、`patch` 的成功产物；
+- General Plugin 的 `final_message_actions` 在最终发送阶段收集平台中立 action；
+- action schema 当前支持经过验证的 HTTPS URL：
+
+  ```json
+  {"type":"url","label":"Open preview","url":"https://<host>/p/<preview_id>"}
+  ```
+
+- Hermes Gateway 负责验证、去重、限制 action 数量，并将 action 与文本分离；
+- Telegram adapter 将 action 渲染成 InlineKeyboard：非流式回复在发送时附加，已流式发送的回复通过编辑原消息附加；
+- 无 action、非法输出、插件异常或不支持 action 的平台都保持原有文本回复，不产生第二条消息；
+- `agent:end` 仍是观察者，`transform_llm_output` 仍只处理文本；二者不是阶段 6 action 的实现入口。
+
+## 3. 自动集成数据流
 
 ```text
 post_tool_call Plugin
@@ -26,22 +36,29 @@ post_tool_call Plugin
     ▼
 collector spool keyed by session/task
     │
-agent:end Gateway Hook
-    ├─ no files / non-Telegram → silent
-    ├─ publish files through HermesPeek service
-    ├─ send separate Telegram notification
-    └─ consume spool after successful completion
+    ▼
+final_message_actions Plugin Hook
+    ├─ no files / non-Telegram → no action
+    ├─ publish files through PreviewService
+    ├─ return platform-neutral HTTPS URL action
+    └─ consume spool after action creation
+    │
+    ▼
+Hermes final delivery
+    ├─ non-streaming → send final text + InlineKeyboard
+    ├─ streaming → edit the already-sent final message
+    └─ failure/unsupported platform → plain final text
 ```
 
-建议文件：
+集成文件：
 
 ```text
 integrations/hermes/
-├── plugin.yaml
-├── __init__.py
-├── collector.py
-├── HOOK.yaml
-└── handler.py
+├── plugin.yaml       # post_tool_call + final_message_actions
+├── __init__.py       # hooks 与失败隔离
+├── collector.py      # session/task collector
+├── handler.py        # Preview 发布；兼容旧 agent:end handler
+└── HOOK.yaml         # 旧独立通知兼容路径，阶段 6 不要求安装
 ```
 
 ## 4. 文件收集规则
@@ -58,39 +75,54 @@ integrations/hermes/
 - session/task 缺失时安全跳过，不把文件错误归到其他会话；
 - spool 写入使用原子替换，避免并发覆盖。
 
-## 5. agent:end 处理规则
+## 5. 最终消息 Action 规则
 
-Hook 从上下文读取 Telegram user/chat/thread/chat type/session，并读取本轮 collector：
+`final_message_actions` 从 Hermes 传入的上下文读取 `platform`、`user_id`、`session_id` 和最终文本：
 
-1. 非 Telegram 平台：静默；
-2. 无本轮文件：静默；
-3. 执行发布，owner 使用任务发起人的 Telegram user ID；
-4. 构造私聊或群组/Topic 对应按钮；
-5. 发送独立通知并保留 `message_thread_id`；
-6. 成功后消费 collector；
-7. 失败时保留可重试状态，记录脱敏错误，但不影响 Hermes 正常答复。
+1. 非 Telegram、无最终文本、缺少 user/session：返回 `None`；
+2. 查找与当前 session 精确匹配的 collector spool；
+3. 通过 `PreviewService` 发布本轮文件，owner 绑定任务发起人的 Telegram user ID；
+4. 构造 `Open preview` HTTPS URL action；
+5. 成功创建 action 后消费 spool；
+6. 任一步骤失败都返回 `None`，不能阻断 Hermes 的最终文本答复。
 
-处理必须幂等。同一 session/event 重放不能重复发布或重复发送通知。
+HermesPeek 插件在该路径中不读取 `HERMES_PEEK_TELEGRAM_BOT_TOKEN`，也不直接调用 Bot API。消息 ID、chat/thread 路由、流式消息编辑和 Telegram `reply_markup` 均由 Hermes Gateway 与 adapter 负责。
 
-## 6. Telegram 路由
+## 6. Telegram 与跨平台行为
 
-- 私聊：按钮使用 `web_app`，URL 指向 HermesPeek HTTPS Preview 页面。
-- 群组/Topic：按钮使用 Mini App Direct Link 和 `mode=compact`。
-- Forum Topic：发送 payload 携带整数 `message_thread_id`。
-- Bot Token 仅从 secret env 获取，不进入 Hook YAML、普通配置、日志或 URL。
+- Telegram 私聊、群组和 Topic 使用同一种平台中立 HTTPS URL action；
+- Telegram adapter 把它转换为 URL InlineKeyboardButton；
+- Topic 路由沿用 Hermes 已有 metadata，不由 HermesPeek 手工拼接 `message_thread_id`；
+- 分片回复只在最后一片附加 action；
+- 流式回复在原消息上 finalize/edit，不额外发送按钮消息；
+- 其他平台可以忽略 action 或实现自己的渲染器，不影响文本发送。
 
-真实 Bot API 调用与当前 Topic 测试必须另行获得明确授权；默认测试使用 MockTransport。
+Preview 页面仍执行 Telegram `initData` 和 owner 授权。Preview URL 本身只定位记录，不替代身份认证。
 
-## 7. 安装与启用边界
+## 7. 运行配置
 
-后续安装器只能：
+目标 Hermes Gateway 进程需要获得：
 
-- 将集成文件复制或链接到指定的临时/目标 profile 目录；
+- `HERMES_PEEK_ALLOWED_ROOTS`：明确批准的工作目录列表；
+- `HERMES_PEEK_STATE_DIR`：HermesPeek 状态目录，必须与服务使用同一目录；
+- `HERMES_PEEK_EXTERNAL_BASE_URL`：Telegram 可访问的 HTTPS 根地址。
+
+阶段 6 最终消息 action **不需要** `HERMES_PEEK_TELEGRAM_BOT_TOKEN`。该变量仅供显式通知 CLI 或旧 `agent:end` 独立通知兼容路径使用。
+
+配置中不得写入真实用户 ID、聊天 ID、Topic ID、内部地址或其他凭据。环境文件权限与服务加固见 [`05-operations.md`](05-operations.md)。
+
+## 8. 安装与启用边界
+
+安装器或复制步骤只能：
+
+- 将 `plugin.yaml`、`__init__.py`、`collector.py` 和 `handler.py` 复制到目标 profile 的 `plugins/hermes-peek/`；
 - 检查依赖和文件结构；
-- 输出需要人工执行的启用步骤；
-- 支持卸载自身文件。
+- 输出人工启用步骤；
+- 支持移除自身文件。
 
-安装器不得自动修改：
+阶段 6 首选路径不需要安装 `HOOK.yaml`。只有明确保留旧独立通知行为时，才把 `HOOK.yaml` 和 `handler.py` 安装到 `hooks/hermes-peek/`，且必须避免同时启用两条通知路径造成重复 Preview 或消息。
+
+自动流程不得修改：
 
 - `~/.hermes/config.yaml`；
 - `hermes.json`；
@@ -98,74 +130,34 @@ Hook 从上下文读取 Telegram user/chat/thread/chat type/session，并读取�
 - Gateway 配置；
 - 当前 profile 之外的 Hermes profile。
 
-插件启用和 Gateway 重启由项目负责人明确授权并手动执行，或在单独授权后执行。测试首先使用临时 `HERMES_HOME`，不得拿真实配置做测试夹具。
+插件启用和 Gateway 重启必须由项目负责人明确授权。测试首先使用临时 `HERMES_HOME`，不得拿真实配置做测试夹具。
 
-## 8. 故障隔离与可观测性
+## 9. 安装、升级与卸载
 
-集成属于 best-effort 边缘能力：
+> 以下命令是操作模板，不代表已对当前 profile 执行。先将 `<HERMES_HOME>` 和 `/path/to/HermesPeek` 替换为批准的实际路径。
 
-- collector 失败不能改变工具原始成功/失败结果；
-- Hook 失败不能阻断 Hermes 最终文本答复；
-- 通知失败时 Preview 可保留供重试；
-- 日志不记录文件内容、绝对路径、Bot Token、Cookie 或原始 Telegram `initData`；
-- 错误以稳定分类呈现，如 `COLLECTOR_WRITE_FAILED`、`PUBLISH_REJECTED`、`TELEGRAM_SEND_FAILED`。
-
-## 9. 验收层次
-
-### 离线集成测试
-
-- 成功 write/patch 精确收集；
-- 失败调用忽略；
-- 去重、安全过滤和 session 隔离；
-- 无文件/非 Telegram 静默；
-- Topic 路由、幂等和异常隔离；
-- 临时 `HERMES_HOME` 安装/卸载；
-- Mock Bot API payload。
-
-### 真实验收（需授权）
-
-1. 在当前 profile 安装集成但不自动修改配置；
-2. 由项目负责人启用插件并重启 Gateway；
-3. 让 Hermes 修改一个明确测试文件；
-4. 正常文本答复仍发送；
-5. 随后收到独立预览消息；
-6. 按钮对应本轮文件，不是旧 collector 记录；
-7. Topic 路由和 owner 授权正确。
-
-未执行真实步骤时，只能声称离线集成测试通过，不能声称 Hermes/Telegram 自动闭环完成。
-
-## 10. 安装、卸载与升级操作
-
-> 以下命令必须由项目负责人在目标 profile 上手动执行。先把 `<HERMES_HOME>` 替换为目标 Hermes Home；默认 profile 通常是 `~/.hermes`。不要把其他 profile 的路径混用。
-
-### 10.1 前置检查
+### 9.1 前置检查
 
 ```bash
 cd /path/to/HermesPeek
-uv sync --dev
+uv sync --locked
 uv run pytest tests/integration/test_hermes_collector.py \
   tests/integration/test_gateway_hook.py \
   tests/integration/test_hermes_install.py -q
 ```
 
-运行时必须提供：
+同时确认目标 Hermes 源码/版本包含 `final_message_actions` 扩展点及 Telegram send/edit action 支持。
 
-- `HERMES_PEEK_ALLOWED_ROOTS`：允许发布的工作目录列表；
-- `HERMES_PEEK_STATE_DIR`：HermesPeek 状态目录；
-- `HERMES_PEEK_EXTERNAL_BASE_URL`：Telegram 可访问的 HTTPS 地址；
-- `HERMES_PEEK_TELEGRAM_BOT_TOKEN`：只放在目标 Hermes Home 的 secret 环境文件或服务环境中。
-
-### 10.2 安装文件（不启用）
+### 9.2 安装阶段 6 插件文件（不启用）
 
 ```bash
-mkdir -p <HERMES_HOME>/plugins/hermes-peek <HERMES_HOME>/hooks/hermes-peek
+mkdir -p <HERMES_HOME>/plugins/hermes-peek
 cp integrations/hermes/plugin.yaml integrations/hermes/__init__.py \
-   integrations/hermes/collector.py <HERMES_HOME>/plugins/hermes-peek/
-cp integrations/hermes/HOOK.yaml integrations/hermes/handler.py \
-   <HERMES_HOME>/hooks/hermes-peek/
+   integrations/hermes/collector.py integrations/hermes/handler.py \
+   <HERMES_HOME>/plugins/hermes-peek/
 ```
 
-上述操作不修改 `config.yaml`。安装后由项目负责人手动执行：
+上述操作不修改 `config.yaml`。获得明确授权后再执行：
 
 ```bash
 HERMES_HOME=<HERMES_HOME> hermes plugins list
@@ -173,35 +165,53 @@ HERMES_HOME=<HERMES_HOME> hermes plugins enable hermes-peek
 HERMES_HOME=<HERMES_HOME> hermes gateway restart
 ```
 
-`plugins enable` 会修改目标 profile 配置，因此不得由安装脚本自动执行。Gateway Hook 会在 Gateway 启动时从 `hooks/` 发现；重启同样必须明确授权。
+`plugins enable` 会修改目标 profile 配置，Gateway 重启会影响当前会话，均不得由安装脚本擅自执行。
 
-### 10.3 升级
+### 9.3 升级
 
-先停止目标 Gateway，在保留配置和状态目录的前提下重新复制上述五个集成文件，再运行离线测试并手动重启。升级不得覆盖 `config.yaml`、`.env`、collector spool 或 Preview Registry。
+先确认 Gateway 的维护窗口；保留 profile 配置、状态目录、collector spool 与 Preview Registry，重新复制插件文件，运行离线测试后再经授权重启。若目标 Hermes 不具备扩展点，应停止升级或保留旧兼容路径，不能声称支持同消息按钮。
 
-### 10.4 卸载
-
-先手动禁用插件并重启 Gateway，再删除集成自身目录：
+### 9.4 卸载
 
 ```bash
 HERMES_HOME=<HERMES_HOME> hermes plugins disable hermes-peek
 HERMES_HOME=<HERMES_HOME> hermes gateway restart
-rm -rf <HERMES_HOME>/plugins/hermes-peek <HERMES_HOME>/hooks/hermes-peek
+rm -rf <HERMES_HOME>/plugins/hermes-peek
 ```
 
-卸载不删除 HermesPeek Preview Registry 或 collector spool；确认不再需要后另行按运维策略清理。
+卸载不删除 Preview Registry 或 collector spool；确认不再需要后另行按运维策略清理。
 
-### 10.5 日志与故障排查
+## 10. 故障隔离与排查
 
-- `hermes plugins list` 未显示：检查 `plugin.yaml` 和目录名；
-- collector 无记录：确认插件已启用、工具结果成功、工具是 `write_file`/`patch`、路径处于允许根；
-- 无第二条通知：确认 Gateway Hook 已加载、平台为 Telegram、session 对应 spool 存在、外部 URL 为 HTTPS；
-- Topic 路由错误：确认 Hook context 的 `chat_type=forum` 且 `thread_id` 可转为整数；
-- 发送失败：保留 spool 供重试；检查脱敏日志，不打印 Token 或文件内容；
-- 任何异常均不应阻断 Hermes 正常答复。若发生阻断，应立即禁用插件、移除 Hook 并重启 Gateway。
+- `hermes plugins list` 未显示：检查 profile、目录名和 `plugin.yaml`；
+- collector 无记录：确认插件已启用、工具成功、工具属于 `write_file`/`patch`、路径处于允许根；
+- 最终回复无按钮：确认目标 Hermes 支持并注册了 `final_message_actions`，Gateway 已重启，当前 platform 为 Telegram，session spool 存在，外部 URL 使用 HTTPS；
+- 出现第二条消息：检查是否仍安装/启用了旧 `agent:end` Hook；阶段 6 首选路径只应由 Hermes 最终发送链路投递；
+- action 创建后按钮未出现：检查 Hermes Gateway/Telegram adapter 日志中的脱敏错误；不得打印 Preview URL 中的私有部署信息、Token 或文件内容；
+- Preview 打开后未授权：确认 Telegram `initData`、owner 和服务状态目录一致；
+- 任何异常均不应阻断 Hermes 正常答复。若发生阻断，先禁用插件并经授权重启 Gateway。
 
-## 11. 最终回复按钮融合
+## 11. 验收层次
 
-独立通知稳定后，可以向 Hermes 上游设计平台无关的 final-message actions/attachments 扩展点。该扩展点必须默认无行为，并保护非 Telegram 平台、流式输出、消息拆分、缓存和失败降级。
+### 已完成的离线验收
 
-只有当前运行的 Hermes 真实具备并通过该扩展点测试后，HermesPeek 才能移除第二条通知并把按钮附加到最终回复。未经明确许可，不修改当前运行 Hermes 源码或配置。
+- 成功 write/patch 精确收集，失败调用忽略；
+- 去重、安全过滤和 session 隔离；
+- 无文件/非 Telegram 返回空 action；
+- action 发布后消费当前 spool；
+- 插件不读取 Bot Token、不调用 Bot API；
+- Telegram 非流式发送和流式 edit 在同一消息渲染 URL action；
+- 无 action 与异常路径保持纯文本回复；
+- Hermes 相关目标回归 `58 passed`；HermesPeek 全量回归 `77 passed`。
+
+### 尚待授权的真实验收
+
+1. 在当前 profile 安装阶段 6 插件文件，但不自动修改其他配置；
+2. 项目负责人启用插件并重启 Gateway；
+3. 分别在私聊、群组和 Forum Topic 让 Hermes 写入一个明确测试文件；
+4. 每个场景只出现一条最终完成消息，且同一消息带 `Open preview` 按钮；
+5. 按钮对应本轮文件，不读取旧 collector；
+6. Preview owner 授权和 Topic 路由正确；
+7. 模拟 action 失败后，最终纯文本仍正常发送且没有重复消息。
+
+未执行这些真实步骤前，只能声明“阶段 6 代码与离线集成完成”，不能声明当前运行 Gateway 的 Telegram 单消息闭环已经通过。

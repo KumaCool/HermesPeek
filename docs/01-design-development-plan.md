@@ -2,7 +2,7 @@
 
 **Goal:** 构建一个轻量、只读、安全的 Hermes 产物预览服务，使用户能从 Telegram 消息中的“预览”按钮打开 Mini App 浮窗，查看 Hermes 本轮修改文件的磁盘最新内容。
 
-**Architecture:** 采用 Python 模块化单体：FastAPI 同时提供 Preview API 与原生 HTML/CSS/JS 前端；文件系统保存 Preview Registry，不引入数据库；独立 CLI 负责显式发布；Hermes 插件记录写文件工具产生的路径，Gateway Event Hook 在 `agent:end` 阶段发布并发送 Telegram 通知。应用只监听本地地址，HTTPS 和公网入口由外层网络设施提供。
+**Architecture:** 采用 Python 模块化单体：FastAPI 同时提供 Preview API 与原生 HTML/CSS/JS 前端；文件系统保存 Preview Registry，不引入数据库；独立 CLI 负责显式发布；Hermes 插件通过 `post_tool_call` 记录写文件工具产生的路径，并在 `final_message_actions` 阶段发布 Preview、返回平台中立 HTTPS URL action，由 Gateway 把按钮附加到同一条最终回复。应用只监听本地地址，HTTPS 入口由外层网络设施提供。
 
 **Tech Stack:** Python 3.11+、FastAPI、Uvicorn、Pydantic、httpx、原生 HTML/CSS/JS、Telegram Mini Apps API、pytest、uv。
 
@@ -37,10 +37,10 @@
 现场确认的能力边界：
 
 1. General Plugin 的 `post_tool_call` 可取得 `tool_name`、`args`、`result`、`task_id/session_id`，适合记录 `write_file`、`patch` 等工具写入的文件路径。
-2. Gateway Event Hook 的 `agent:end` 可取得 `platform`、`user_id`、`chat_id`、`thread_id`、`chat_type`、`session_id` 与截断后的最终响应，适合完成发布和 Telegram 路由。
-3. `agent:end` 在 Hermes 最终普通消息发送前触发，但 Hook 不能修改最终发送参数，也不能为原消息附加 `reply_markup`。
-4. 因此首个自动化版本必须发送一条独立的预览通知；把按钮合并进 Hermes 最终回复需要 Hermes 提供通用的最终消息 `reply_markup` 扩展点，不能伪装成现有能力。
-5. Gateway Hook 和 Plugin 出错均不阻断主 Agent，HermesPeek 集成应保持 best-effort，失败时只记录日志。
+2. `agent:end` 仍是观察型 Gateway Event Hook，不能修改最终发送参数；`transform_llm_output` 只改变文本。
+3. 阶段 6 已在 Hermes 增加通用 `final_message_actions` Plugin Hook、平台中立 HTTPS URL action 和 `FinalResponse` 发送边界。
+4. Telegram adapter 在普通发送时附加 InlineKeyboard，在流式回复已发送时编辑原消息；无 action、异常或不支持的平台保持纯文本回复。
+5. HermesPeek 在 action hook 发布 Preview，不读取 Bot Token、不直接调用 Bot API；所有自动集成都保持 best-effort。
 
 ### 1.3 当前代码状态依据
 
@@ -98,10 +98,10 @@ HermesPeek/
 │       └── app.js
 ├── integrations/hermes/
 │   ├── plugin.yaml
-│   ├── __init__.py            # post_tool_call 路径收集器
+│   ├── __init__.py            # post_tool_call + final_message_actions
 │   ├── collector.py
 │   ├── HOOK.yaml
-│   └── handler.py             # agent:end 发布/通知
+│   └── handler.py             # Preview 发布与旧 agent:end 兼容路径
 └── tests/
     ├── conftest.py
     ├── unit/
@@ -302,7 +302,7 @@ uv run mypy src/hermes_peek
 | HTML 预览执行恶意内容 | Agent 产物不等于可信网页 | sandbox + CSP；首版单文件；不开放 same-origin/forms/popups |
 | Hook 猜错本轮文件 | `agent:end` 不含文件列表 | Plugin 精确观察 write/patch；不从响应文本或 shell 命令猜路径 |
 | 自动集成影响 Hermes 正常答复 | Hook/通知属于边缘功能 | best-effort、幂等、错误隔离；无文件时静默 |
-| 最终回复按钮无法合并 | 当前 Hook 无 reply_markup 注入能力 | 先发送独立消息；仅在通用上游扩展真实可用后融合 |
+| 最终回复 action 失败 | 插件、Preview 发布或平台渲染均可能失败 | fail-open 保留纯文本；流式消息只编辑原消息；相关平台回归覆盖 |
 | WireGuard 无法满足 Telegram HTTPS | WG 只提供私网路由 | 先现场验证；失败后经授权切换独立 Cloudflare Tunnel |
 | Registry 长期增长 | 每次任务可能创建记录 | 提供 expiry/revoke；后续增加显式 `gc`，不首版引入后台调度器 |
 | Bot Token/签名密钥泄漏 | Telegram API 与 HMAC 必需 | 只放 secret env；日志脱敏；测试使用固定假 token |
@@ -337,11 +337,11 @@ uv run mypy src/hermes_peek
   ↓
 阶段 3  显式 Telegram 通知闭环
   ↓
-阶段 4  Hermes 自动收集 + 第二条预览消息
+阶段 4  Hermes 自动收集 + 独立预览通知兼容路径
   ↓
 阶段 5  经授权部署 HTTPS 真实入口
   ↓
-阶段 6  条件满足后融合最终回复按钮
+阶段 6  final_message_actions 融合最终回复按钮（代码/离线集成 DONE）
 ```
 
 **第一开发目标不是自动化，而是证明安全的显式闭环：**

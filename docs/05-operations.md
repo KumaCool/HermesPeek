@@ -32,7 +32,7 @@ install -m 0600 deploy/systemd/hermes-peek.env.example \
 - `HERMES_PEEK_ALLOWED_ROOTS` 只能列出明确批准的只读工作目录；
 - `HERMES_PEEK_STATE_DIR` 应与 unit 的 `ReadWritePaths` 一致，默认使用用户的 `~/.local/state/hermes-peek`；
 - `HERMES_PEEK_EXTERNAL_BASE_URL` 必须是后续经批准入口的 HTTPS URL；
-- Bot Token 只能存在权限为 `0600` 的环境文件或等价 secret store；
+- Bot Token（仅显式通知 CLI 或旧独立通知兼容路径需要）只能存在权限为 `0600` 的环境文件或等价 secret store；阶段 6 `final_message_actions` 路径不需要 Bot Token；
 - 生产环境保持 `HERMES_PEEK_DEVELOPMENT=false`。
 
 systemd 的 EnvironmentFile 值不应依赖 shell 展开；将示例中的路径占位符改成目标用户的实际绝对路径。
@@ -98,4 +98,4 @@ systemctl --user daemon-reload
 
 ## 8. 当前验收状态
 
-离线验收覆盖 unit 静态加固、`systemd-analyze verify`、真实临时 Uvicorn 进程、回环 HTTP 健康检查以及进程终止。没有安装真实 user unit、没有持久监听端口、没有配置 HTTPS/WireGuard/Tunnel。
+离线验收覆盖 unit 静态加固、`systemd-analyze verify`、真实临时 Uvicorn 进程、回环 HTTP 健康检查以及进程终止。后续已按任务计划单独完成真实 user service、本机健康检查和 Tailscale/WireGuard 私网 HTTPS 入口验收；TASK 5.3 公网入口未获批准、不执行。阶段 6 Hermes 插件安装与 Gateway 重启仍待单独授权，详见 [`04-hermes-integration.md`](04-hermes-integration.md)。
