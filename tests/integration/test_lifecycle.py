@@ -172,6 +172,10 @@ def test_install_manifest_hashes_owned_plugin_files(tmp_path: Path) -> None:
     manifest = json.loads(target.manifest_file.read_text(encoding="utf-8"))
     for name, digest in manifest["plugin_hashes"].items():
         assert digest == hashlib.sha256((target.plugin_dir / name).read_bytes()).hexdigest()
+    owned = {entry["path"]: entry for entry in manifest["owned_resources"]}
+    for path in (target.env_file, target.config_file, target.unit_file):
+        assert owned[str(path)]["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+        assert owned[str(path)]["transaction_id"] == manifest["transaction_id"]
 
 
 def test_read_bot_token_accepts_hermes_env_without_copying_other_secrets(tmp_path: Path) -> None:
@@ -364,6 +368,34 @@ def test_uninstall_backs_up_modified_owned_plugin(tmp_path: Path) -> None:
     result = uninstall(paths=target, deactivate=False)
     assert result["modified_backups"]
     assert Path(result["modified_backups"][0]).read_text() == "user modification"
+
+
+def test_uninstall_backs_up_modified_config_and_refuses_manifest_target_mismatch(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    install(paths=target, integration_dir=PLUGIN, executable=executable,
+            allowed_roots=(allowed,), external_url="https://preview.example.test",
+            bot_token="123456789:" + "U" * 35, activate=False)
+    target.config_file.write_text('{"user":"change"}')
+    result = uninstall(paths=target, deactivate=False)
+    assert any(Path(item).name == "config.json" for item in result["modified_backups"])
+
+    other = paths(tmp_path / "other"); other.plugin_dir.mkdir(parents=True)
+    other.config_dir.mkdir(parents=True); other.manifest_file.write_text(json.dumps({"schema_version":2,"target":{"identity":"wrong"},"owned_resources":[]}))
+    with pytest.raises(LifecycleError, match="target"):
+        uninstall(paths=other, deactivate=False)
+
+
+def test_uninstall_refuses_symlink_owned_resource_without_following_it(tmp_path: Path) -> None:
+    target = paths(tmp_path); target.config_dir.mkdir(parents=True)
+    outside = tmp_path / "outside"; outside.write_text("keep")
+    target.env_file.symlink_to(outside)
+    target.manifest_file.write_text(json.dumps({"schema_version":2,
+        "target":{"identity": hashlib.sha256(str(target.hermes_home.resolve()).encode()).hexdigest()},
+        "owned_resources":[{"path":str(target.env_file),"type":"file","sha256":"x","transaction_id":"t"}]}))
+    with pytest.raises(LifecycleError, match="symlink"):
+        uninstall(paths=target, deactivate=False)
+    assert outside.read_text() == "keep"
 
 
 def test_purge_dry_run_has_zero_side_effects_and_reports_size(tmp_path: Path) -> None:

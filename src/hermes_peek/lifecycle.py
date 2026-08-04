@@ -238,6 +238,7 @@ def _install_apply(
     activate: bool = True,
     runner: CommandRunner = _default_runner,
     service_backend: Any | None = None,
+    transaction_id: str = "pending",
 ) -> dict[str, object]:
     target = HermesTarget.from_paths(paths)
     roots = _validate_setup(allowed_roots, external_url, bot_token)
@@ -274,8 +275,10 @@ def _install_apply(
         name: hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest()
         for name in _PLUGIN_FILES
     }
+    owned_paths = [paths.plugin_dir / name for name in _PLUGIN_FILES] + [paths.env_file, paths.config_file, paths.unit_file]
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "transaction_id": transaction_id,
         "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
         "plugin_dir": str(paths.plugin_dir),
         "env_file": str(paths.env_file),
@@ -283,6 +286,11 @@ def _install_apply(
         "unit_file": str(paths.unit_file),
         "state_dir": str(paths.state_dir),
         "plugin_hashes": hashes,
+        "owned_resources": [
+            {"path": str(path), "type": "file", "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+             "transaction_id": transaction_id}
+            for path in owned_paths
+        ],
     }
     _atomic_write(paths.manifest_file, json.dumps(manifest, indent=2, sort_keys=True) + "\n", 0o600)
 
@@ -299,6 +307,7 @@ def install(**kwargs) -> dict[str, object]:
     """Apply setup as a filesystem transaction and retain a recovery journal."""
     paths: InstallPaths = kwargs["paths"]
     transaction_id = uuid.uuid4().hex
+    kwargs["transaction_id"] = transaction_id
     journal_dir = paths.state_dir / "journal"
     journal_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     journal = journal_dir / f"{transaction_id}.json"
@@ -378,6 +387,20 @@ def uninstall(
         manifest = json.loads(paths.manifest_file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise LifecycleError("committed install manifest is invalid") from exc
+    if manifest.get("schema_version") == 2:
+        if manifest.get("target", {}).get("identity") != target.identity:
+            raise LifecycleError("manifest target does not match requested Hermes target")
+        owned = manifest.get("owned_resources")
+        if not isinstance(owned, list):
+            raise LifecycleError("manifest owned resources are invalid")
+        approved = (paths.plugin_dir, paths.config_dir, paths.systemd_dir)
+        for entry in owned:
+            resource = Path(entry.get("path", ""))
+            if resource.is_symlink():
+                raise LifecycleError("owned resource symlink is unsafe")
+            resolved = resource.resolve(strict=False)
+            if not any(resolved == root.resolve() or resolved.is_relative_to(root.resolve()) for root in approved):
+                raise LifecycleError("owned resource is outside approved directories")
     if deactivate:
         _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
         _run(runner, target.command("plugins", "disable", "hermes-peek"))
@@ -385,6 +408,7 @@ def uninstall(
 
     backups: list[str] = []
     backup_dir = paths.state_dir / "uninstall-backups" / target.identity[:12]
+    owned_entries = {entry["path"]: entry for entry in manifest.get("owned_resources", [])}
     owned_hashes = manifest.get("plugin_hashes", {})
     for child in list(paths.plugin_dir.iterdir()) if paths.plugin_dir.is_dir() else []:
         expected = owned_hashes.get(child.name)
@@ -400,9 +424,19 @@ def uninstall(
             child.unlink()
     if paths.plugin_dir.exists():
         paths.plugin_dir.rmdir()
-    paths.unit_file.unlink(missing_ok=True)
-    paths.env_file.unlink(missing_ok=True)
-    paths.config_file.unlink(missing_ok=True)
+    for resource in (paths.unit_file, paths.env_file, paths.config_file):
+        if not resource.exists():
+            continue
+        entry = owned_entries.get(str(resource))
+        if manifest.get("schema_version") == 2 and entry is None:
+            raise LifecycleError("resource lacks ownership evidence")
+        digest = hashlib.sha256(resource.read_bytes()).hexdigest()
+        if entry and digest != entry.get("sha256"):
+            backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            destination = backup_dir / resource.name
+            shutil.move(resource, destination); backups.append(str(destination))
+        else:
+            resource.unlink()
     paths.manifest_file.unlink(missing_ok=True)
     if purge_data:
         shutil.rmtree(paths.state_dir, ignore_errors=True)
