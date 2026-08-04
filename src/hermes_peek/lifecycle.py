@@ -397,6 +397,8 @@ def install(**kwargs) -> dict[str, object]:
     paths: InstallPaths = kwargs["paths"]
     if paths.plugin_dir.is_symlink():
         raise LifecycleError("symlinked plugin directory is unsafe")
+    if paths.plugin_dir.exists() and not paths.manifest_file.is_file():
+        raise LifecycleError("pre-existing plugin directory requires a valid ownership manifest")
     if paths.legacy_hook_dir.exists() or paths.legacy_hook_dir.is_symlink():
         raise LifecycleError("unowned legacy hook must be reviewed and removed explicitly")
     with lifecycle_lock(paths):

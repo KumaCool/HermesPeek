@@ -476,6 +476,21 @@ def test_setup_refuses_symlinked_plugin_directory_without_writing_outside_target
     assert list(outside.iterdir()) == []
 
 
+def test_setup_refuses_preexisting_unowned_plugin_directory(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.plugin_dir.mkdir(parents=True)
+    user_file = target.plugin_dir / "custom.py"; user_file.write_text("keep")
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+
+    with pytest.raises(LifecycleError, match="ownership manifest"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                external_url="https://preview.example.test", bot_token="123456789:" + "U" * 35,
+                activate=False)
+
+    assert user_file.read_text() == "keep"
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
