@@ -54,7 +54,7 @@
 | TASK 8.1 | 原型基线冻结与失败测试 | `DONE` | 8.0 | 风险测试已转为正式回归测试 |
 | TASK 8.2 | Hermes target/profile 作用域 | `DONE` | 8.1 | `HERMES_HOME` 明确绑定、target identity 入 manifest |
 | TASK 8.3 | 共享配置与 Secret 分离 | `DONE` | 8.2 | `config.json` + `secrets.env` |
-| TASK 8.4 | Setup transaction、备份与 rollback | `PARTIAL` | 8.3 | 文件事务已实现；跨 service/Gateway/Telegram 状态恢复待增强 |
+| TASK 8.4 | Setup transaction、备份与 rollback | `DONE_OFFLINE` | 8.3 | 文件与 service/plugin/Gateway 状态可恢复；显式 transaction rollback 已实现 |
 | TASK 8.5 | Service backend、健康检查与激活策略 | `PARTIAL` | 8.4 | systemd user 抽象已实现；PID/端口/healthz 验证待增强 |
 | TASK 8.6 | 安全 uninstall 与资源所有权 | `PARTIAL` | 8.5 | 停用硬门槛、plugin hash/备份已实现；全资源 ownership 待增强 |
 | TASK 8.7 | Purge、dry-run 和恢复 | `PARTIAL` | 8.6 | plan/确认/活动安装阻断已实现；CLI `--dry-run/--yes` 待完成 |

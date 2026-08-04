@@ -10,7 +10,7 @@ import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
 
 
@@ -175,6 +175,58 @@ def _run(runner: CommandRunner, command: Sequence[str], *, optional: bool = Fals
         raise LifecycleError(f"{command[0]} failed: {detail}")
 
 
+def _probe_runtime(paths: InstallPaths, runner: CommandRunner) -> dict[str, bool]:
+    target = HermesTarget.from_paths(paths)
+    active = runner(("systemctl", "--user", "is-active", "hermes-peek.service")).returncode == 0
+    enabled = runner(("systemctl", "--user", "is-enabled", "hermes-peek.service")).returncode == 0
+    plugin = runner(target.command("plugins", "status", "hermes-peek"))
+    gateway = runner(target.command("gateway", "status"))
+    def flag(result: subprocess.CompletedProcess[str], name: str) -> bool:
+        if result.returncode:
+            return False
+        try:
+            return bool(json.loads(result.stdout or "{}").get(name))
+        except (TypeError, ValueError):
+            return False
+    return {"service_active": active, "service_enabled": enabled,
+            "plugin_enabled": flag(plugin, "enabled"), "gateway_active": flag(gateway, "active")}
+
+
+def _restore_files(resources: Sequence[Path], existed: dict[str, bool], backup: Path) -> None:
+    for index, resource in reversed(tuple(enumerate(resources))):
+        if resource.is_dir() and not resource.is_symlink():
+            shutil.rmtree(resource, ignore_errors=True)
+        else:
+            resource.unlink(missing_ok=True)
+        if existed.get(str(resource), False):
+            source = backup / str(index)
+            resource.parent.mkdir(parents=True, exist_ok=True)
+            if source.is_dir() and not source.is_symlink():
+                shutil.copytree(source, resource, symlinks=True)
+            else:
+                shutil.copy2(source, resource, follow_symlinks=False)
+
+
+def _restore_runtime(paths: InstallPaths, runner: CommandRunner, before: dict[str, bool]) -> list[str]:
+    target = HermesTarget.from_paths(paths); errors: list[str] = []
+    commands: list[tuple[str, ...]] = []
+    if before.get("plugin_enabled"):
+        commands.append(target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
+    else:
+        commands.append(target.command("plugins", "disable", "hermes-peek"))
+    if before.get("service_enabled") or before.get("service_active"):
+        commands.append(("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
+    else:
+        commands.append(("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
+    if before.get("gateway_active"):
+        commands.append(target.command("gateway", "restart"))
+    for command in commands:
+        result = runner(command)
+        if result.returncode:
+            errors.append(" ".join(command[:4]))
+    return errors
+
+
 def _install_apply(
     *,
     paths: InstallPaths,
@@ -245,38 +297,60 @@ def install(**kwargs) -> dict[str, object]:
     journal = journal_dir / f"{transaction_id}.json"
     resources = (paths.plugin_dir, paths.env_file, paths.config_file, paths.unit_file, paths.manifest_file)
     backup = Path(tempfile.mkdtemp(prefix=f"txn-{transaction_id}-", dir=paths.state_dir))
-    existed: dict[Path, bool] = {}
+    existed: dict[str, bool] = {}
     for index, resource in enumerate(resources):
-        existed[resource] = resource.exists() or resource.is_symlink()
-        if existed[resource]:
+        existed[str(resource)] = resource.exists() or resource.is_symlink()
+        if existed[str(resource)]:
             destination = backup / str(index)
             if resource.is_dir() and not resource.is_symlink():
                 shutil.copytree(resource, destination, symlinks=True)
             else:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(resource, destination, follow_symlinks=False)
-    _atomic_write(journal, json.dumps({"id": transaction_id, "state": "applying"}) + "\n", 0o600)
+    before = _probe_runtime(paths, kwargs["runner"]) if kwargs.get("activate", True) else {}
+    record: dict[str, Any] = {"id": transaction_id, "state": "applying", "backup": str(backup),
+                              "resources": [str(path) for path in resources], "existed": existed,
+                              "before": before, "rollback_errors": []}
+    _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
     try:
         result = _install_apply(**kwargs)
-    except Exception:
-        for index, resource in reversed(tuple(enumerate(resources))):
-            if resource.is_dir() and not resource.is_symlink():
-                shutil.rmtree(resource, ignore_errors=True)
-            else:
-                resource.unlink(missing_ok=True)
-            if existed[resource]:
-                source = backup / str(index)
-                resource.parent.mkdir(parents=True, exist_ok=True)
-                if source.is_dir() and not source.is_symlink():
-                    shutil.copytree(source, resource, symlinks=True)
-                else:
-                    shutil.copy2(source, resource, follow_symlinks=False)
-        _atomic_write(journal, json.dumps({"id": transaction_id, "state": "rolled_back"}) + "\n", 0o600)
-        shutil.rmtree(backup, ignore_errors=True)
-        raise
-    _atomic_write(journal, json.dumps({"id": transaction_id, "state": "committed"}) + "\n", 0o600)
-    shutil.rmtree(backup, ignore_errors=True)
+    except Exception as exc:
+        _restore_files(resources, existed, backup)
+        errors = _restore_runtime(paths, kwargs["runner"], before) if before else []
+        record.update(state="rollback_incomplete" if errors else "rolled_back", rollback_errors=errors)
+        _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+        if not errors:
+            shutil.rmtree(backup, ignore_errors=True)
+        raise LifecycleError(f"setup transaction {transaction_id} failed; rollback " +
+                             ("incomplete: " + ", ".join(errors) if errors else "completed")) from exc
+    record["state"] = "committed"
+    _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+    result["transaction_id"] = transaction_id
     return result
+
+
+def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: CommandRunner = _default_runner) -> dict[str, object]:
+    if not re.fullmatch(r"[0-9a-f]{32}", transaction_id):
+        raise LifecycleError("invalid transaction ID")
+    journal = paths.state_dir / "journal" / f"{transaction_id}.json"
+    try:
+        record = json.loads(journal.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise LifecycleError("transaction journal is unavailable") from exc
+    if record.get("id") != transaction_id or record.get("state") != "committed":
+        raise LifecycleError("transaction is not committed and rollbackable")
+    resources = tuple(Path(value) for value in record["resources"])
+    backup = Path(record["backup"])
+    if not backup.is_dir():
+        raise LifecycleError("transaction backup is unavailable")
+    _restore_files(resources, record["existed"], backup)
+    errors = _restore_runtime(paths, runner, record.get("before", {}))
+    record.update(state="rollback_incomplete" if errors else "rolled_back", rollback_errors=errors)
+    _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+    if errors:
+        raise LifecycleError(f"transaction {transaction_id} rollback incomplete: {', '.join(errors)}")
+    shutil.rmtree(backup, ignore_errors=True)
+    return {"rolled_back": True, "transaction_id": transaction_id}
 
 
 def uninstall(

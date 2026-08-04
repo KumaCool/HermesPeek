@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hermes_peek.lifecycle import LifecycleError, InstallPaths, install, read_bot_token, uninstall
+from hermes_peek.lifecycle import LifecycleError, InstallPaths, install, read_bot_token, rollback_transaction, uninstall
 from hermes_peek.lifecycle import plan_purge, purge
 
 
@@ -36,6 +36,40 @@ class FailingRunner(RecordingRunner):
         self.commands.append(normalized)
         returncode = 1 if normalized[: len(self.failing_prefix)] == self.failing_prefix else 0
         return subprocess.CompletedProcess(command, returncode, "", "simulated failure" if returncode else "")
+
+
+class StatefulRunner(RecordingRunner):
+    def __init__(self, *, fail_gateway_restart: bool = False) -> None:
+        super().__init__()
+        self.service_active = False
+        self.service_enabled = False
+        self.plugin_enabled = False
+        self.gateway_active = True
+        self.fail_gateway_restart = fail_gateway_restart
+
+    def __call__(self, command):
+        command = tuple(command); self.commands.append(command)
+        joined = " ".join(command)
+        if "is-active" in command:
+            return subprocess.CompletedProcess(command, 0 if self.service_active else 3, "active\n" if self.service_active else "inactive\n", "")
+        if "is-enabled" in command:
+            return subprocess.CompletedProcess(command, 0 if self.service_enabled else 1, "enabled\n" if self.service_enabled else "disabled\n", "")
+        if "plugins status hermes-peek" in joined:
+            return subprocess.CompletedProcess(command, 0, json.dumps({"enabled": self.plugin_enabled}), "")
+        if "gateway status" in joined:
+            return subprocess.CompletedProcess(command, 0, json.dumps({"active": self.gateway_active}), "")
+        if command[-3:] == ("enable", "--now", "hermes-peek.service"):
+            self.service_enabled = self.service_active = True
+        elif command[-3:] == ("disable", "--now", "hermes-peek.service"):
+            self.service_enabled = self.service_active = False
+        elif "plugins enable" in joined:
+            self.plugin_enabled = True
+        elif "plugins disable" in joined:
+            self.plugin_enabled = False
+        elif "gateway restart" in joined and self.fail_gateway_restart:
+            self.fail_gateway_restart = False
+            return subprocess.CompletedProcess(command, 1, "", "simulated gateway failure")
+        return subprocess.CompletedProcess(command, 0, "", "")
 
 
 def paths(tmp_path: Path) -> InstallPaths:
@@ -67,7 +101,8 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         runner=runner,
     )
 
-    assert result == {"installed": True, "activated": True, "state_preserved": True}
+    assert result["installed"] is True and result["activated"] is True
+    assert result["state_preserved"] is True and result["transaction_id"]
     assert (target.plugin_dir / "plugin.yaml").exists()
     assert (target.plugin_dir / "handler.py").exists()
     assert target.unit_file.exists() and target.env_file.exists() and target.manifest_file.exists()
@@ -76,7 +111,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert token in target.env_file.read_text(encoding="utf-8")
     assert token not in target.manifest_file.read_text(encoding="utf-8")
     assert str(executable.resolve()) in target.unit_file.read_text(encoding="utf-8")
-    assert runner.commands == [
+    assert runner.commands[-4:] == [
         ("systemctl", "--user", "daemon-reload"),
         ("systemctl", "--user", "enable", "--now", "hermes-peek.service"),
         ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "enable", "--no-allow-tool-override", "hermes-peek"),
@@ -237,6 +272,39 @@ def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None
     assert not target.manifest_file.exists()
     journals = list((target.state_dir / "journal").glob("*.json"))
     assert journals and json.loads(journals[0].read_text())["state"] == "rolled_back"
+
+
+def test_setup_failure_restores_service_plugin_and_gateway_state(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = StatefulRunner(fail_gateway_restart=True)
+
+    with pytest.raises(LifecycleError, match="transaction"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable,
+                allowed_roots=(allowed,), external_url="https://preview.example.test",
+                bot_token="123456789:" + "R" * 35, runner=runner)
+
+    assert runner.service_active is False
+    assert runner.service_enabled is False
+    assert runner.plugin_enabled is False
+    journal = json.loads(next((target.state_dir / "journal").glob("*.json")).read_text())
+    assert journal["state"] == "rolled_back" and journal["rollback_errors"] == []
+    assert journal["before"]["gateway_active"] is True
+
+
+def test_committed_transaction_can_be_rolled_back_by_id(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = StatefulRunner()
+    result = install(paths=target, integration_dir=PLUGIN, executable=executable,
+                     allowed_roots=(allowed,), external_url="https://preview.example.test",
+                     bot_token="123456789:" + "S" * 35, runner=runner)
+
+    rolled_back = rollback_transaction(target, result["transaction_id"], runner=runner)
+
+    assert rolled_back["rolled_back"] is True
+    assert not target.manifest_file.exists() and not target.plugin_dir.exists()
+    assert runner.service_active is False and runner.plugin_enabled is False
 
 
 def test_uninstall_keeps_resources_when_service_stop_fails(tmp_path: Path) -> None:
