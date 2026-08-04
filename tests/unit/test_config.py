@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,23 @@ def test_settings_load_non_secret_file_with_environment_override(tmp_path):
     settings = Settings.from_file_and_env(config, {"HERMES_PEEK_DEVELOPMENT": "true"})
     assert settings.allowed_roots == (root.resolve(),)
     assert settings.development is True
+
+
+def test_settings_from_env_loads_explicit_config_file(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({
+        "schema_version": 1,
+        "allowed_roots": [str(root)],
+        "state_dir": str(tmp_path / "state"),
+        "external_base_url": "https://preview.example.test/",
+    }), encoding="utf-8")
+
+    settings = Settings.from_env({"HERMES_PEEK_CONFIG_FILE": str(config)})
+
+    assert settings.allowed_roots == (root.resolve(),)
+    assert settings.state_dir == (tmp_path / "state").resolve()
 
 
 def test_settings_require_explicit_allowed_roots(tmp_path: Path) -> None:

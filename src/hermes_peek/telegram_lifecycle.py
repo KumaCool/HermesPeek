@@ -22,8 +22,11 @@ class TelegramLifecycle:
                 "webhook_configured": bool(webhook.get("url")), "main_mini_app_requires_botfather": True}
     def set_menu(self, token: str, url: str) -> dict[str, Any]:
         old = self._call("getChatMenuButton", token)
-        self._call("setChatMenuButton", token, {"menu_button": {"type": "web_app", "text": "Preview", "web_app": {"url": url}}})
-        return {"setting": "chat_menu_button", "before": old}
+        applied = {"type": "web_app", "text": "Preview", "web_app": {"url": url}}
+        self._call("setChatMenuButton", token, {"menu_button": applied})
+        return {"setting": "chat_menu_button", "before": old, "applied": applied}
     def rollback(self, token: str, change: dict[str, Any]) -> None:
         if change.get("setting") == "chat_menu_button":
-            self._call("setChatMenuButton", token, {"menu_button": change["before"]})
+            current = self._call("getChatMenuButton", token)
+            if current == change.get("applied"):
+                self._call("setChatMenuButton", token, {"menu_button": change["before"]})

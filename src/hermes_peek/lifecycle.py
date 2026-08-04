@@ -359,6 +359,8 @@ def plan_purge(paths: InstallPaths) -> dict[str, object]:
 def purge(paths: InstallPaths, *, confirmed: bool) -> dict[str, object]:
     if not confirmed:
         raise LifecycleError("purge requires explicit confirmation")
+    if paths.manifest_file.exists():
+        raise LifecycleError("purge requires a completed uninstall")
     for root in (paths.state_dir, paths.config_dir):
         resolved = root.resolve()
         if resolved == Path("/") or resolved == Path.home().resolve() or root.is_symlink():

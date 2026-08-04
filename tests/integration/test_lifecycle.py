@@ -301,3 +301,12 @@ def test_purge_requires_confirmation_and_never_deletes_allowed_roots(tmp_path: P
         purge(target, confirmed=False)
     purge(target, confirmed=True)
     assert original.exists() and not target.state_dir.exists()
+
+
+def test_purge_rejects_an_active_install_manifest(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.config_dir.mkdir(parents=True)
+    target.manifest_file.write_text('{"schema_version": 1}', encoding="utf-8")
+
+    with pytest.raises(LifecycleError, match="uninstall"):
+        purge(target, confirmed=True)

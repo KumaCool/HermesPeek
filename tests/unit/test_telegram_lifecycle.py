@@ -30,5 +30,21 @@ def test_menu_change_records_old_value_and_can_rollback():
                                "setChatMenuButton": {"ok": True, "result": True}})
     lifecycle = TelegramLifecycle(transport)
     change = lifecycle.set_menu(TOKEN, "https://preview.example.test")
+    transport.responses["getChatMenuButton"] = {"ok": True, "result": change["applied"]}
     lifecycle.rollback(TOKEN, change)
-    assert [x[0] for x in transport.calls] == ["getChatMenuButton", "setChatMenuButton", "setChatMenuButton"]
+    assert [x[0] for x in transport.calls] == ["getChatMenuButton", "setChatMenuButton", "getChatMenuButton", "setChatMenuButton"]
+
+
+def test_rollback_preserves_a_later_external_menu_change():
+    transport = FakeTransport({"getChatMenuButton": {"ok": True, "result": {"type": "default"}},
+                               "setChatMenuButton": {"ok": True, "result": True}})
+    lifecycle = TelegramLifecycle(transport)
+    change = lifecycle.set_menu(TOKEN, "https://preview.example.test")
+    transport.responses["getChatMenuButton"] = {
+        "ok": True,
+        "result": {"type": "web_app", "text": "Other", "web_app": {"url": "https://other.example.test"}},
+    }
+
+    lifecycle.rollback(TOKEN, change)
+
+    assert [x[0] for x in transport.calls].count("setChatMenuButton") == 1

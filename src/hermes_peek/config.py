@@ -54,6 +54,9 @@ class Settings(BaseModel):
         """
 
         env = os.environ if environment is None else environment
+        config_file = env.get("HERMES_PEEK_CONFIG_FILE")
+        if config_file:
+            return cls.from_file_and_env(Path(config_file), env)
         base = (Path.cwd() if cwd is None else cwd).expanduser().resolve()
         raw_roots = env.get("HERMES_PEEK_ALLOWED_ROOTS", "")
         if not raw_roots.strip():
