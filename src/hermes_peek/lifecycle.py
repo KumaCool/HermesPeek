@@ -397,8 +397,30 @@ def install(**kwargs) -> dict[str, object]:
     paths: InstallPaths = kwargs["paths"]
     if paths.plugin_dir.is_symlink():
         raise LifecycleError("symlinked plugin directory is unsafe")
-    if paths.plugin_dir.exists() and not paths.manifest_file.is_file():
-        raise LifecycleError("pre-existing plugin directory requires a valid ownership manifest")
+    if paths.plugin_dir.exists():
+        try:
+            manifest = json.loads(paths.manifest_file.read_text(encoding="utf-8"))
+            target = HermesTarget.from_paths(paths)
+            owned = manifest.get("owned_resources")
+            hashes = manifest.get("plugin_hashes")
+            valid_manifest = (
+                manifest.get("schema_version") == 2
+                and manifest.get("target", {}).get("identity") == target.identity
+                and isinstance(owned, list)
+                and isinstance(hashes, dict)
+                and all(
+                    isinstance(name, str)
+                    and (paths.plugin_dir / name).is_file()
+                    and not (paths.plugin_dir / name).is_symlink()
+                    and hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest() == digest
+                    for name, digest in hashes.items()
+                )
+                and {child.name for child in paths.plugin_dir.iterdir()} == set(hashes)
+            )
+        except (OSError, ValueError, TypeError):
+            valid_manifest = False
+        if not valid_manifest:
+            raise LifecycleError("pre-existing plugin directory requires a valid ownership manifest")
     if paths.legacy_hook_dir.exists() or paths.legacy_hook_dir.is_symlink():
         raise LifecycleError("unowned legacy hook must be reviewed and removed explicitly")
     with lifecycle_lock(paths):
