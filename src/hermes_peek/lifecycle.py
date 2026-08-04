@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -8,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -304,7 +306,22 @@ def _install_apply(
     return {"installed": True, "activated": activate, "state_preserved": True}
 
 
-def install(**kwargs) -> dict[str, object]:
+@contextmanager
+def lifecycle_lock(paths: InstallPaths):
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = paths.config_dir / ".lifecycle.lock"
+    with lock_file.open("a+") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise LifecycleError("another lifecycle operation is already in progress") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _install_transaction(**kwargs) -> dict[str, object]:
     """Apply setup as a filesystem transaction and retain a recovery journal."""
     paths: InstallPaths = kwargs["paths"]
     transaction_id = uuid.uuid4().hex
@@ -366,6 +383,11 @@ def install(**kwargs) -> dict[str, object]:
     return result
 
 
+def install(**kwargs) -> dict[str, object]:
+    with lifecycle_lock(kwargs["paths"]):
+        return _install_transaction(**kwargs)
+
+
 def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: CommandRunner = _default_runner) -> dict[str, object]:
     if not re.fullmatch(r"[0-9a-f]{32}", transaction_id):
         raise LifecycleError("invalid transaction ID")
@@ -400,7 +422,7 @@ def _verify_plugin_unloaded(paths: InstallPaths, runner: CommandRunner) -> None:
         raise LifecycleError("plugin remained enabled or loaded after Gateway restart")
 
 
-def uninstall(
+def _uninstall_transaction(
     *,
     paths: InstallPaths,
     purge_data: bool = False,
@@ -479,6 +501,11 @@ def uninstall(
     if deactivate:
         _run(runner, ("systemctl", "--user", "daemon-reload"))
     return {"uninstalled": True, "data_purged": purge_data, "state_preserved": not purge_data, "modified_backups": backups}
+
+
+def uninstall(**kwargs) -> dict[str, object]:
+    with lifecycle_lock(kwargs["paths"]):
+        return _uninstall_transaction(**kwargs)
 
 
 def read_bot_token(env_file: Path) -> str:

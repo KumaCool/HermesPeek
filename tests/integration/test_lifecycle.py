@@ -387,6 +387,17 @@ def test_later_setup_failure_conditionally_restores_telegram_menu(tmp_path: Path
     assert transport.menu == {"type":"default"}
 
 
+def test_install_refuses_concurrent_lifecycle_operation(tmp_path: Path) -> None:
+    from hermes_peek.lifecycle import lifecycle_lock
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    with lifecycle_lock(target):
+        with pytest.raises(LifecycleError, match="already in progress"):
+            install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                    external_url="https://preview.example.test", bot_token="123456789:" + "K" * 35,
+                    activate=False)
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
