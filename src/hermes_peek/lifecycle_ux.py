@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-from .lifecycle import HermesTarget, InstallPaths
+from .lifecycle import HermesTarget, InstallPaths, LifecycleError, read_bot_token
+from .telegram_lifecycle import TelegramLifecycle, UrllibTelegramTransport
 from .service_backend import HealthProbe, PortProbe, Runner, SystemdUserBackend, _health_probe, _port_probe
 
 Probe = Callable[[], dict[str, Any]]
@@ -50,17 +53,28 @@ def _command_json(runner: Runner, command: tuple[str, ...]) -> dict[str, Any]:
         return {}
 
 
-def _disabled_telegram() -> dict[str, Any]:
-    return {"verified": False, "configured": False, "main_mini_app_requires_botfather": True}
+def _telegram_probe(paths: InstallPaths) -> dict[str, Any]:
+    try:
+        result = TelegramLifecycle(UrllibTelegramTransport()).inspect(read_bot_token(paths.env_file))
+        return {"verified": True, **result}
+    except LifecycleError:
+        return {"verified": False, "main_mini_app_requires_botfather": True}
 
 
-def _disabled_https(url: str) -> dict[str, Any]:
-    return {"reachable": False, "status": None, "configured": bool(url)}
+def _https_probe(url: str) -> dict[str, Any]:
+    if not url:
+        return {"reachable": False, "status": None, "configured": False}
+    try:
+        request = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(request, timeout=3) as response:
+            return {"reachable": 200 <= response.status < 500, "status": response.status, "configured": True}
+    except (OSError, urllib.error.URLError):
+        return {"reachable": False, "status": None, "configured": True}
 
 
 def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port_probe,
-           health_probe: HealthProbe = _health_probe, https_probe: HttpsProbe = _disabled_https,
-           telegram_probe: Probe = _disabled_telegram) -> dict[str, Any]:
+           health_probe: HealthProbe = _health_probe, https_probe: HttpsProbe | None = None,
+           telegram_probe: Probe | None = None) -> dict[str, Any]:
     manifest = None
     if paths.manifest_file.is_file():
         try:
@@ -99,8 +113,8 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
         "service": service,
         "plugin": {"installed": paths.plugin_dir.is_dir(), "enabled": bool(plugin_state.get("enabled")), "loaded": bool(plugin_state.get("loaded"))},
         "gateway": {"active": bool(gateway.get("active"))},
-        "telegram": telegram_probe(),
-        "https": https_probe(external),
+        "telegram": telegram_probe() if telegram_probe else _telegram_probe(paths),
+        "https": https_probe(external) if https_probe else _https_probe(external),
         "drift": {"detected": bool(drifted), "categories": sorted(set(drifted))},
         "data": {"state_directory_present": paths.state_dir.is_dir(), "bytes": _directory_size(paths.state_dir)},
     }

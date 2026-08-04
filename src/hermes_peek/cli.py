@@ -22,6 +22,7 @@ from hermes_peek.lifecycle import (
     plan_purge,
     purge as purge_application,
     read_bot_token,
+    rollback_transaction,
     uninstall as uninstall_application,
 )
 from hermes_peek.paths import PathPolicy, PathPolicyError
@@ -38,11 +39,17 @@ from hermes_peek.lifecycle_ux import (
 )
 from hermes_peek.service_backend import SystemdUserBackend
 from hermes_peek.telegram import TelegramClient, TelegramNotificationError
+from hermes_peek.telegram_lifecycle import TelegramLifecycle
 
 
 def telegram_transport():
     """Production uses httpx's default transport; tests inject MockTransport here."""
     return None
+
+
+def telegram_lifecycle_transport():
+    from hermes_peek.telegram_lifecycle import UrllibTelegramTransport
+    return UrllibTelegramTransport()
 
 
 def lifecycle_runner(command):
@@ -81,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Credential file containing TELEGRAM_BOT_TOKEN (defaults to the active Hermes .env)",
     )
+    setup.add_argument("--configure-telegram-menu", action="store_true")
     setup.add_argument("--hermes-home", type=Path)
     setup.add_argument("--no-activate", action="store_true")
     setup.add_argument("--plan", action="store_true", help="Print a read-only, redacted setup plan")
@@ -91,6 +99,9 @@ def build_parser() -> argparse.ArgumentParser:
     uninstall.add_argument("--dry-run", action="store_true")
     uninstall.add_argument("--yes", action="store_true")
     uninstall.add_argument("--no-deactivate", action="store_true")
+    rollback = subparsers.add_parser("rollback", help="Rollback a committed setup transaction")
+    rollback.add_argument("transaction_id")
+    rollback.add_argument("--hermes-home", type=Path)
     status = subparsers.add_parser("status", help="Show lifecycle status")
     status.add_argument("--json", action="store_true")
     status.add_argument("--hermes-home", type=Path)
@@ -129,6 +140,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     output["output"] = value
             print(json.dumps(output, ensure_ascii=False, sort_keys=True))
             return 0
+        if args.command == "rollback":
+            paths = InstallPaths.for_user(hermes_home=args.hermes_home)
+            result = rollback_transaction(paths, args.transaction_id, runner=lifecycle_runner)
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            return 0
         if args.command in {"setup", "uninstall"}:
             paths = InstallPaths.for_user(hermes_home=args.hermes_home)
             if args.command == "setup":
@@ -153,6 +169,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     external_url=args.external_url,
                     bot_token=read_bot_token(token_file),
                     activate=not args.no_activate,
+                    telegram=TelegramLifecycle(telegram_lifecycle_transport()),
+                    configure_telegram_menu=args.configure_telegram_menu,
                 )
             else:
                 if args.dry_run and not args.purge:

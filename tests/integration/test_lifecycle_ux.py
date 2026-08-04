@@ -77,6 +77,63 @@ def test_cli_service_stop_verifies_process_and_port_exit(monkeypatch, capsys):
     assert calls == ["stop", "verify"]
 
 
+def test_cli_exposes_rollback_command():
+    from hermes_peek.cli import build_parser
+    args = build_parser().parse_args(["rollback", "a" * 32, "--hermes-home", "/tmp/hermes"])
+    assert args.command == "rollback" and args.transaction_id == "a" * 32
+
+
+def test_rollback_cli_invokes_transaction_rollback(tmp_path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+    paths = InstallPaths(tmp_path/"hermes", tmp_path/"config", tmp_path/"state", tmp_path/"systemd")
+    calls = []
+    monkeypatch.setattr(cli.InstallPaths, "for_user", classmethod(lambda cls, **kw: paths))
+    monkeypatch.setattr(cli, "rollback_transaction", lambda p, txn, runner: calls.append((p, txn)) or {"rolled_back": True})
+    assert main(["rollback", "a" * 32]) == 0
+    assert calls == [(paths, "a" * 32)]
+
+
+def test_setup_cli_constructs_telegram_lifecycle_and_inspects_bot(tmp_path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+    paths = InstallPaths(tmp_path/"hermes", tmp_path/"config", tmp_path/"state", tmp_path/"systemd")
+    allowed = tmp_path/"workspace"; allowed.mkdir(); executable = tmp_path/"hermes-peek"; executable.write_text("x")
+    env = tmp_path/"telegram.env"; env.write_text("TELEGRAM_BOT_TOKEN=123456789:" + "X" * 35)
+    captured = {}
+    class Telegram:
+        def __init__(self, transport): captured["transport"] = transport
+    monkeypatch.setattr(cli.InstallPaths, "for_user", classmethod(lambda cls, **kw: paths))
+    monkeypatch.setattr(cli.shutil, "which", lambda name: str(executable))
+    monkeypatch.setattr(cli, "TelegramLifecycle", Telegram)
+    monkeypatch.setattr(cli, "telegram_lifecycle_transport", lambda: "transport")
+    monkeypatch.setattr(cli, "install_application", lambda **kw: captured.update(kw) or {"installed": True})
+    assert main(["setup", "--allowed-root", str(allowed), "--external-url", "https://preview.example.test",
+                 "--telegram-env", str(env), "--no-activate"]) == 0
+    assert captured["telegram"].__class__ is Telegram and captured["transport"] == "transport"
+
+
+def test_default_https_probe_is_read_only_and_redacted(monkeypatch):
+    import hermes_peek.lifecycle_ux as ux
+    class Response:
+        status = 204
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    seen = []
+    monkeypatch.setattr(ux.urllib.request, "urlopen", lambda request, timeout: seen.append((request.full_url, request.method)) or Response())
+    assert ux._https_probe("https://preview.example.test/") == {"reachable": True, "status": 204, "configured": True}
+    assert seen == [("https://preview.example.test/", "HEAD")]
+
+
+def test_default_telegram_probe_reads_installed_token_and_redacts_failure(tmp_path, monkeypatch):
+    import hermes_peek.lifecycle_ux as ux
+    paths = InstallPaths(tmp_path/"hermes", tmp_path/"config", tmp_path/"state", tmp_path/"systemd")
+    paths.config_dir.mkdir(); token = "123456789:" + "X" * 35; paths.env_file.write_text(f'HERMES_PEEK_TELEGRAM_BOT_TOKEN="{token}"')
+    class Lifecycle:
+        def __init__(self, transport): pass
+        def inspect(self, value): assert value == token; return {"bot_id": 7}
+    monkeypatch.setattr(ux, "TelegramLifecycle", Lifecycle)
+    assert ux._telegram_probe(paths) == {"verified": True, "bot_id": 7}
+
+
 def test_setup_plan_is_read_only_redacted_and_lists_actions(tmp_path, monkeypatch, capsys):
     import hermes_peek.cli as cli
     paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")

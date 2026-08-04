@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from typing import Any, Protocol
 from .lifecycle import LifecycleError
 
 class Transport(Protocol):
     def call(self, method: str, token: str, payload: dict[str, Any] | None = None) -> dict[str, Any]: ...
+
+class UrllibTelegramTransport:
+    def call(self, method: str, token: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        body = json.dumps(payload or {}).encode()
+        request = urllib.request.Request(f"https://api.telegram.org/bot{token}/{method}", data=body,
+                                         headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=3) as response:
+                return json.loads(response.read(65536))
+        except (OSError, ValueError, urllib.error.URLError) as exc:
+            raise LifecycleError(f"Telegram {method} failed: [REDACTED]") from exc
+
 
 class TelegramLifecycle:
     def __init__(self, transport: Transport) -> None: self.transport = transport
