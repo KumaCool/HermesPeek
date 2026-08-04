@@ -276,6 +276,28 @@ def test_setup_writes_configuration_that_gateway_plugin_can_load(tmp_path: Path,
     assert target.env_file.name == "secrets.env"
 
 
+def test_installed_plugin_collects_and_builds_final_action_from_shared_config(tmp_path: Path, monkeypatch) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    document = allowed / "result.md"; document.write_text("# Result")
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    install(paths=target, integration_dir=PLUGIN, executable=executable,
+            allowed_roots=(allowed,), external_url="https://preview.example.test",
+            bot_token="123456789:" + "Q" * 35, activate=False)
+    monkeypatch.delenv("HERMES_PEEK_ALLOWED_ROOTS", raising=False)
+    monkeypatch.delenv("HERMES_PEEK_STATE_DIR", raising=False)
+    monkeypatch.setenv("HERMES_PEEK_CONFIG_FILE", str(target.config_file))
+    from hermes_peek import hermes_plugin as plugin
+    plugin._post_tool_call(tool_name="write_file", args={"path": str(document)}, result={"path": str(document)},
+                           session_id="shared-config-session")
+    spools = list((target.state_dir / "collector").glob("*.json"))
+    assert len(spools) == 1
+    monkeypatch.setattr("hermes_peek.hermes_plugin.handler.publish_action",
+                        lambda state, session, user: {"type": "url", "label": session, "url": str(state)})
+    action = plugin._final_message_actions(response_text="done", session_id="shared-config-session",
+                                           platform="telegram", user_id="7")
+    assert action == {"type": "url", "label": "shared-config-session", "url": str(target.state_dir)}
+
+
 def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None:
     target = paths(tmp_path)
     allowed = tmp_path / "workspace"

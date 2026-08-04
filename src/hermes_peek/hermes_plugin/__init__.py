@@ -8,15 +8,27 @@ from typing import Any
 from .collector import collect_tool_result
 
 
+def _shared_config() -> dict[str, Any]:
+    filename = os.environ.get("HERMES_PEEK_CONFIG_FILE")
+    if not filename:
+        return {}
+    try:
+        data = json.loads(Path(filename).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
 def _configured_roots() -> tuple[Path, ...]:
     value = os.environ.get("HERMES_PEEK_ALLOWED_ROOTS", "")
-    if not value and os.environ.get("HERMES_PEEK_CONFIG_FILE"):
-        try:
-            data = json.loads(Path(os.environ["HERMES_PEEK_CONFIG_FILE"]).read_text(encoding="utf-8"))
-            return tuple(Path(item) for item in data.get("allowed_roots", ()))
-        except (OSError, ValueError, TypeError):
-            return ()
+    if not value:
+        return tuple(Path(item) for item in _shared_config().get("allowed_roots", ()))
     return tuple(Path(item) for item in value.split(os.pathsep) if item)
+
+
+def _configured_state_dir() -> Path | None:
+    value = os.environ.get("HERMES_PEEK_STATE_DIR") or _shared_config().get("state_dir")
+    return Path(value) if isinstance(value, str) and value else None
 
 
 def _post_tool_call(
@@ -28,8 +40,8 @@ def _post_tool_call(
     **_: Any,
 ) -> None:
     roots = _configured_roots()
-    state_dir = os.environ.get("HERMES_PEEK_STATE_DIR")
-    if not roots or not state_dir:
+    state_dir = _configured_state_dir()
+    if not roots or state_dir is None:
         return
     try:
         collect_tool_result(
@@ -38,7 +50,7 @@ def _post_tool_call(
             result=result,
             session_id=session_id,
             task_id=task_id,
-            spool_dir=Path(state_dir) / "collector",
+            spool_dir=state_dir / "collector",
             allowed_roots=roots,
         )
     except Exception:
@@ -56,14 +68,14 @@ def _final_message_actions(
     """Publish collected files and return an action for Hermes' final reply."""
     if platform != "telegram" or not response_text or not session_id or not user_id:
         return None
-    state_dir = os.environ.get("HERMES_PEEK_STATE_DIR")
-    if not state_dir:
+    state_dir = _configured_state_dir()
+    if state_dir is None:
         return None
     try:
         # Imported lazily so the post_tool_call collector remains lightweight.
         from .handler import publish_action
 
-        return publish_action(Path(state_dir), session_id, user_id)
+        return publish_action(state_dir, session_id, user_id)
     except Exception:
         # Final response delivery must never depend on preview publication.
         return None
