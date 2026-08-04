@@ -31,7 +31,11 @@ from hermes_peek.registry import (
     PreviewRegistry,
 )
 from hermes_peek.service import PreviewService, PublishError
-from hermes_peek.lifecycle_ux import status as lifecycle_status, doctor as lifecycle_doctor
+from hermes_peek.lifecycle_ux import (
+    doctor as lifecycle_doctor,
+    setup_plan as lifecycle_setup_plan,
+    status as lifecycle_status,
+)
 from hermes_peek.service_backend import SystemdUserBackend
 from hermes_peek.telegram import TelegramClient, TelegramNotificationError
 
@@ -79,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     setup.add_argument("--hermes-home", type=Path)
     setup.add_argument("--no-activate", action="store_true")
+    setup.add_argument("--plan", action="store_true", help="Print a read-only, redacted setup plan")
 
     uninstall = subparsers.add_parser("uninstall", help="Safely remove HermesPeek integration")
     uninstall.add_argument("--hermes-home", type=Path)
@@ -125,6 +130,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
         if args.command in {"setup", "uninstall"}:
             paths = InstallPaths.for_user(hermes_home=args.hermes_home)
             if args.command == "setup":
+                if args.plan:
+                    result = lifecycle_setup_plan(
+                        paths,
+                        allowed_roots=args.allowed_root,
+                        external_url=args.external_url,
+                        activate=not args.no_activate,
+                    )
+                    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+                    return 0
                 token_file = args.telegram_env or paths.hermes_home / ".env"
                 executable_name = shutil.which("hermes-peek")
                 if executable_name is None:
