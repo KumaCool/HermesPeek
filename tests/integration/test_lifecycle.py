@@ -424,6 +424,42 @@ def test_setup_defers_gateway_restart_for_current_gateway_session(tmp_path: Path
     assert not any("gateway restart" in " ".join(command) for command in runner.commands)
 
 
+def test_installed_plugin_resolves_shared_config_without_gateway_environment(tmp_path: Path, monkeypatch) -> None:
+    import importlib.util
+    import sys
+
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+            external_url="https://preview.example.test", bot_token="123456789:" + "C" * 35,
+            activate=False)
+    for name in ("HERMES_PEEK_CONFIG_FILE", "HERMES_PEEK_STATE_DIR", "HERMES_PEEK_ALLOWED_ROOTS"):
+        monkeypatch.delenv(name, raising=False)
+    spec = importlib.util.spec_from_file_location("installed_peek", target.plugin_dir / "__init__.py",
+                                                  submodule_search_locations=[str(target.plugin_dir)])
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
+
+    assert module._configured_state_dir() == target.state_dir
+    assert module._configured_roots() == (allowed,)
+
+
+def test_setup_refuses_unowned_legacy_hook_without_removing_it(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.legacy_hook_dir.mkdir(parents=True)
+    user_file = target.legacy_hook_dir / "custom.py"; user_file.write_text("keep")
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+
+    with pytest.raises(LifecycleError, match="legacy hook"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                external_url="https://preview.example.test", bot_token="123456789:" + "L" * 35,
+                activate=False)
+
+    assert user_file.read_text() == "keep"
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")

@@ -22,6 +22,7 @@ class LifecycleError(RuntimeError):
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 _PLUGIN_FILES = ("plugin.yaml", "__init__.py", "collector.py", "handler.py")
+_PLUGIN_CONFIG_POINTER = ".hermes-peek-config.json"
 _BOT_TOKEN = re.compile(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$")
 
 
@@ -250,6 +251,8 @@ def _install_apply(
     missing = [name for name in _PLUGIN_FILES if not (source / name).is_file()]
     if missing:
         raise LifecycleError("integration package is incomplete")
+    if paths.legacy_hook_dir.exists() or paths.legacy_hook_dir.is_symlink():
+        raise LifecycleError("unowned legacy hook must be reviewed and removed explicitly")
 
     if activate:
         from .service_backend import SystemdUserBackend
@@ -262,8 +265,11 @@ def _install_apply(
     paths.plugin_dir.mkdir(parents=True, exist_ok=True)
     for name in _PLUGIN_FILES:
         shutil.copy2(source / name, paths.plugin_dir / name)
-    # Remove only the obsolete HermesPeek hook; leaving it would create duplicate notifications.
-    shutil.rmtree(paths.legacy_hook_dir, ignore_errors=True)
+    _atomic_write(
+        paths.plugin_dir / _PLUGIN_CONFIG_POINTER,
+        json.dumps({"config_file": str(paths.config_file)}, sort_keys=True) + "\n",
+        0o644,
+    )
 
     _atomic_write(paths.env_file, _render_env(roots, paths, external_url, bot_token), 0o600)
     config = {
@@ -275,11 +281,12 @@ def _install_apply(
     }
     _atomic_write(paths.config_file, json.dumps(config, indent=2, sort_keys=True) + "\n", 0o644)
     _atomic_write(paths.unit_file, _render_unit(paths, executable), 0o644)
+    owned_plugin_files = _PLUGIN_FILES + (_PLUGIN_CONFIG_POINTER,)
     hashes = {
         name: hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest()
-        for name in _PLUGIN_FILES
+        for name in owned_plugin_files
     }
-    owned_paths = [paths.plugin_dir / name for name in _PLUGIN_FILES] + [paths.env_file, paths.config_file, paths.unit_file]
+    owned_paths = [paths.plugin_dir / name for name in owned_plugin_files] + [paths.env_file, paths.config_file, paths.unit_file]
     manifest = {
         "schema_version": 2,
         "transaction_id": transaction_id,
@@ -387,7 +394,10 @@ def _install_transaction(**kwargs) -> dict[str, object]:
 
 
 def install(**kwargs) -> dict[str, object]:
-    with lifecycle_lock(kwargs["paths"]):
+    paths: InstallPaths = kwargs["paths"]
+    if paths.legacy_hook_dir.exists() or paths.legacy_hook_dir.is_symlink():
+        raise LifecycleError("unowned legacy hook must be reviewed and removed explicitly")
+    with lifecycle_lock(paths):
         return _install_transaction(**kwargs)
 
 

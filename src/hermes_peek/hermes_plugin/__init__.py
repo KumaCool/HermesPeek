@@ -11,6 +11,12 @@ from .collector import collect_tool_result
 def _shared_config() -> dict[str, Any]:
     filename = os.environ.get("HERMES_PEEK_CONFIG_FILE")
     if not filename:
+        try:
+            pointer = json.loads((Path(__file__).parent / ".hermes-peek-config.json").read_text(encoding="utf-8"))
+            filename = pointer.get("config_file") if isinstance(pointer, dict) else None
+        except (OSError, ValueError, TypeError):
+            filename = None
+    if not isinstance(filename, str) or not filename:
         return {}
     try:
         data = json.loads(Path(filename).read_text(encoding="utf-8"))
