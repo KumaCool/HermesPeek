@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 显式真实通知 DONE；阶段 4 OFFLINE DONE；TASK 5.1 真实部署 DONE；TASK 5.2 Tailscale/WireGuard 私网入口 DONE；TASK 5.3 不执行（未批准公网入口）`
+**当前总体状态：** `阶段 0–5 DONE（TASK 5.3 未批准、不执行）；阶段 6 代码与离线集成 DONE，真实运行 Gateway 验收待项目负责人单独批准`
 
 ---
 
@@ -41,8 +41,8 @@
 | TASK 5.1 | 本机服务封装 | 5 | `DONE` | 本地服务仅绑定批准地址；重启恢复；健康检查通过 |
 | TASK 5.2 | WireGuard 受控入口验证 | 5 | `DONE` | Tailscale Serve 私网 HTTPS、Telegram WebView 与 owner 认证现场通过 |
 | TASK 5.3 | Cloudflare Tunnel 生产入口（仅在批准后） | 5 | `TODO` | 获授权后验证最小公网暴露、未授权拒绝和 Tunnel 回滚 |
-| TASK 6.1 | 设计通用 Hermes Gateway 扩展点 | 6 | `TODO` | Hermes 上游单元/集成测试证明扩展点跨平台且不破坏现有不变量 |
-| TASK 6.2 | HermesPeek 使用扩展点附加按钮 | 6 | `TODO` | 单消息按钮在 DM/群组/Topic 通过；失败保留纯文本且无重复消息 |
+| TASK 6.1 | 设计通用 Hermes Gateway 扩展点 | 6 | `DONE` | 平台中立 URL action、Telegram send/edit 与流式兼容测试通过 |
+| TASK 6.2 | HermesPeek 使用扩展点附加按钮 | 6 | `DONE` | 插件发布 Preview 并返回 action；不调用 Bot API；离线集成与全量回归通过 |
 
 ### 1.3 状态维护规则
 
@@ -551,7 +551,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 6.1：设计通用 Hermes Gateway 扩展点
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 当前 Hermes 源码 `gateway/run.py` 的最终发送链路和 Telegram adapter 的现有 `reply_markup` 能力。
 
@@ -561,9 +561,11 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **Commit（Hermes 上游仓库）：** `feat: add final message action extension point`
 
+**验收记录（2026-08-05）：** 现场核验当前 Hermes `agent:end` 仍是观察者、`transform_llm_output` 仅改文本，确认缺少结构化最终消息 action。按 TDD 新增 `final_message_actions` Plugin Hook、平台中立 HTTPS URL action 校验和 `FinalResponse` 数据边界；Telegram 非流式发送附加 InlineKeyboard，流式已发送消息使用原消息 edit 附加按钮，不创建第二条消息；无 action 时保持既有行为。目标及相关回归 `58 passed`，compileall 与 diff 检查通过。提交：`3ab8369 feat(gateway): attach actions to final messages`。未修改 Hermes 配置，未重启 Gateway。
+
 ### TASK 6.2：HermesPeek 使用扩展点附加按钮
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** TASK 6.1 真实合并或当前运行版本已具备等价能力。
 
@@ -572,6 +574,8 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 最终只发送一条完成消息；按钮在私聊、群组、Topic 均正确；发送失败时仍保留纯文本答复；现场确认无重复消息。
 
 **Commit：** `feat: attach preview action to final Hermes reply`
+
+**验收记录（2026-08-05）：** HermesPeek Plugin 同时注册 `post_tool_call` 与 `final_message_actions`；最终消息 hook 精确读取当前 session collector、创建 owner 限定 Preview、返回 `Open preview` HTTPS action 并消费 spool，不读取 Bot Token、不直接调用 Bot API。目标集成测试通过，全量回归 `77 passed`；compileall 与 diff 检查通过。提交：`14a09a3 feat: attach preview to final Hermes reply`。真实运行 Gateway 尚未安装这版插件/重启，故本记录仅证明代码与离线集成，不冒充真实单消息 Telegram 验收。
 
 ---
 
