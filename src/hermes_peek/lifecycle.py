@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
@@ -174,7 +175,7 @@ def _run(runner: CommandRunner, command: Sequence[str], *, optional: bool = Fals
         raise LifecycleError(f"{command[0]} failed: {detail}")
 
 
-def install(
+def _install_apply(
     *,
     paths: InstallPaths,
     integration_dir: Path,
@@ -233,6 +234,49 @@ def install(
         _run(runner, target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
         _run(runner, target.command("gateway", "restart"))
     return {"installed": True, "activated": activate, "state_preserved": True}
+
+
+def install(**kwargs) -> dict[str, object]:
+    """Apply setup as a filesystem transaction and retain a recovery journal."""
+    paths: InstallPaths = kwargs["paths"]
+    transaction_id = uuid.uuid4().hex
+    journal_dir = paths.state_dir / "journal"
+    journal_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    journal = journal_dir / f"{transaction_id}.json"
+    resources = (paths.plugin_dir, paths.env_file, paths.config_file, paths.unit_file, paths.manifest_file)
+    backup = Path(tempfile.mkdtemp(prefix=f"txn-{transaction_id}-", dir=paths.state_dir))
+    existed: dict[Path, bool] = {}
+    for index, resource in enumerate(resources):
+        existed[resource] = resource.exists() or resource.is_symlink()
+        if existed[resource]:
+            destination = backup / str(index)
+            if resource.is_dir() and not resource.is_symlink():
+                shutil.copytree(resource, destination, symlinks=True)
+            else:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(resource, destination, follow_symlinks=False)
+    _atomic_write(journal, json.dumps({"id": transaction_id, "state": "applying"}) + "\n", 0o600)
+    try:
+        result = _install_apply(**kwargs)
+    except Exception:
+        for index, resource in reversed(tuple(enumerate(resources))):
+            if resource.is_dir() and not resource.is_symlink():
+                shutil.rmtree(resource, ignore_errors=True)
+            else:
+                resource.unlink(missing_ok=True)
+            if existed[resource]:
+                source = backup / str(index)
+                resource.parent.mkdir(parents=True, exist_ok=True)
+                if source.is_dir() and not source.is_symlink():
+                    shutil.copytree(source, resource, symlinks=True)
+                else:
+                    shutil.copy2(source, resource, follow_symlinks=False)
+        _atomic_write(journal, json.dumps({"id": transaction_id, "state": "rolled_back"}) + "\n", 0o600)
+        shutil.rmtree(backup, ignore_errors=True)
+        raise
+    _atomic_write(journal, json.dumps({"id": transaction_id, "state": "committed"}) + "\n", 0o600)
+    shutil.rmtree(backup, ignore_errors=True)
+    return result
 
 
 def uninstall(

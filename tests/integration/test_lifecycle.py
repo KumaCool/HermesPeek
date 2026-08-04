@@ -212,14 +212,13 @@ def test_setup_writes_configuration_that_gateway_plugin_can_load(tmp_path: Path,
     assert target.env_file.name == "secrets.env"
 
 
-@pytest.mark.xfail(strict=True, reason="TASK 8.4: setup does not roll back files after activation failure")
 def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None:
     target = paths(tmp_path)
     allowed = tmp_path / "workspace"
     allowed.mkdir()
     executable = tmp_path / "hermes-peek"
     executable.write_text("launcher", encoding="utf-8")
-    runner = FailingRunner(("hermes", "plugins", "enable"))
+    runner = FailingRunner(("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "enable"))
 
     with pytest.raises(LifecycleError):
         install(
@@ -236,6 +235,8 @@ def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None
     assert not target.unit_file.exists()
     assert not target.env_file.exists()
     assert not target.manifest_file.exists()
+    journals = list((target.state_dir / "journal").glob("*.json"))
+    assert journals and json.loads(journals[0].read_text())["state"] == "rolled_back"
 
 
 @pytest.mark.xfail(strict=True, reason="TASK 8.6: uninstall ignores service stop failure and deletes live resources")
