@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 MOCK DONE；阶段 4 OFFLINE DONE；TASK 5.1 OFFLINE DONE（真实服务安装、HTTPS/WireGuard/Tunnel 待授权）`
+**当前总体状态：** `阶段 0 DONE；阶段 1 DONE；阶段 2 DONE；阶段 3 显式真实通知 DONE；阶段 4 OFFLINE DONE；TASK 5.1 真实部署 DONE；TASK 5.2 Tailscale/WireGuard 私网入口 DONE；TASK 5.3 不执行（未批准公网入口）`
 
 ---
 
@@ -39,7 +39,7 @@
 | TASK 4.2 | agent:end Gateway Hook | 4 | `DONE` | 无文件静默、幂等、异常隔离、Topic 路由集成测试通过 |
 | TASK 4.3 | 安装与运维说明 | 4 | `DONE` | 临时 HERMES_HOME 安装/卸载通过；不修改真实配置 |
 | TASK 5.1 | 本机服务封装 | 5 | `DONE` | 本地服务仅绑定批准地址；重启恢复；健康检查通过 |
-| TASK 5.2 | WireGuard 受控入口验证 | 5 | `TODO` | 获授权后记录 WireGuard + HTTPS + Telegram WebView 现场证据 |
+| TASK 5.2 | WireGuard 受控入口验证 | 5 | `DONE` | Tailscale Serve 私网 HTTPS、Telegram WebView 与 owner 认证现场通过 |
 | TASK 5.3 | Cloudflare Tunnel 生产入口（仅在批准后） | 5 | `TODO` | 获授权后验证最小公网暴露、未授权拒绝和 Tunnel 回滚 |
 | TASK 6.1 | 设计通用 Hermes Gateway 扩展点 | 6 | `TODO` | Hermes 上游单元/集成测试证明扩展点跨平台且不破坏现有不变量 |
 | TASK 6.2 | HermesPeek 使用扩展点附加按钮 | 6 | `TODO` | 单消息按钮在 DM/群组/Topic 通过；失败保留纯文本且无重复消息 |
@@ -412,6 +412,8 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 - `--notify` 强制要求 chat ID、chat type、HTTPS 外部 URL 与 secret env Token；输出和错误不含绝对路径或 Token。
 - 提交：`3f85f57 feat: notify Telegram from publish command`；提交前 staged 敏感信息扫描 0 命中。
 
+**真实验收补充（2026-08-05）：** 项目负责人明确授权向 Telegram 私聊发送测试 Preview。CLI 发布成功，Bot API 返回 `notified=true` 和消息 ID；项目负责人确认收到通知，点击 `Open preview` 后在 Telegram WebView 中通过 owner 身份认证并看到测试 Markdown。真实 Token 未输出或写入仓库。
+
 **阶段验收记录（2026-08-04）：**
 
 - 阶段 3 Mock 范围全量回归 `65 passed, 1 warning`，工作区提交后干净。
@@ -493,7 +495,7 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 ### TASK 5.1：本机服务封装
 
-**状态：** `DONE（离线验收；真实 user service 未安装）`
+**状态：** `DONE`
 
 **方案来源：** 应用只监听本地地址、外层入口可替换。
 
@@ -509,9 +511,11 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 
 **验收记录（2026-08-04）：** RED 为 unit 缺失且 CLI 不支持 `serve`，2 个测试按预期失败。GREEN 为目标测试 `2 passed`、全量回归 `75 passed`；`systemd-analyze verify`、compileall、diff 检查通过。测试实际启动临时 Uvicorn，绑定随机 `127.0.0.1` 端口，`/healthz` 返回预期 JSON 后终止进程。unit 使用回环监听、失败重启、journal 日志及 systemd 加固；未安装真实 user unit、未持久监听端口、未配置外部入口。提交 `ffaeb1c`，敏感信息扫描 0 命中。
 
+**真实部署补充（2026-08-05）：** 生产环境文件以 `0600` 安装，必需变量均存在且非空；稳定 CLI 由 `uv tool` 安装。`hermes-peek.service` 已启用并运行，只监听 `127.0.0.1:8765`；`/healthz` 返回 200，重启后 PID 变化且健康恢复。此主机的 user manager 对 capability 相关加固指令返回 `218/CAPABILITIES`，故本机安装副本移除这些不兼容指令，保留 `PrivateTmp`、`ProtectSystem=strict`、`ProtectHome=read-only` 和状态目录写入白名单。仓库模板不变。
+
 ### TASK 5.2：WireGuard 受控入口验证
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 产品决策中的优先评估项。
 
@@ -520,6 +524,8 @@ uv run hermes-peek publish docs/00-product-decisions.md \
 **验收依据：** 打开 Telegram 的目标设备接入 WireGuard 后，能够通过受信任 HTTPS 打开 Mini App；若任一条件不满足，记录证据并停止，不擅自切换 Cloudflare 方案。
 
 **Commit：** `docs: record WireGuard ingress validation`
+
+**验收记录（2026-08-05）：** 配置 Tailscale Serve（tailnet only），将 `https://kuma-mini.tail5d0941.ts.net/` 代理到 `http://127.0.0.1:8765`，未启用 Funnel。TLS 证书验证结果为 0，直连 HTTPS `/healthz` 返回 200；项目负责人在同一 tailnet 客户端使用 MagicDNS 域名访问并确认健康 JSON。随后完成真实 Telegram 私聊通知、按钮打开、WebView owner 身份认证和 Markdown 预览。未认证 Preview API 返回 401。服务日志扫描 229 行，Bot Token、Token 形态、原始 initData、Cookie 和允许根绝对路径均为 0 命中。
 
 ### TASK 5.3：Cloudflare Tunnel 生产入口（仅在批准后）
 
