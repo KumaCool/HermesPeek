@@ -86,7 +86,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     marker.write_text("{}", encoding="utf-8")
     removed = uninstall(paths=target, runner=runner)
 
-    assert removed == {"uninstalled": True, "data_purged": False, "state_preserved": True}
+    assert removed["uninstalled"] is True and removed["state_preserved"] is True
     assert not target.plugin_dir.exists()
     assert not target.unit_file.exists() and not target.env_file.exists()
     assert marker.exists()
@@ -97,7 +97,6 @@ def test_uninstall_purge_removes_state_and_is_idempotent(tmp_path: Path) -> None
     target = paths(tmp_path)
     target.state_dir.mkdir(parents=True)
     (target.state_dir / "preview.json").write_text("{}", encoding="utf-8")
-    target.plugin_dir.mkdir(parents=True)
 
     first = uninstall(paths=target, purge_data=True, deactivate=False)
     second = uninstall(paths=target, purge_data=True, deactivate=False)
@@ -239,7 +238,6 @@ def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None
     assert journals and json.loads(journals[0].read_text())["state"] == "rolled_back"
 
 
-@pytest.mark.xfail(strict=True, reason="TASK 8.6: uninstall ignores service stop failure and deletes live resources")
 def test_uninstall_keeps_resources_when_service_stop_fails(tmp_path: Path) -> None:
     target = paths(tmp_path)
     target.plugin_dir.mkdir(parents=True)
@@ -260,7 +258,6 @@ def test_uninstall_keeps_resources_when_service_stop_fails(tmp_path: Path) -> No
     assert target.manifest_file.exists()
 
 
-@pytest.mark.xfail(strict=True, reason="TASK 8.6: uninstall does not enforce manifest ownership or file hashes")
 def test_uninstall_preserves_unowned_or_modified_plugin_directory(tmp_path: Path) -> None:
     target = paths(tmp_path)
     target.plugin_dir.mkdir(parents=True)
@@ -271,3 +268,16 @@ def test_uninstall_preserves_unowned_or_modified_plugin_directory(tmp_path: Path
         uninstall(paths=target, deactivate=False)
 
     assert user_file.exists()
+
+
+def test_uninstall_backs_up_modified_owned_plugin(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    install(paths=target, integration_dir=PLUGIN, executable=executable,
+            allowed_roots=(allowed,), external_url="https://preview.example.test",
+            bot_token="123456789:" + "Z" * 35, activate=False)
+    (target.plugin_dir / "handler.py").write_text("user modification")
+    result = uninstall(paths=target, deactivate=False)
+    assert result["modified_backups"]
+    assert Path(result["modified_backups"][0]).read_text() == "user modification"

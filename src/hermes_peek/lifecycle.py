@@ -287,25 +287,47 @@ def uninstall(
     runner: CommandRunner = _default_runner,
 ) -> dict[str, object]:
     target = HermesTarget.from_paths(paths)
+    if not paths.manifest_file.is_file():
+        if paths.plugin_dir.exists():
+            raise LifecycleError("committed install manifest is required for recursive removal")
+        if purge_data:
+            shutil.rmtree(paths.state_dir, ignore_errors=True)
+        return {"uninstalled": True, "data_purged": purge_data, "state_preserved": not purge_data, "modified_backups": []}
+    try:
+        manifest = json.loads(paths.manifest_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise LifecycleError("committed install manifest is invalid") from exc
     if deactivate:
-        _run(runner, target.command("plugins", "disable", "hermes-peek"), optional=True)
-        _run(runner, target.command("gateway", "restart"), optional=True)
-        _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"), optional=True)
+        _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
+        _run(runner, target.command("plugins", "disable", "hermes-peek"))
+        _run(runner, target.command("gateway", "restart"))
 
-    shutil.rmtree(paths.plugin_dir, ignore_errors=True)
-    shutil.rmtree(paths.legacy_hook_dir, ignore_errors=True)
+    backups: list[str] = []
+    backup_dir = paths.state_dir / "uninstall-backups" / target.identity[:12]
+    owned_hashes = manifest.get("plugin_hashes", {})
+    for child in list(paths.plugin_dir.iterdir()) if paths.plugin_dir.is_dir() else []:
+        expected = owned_hashes.get(child.name)
+        if expected is None or child.is_symlink():
+            raise LifecycleError("plugin directory contains an unowned resource")
+        actual = hashlib.sha256(child.read_bytes()).hexdigest()
+        if actual != expected:
+            backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            destination = backup_dir / child.name
+            shutil.move(child, destination)
+            backups.append(str(destination))
+        else:
+            child.unlink()
+    if paths.plugin_dir.exists():
+        paths.plugin_dir.rmdir()
     paths.unit_file.unlink(missing_ok=True)
     paths.env_file.unlink(missing_ok=True)
+    paths.config_file.unlink(missing_ok=True)
     paths.manifest_file.unlink(missing_ok=True)
-    try:
-        paths.config_dir.rmdir()
-    except OSError:
-        pass
     if purge_data:
         shutil.rmtree(paths.state_dir, ignore_errors=True)
     if deactivate:
-        _run(runner, ("systemctl", "--user", "daemon-reload"), optional=True)
-    return {"uninstalled": True, "data_purged": purge_data, "state_preserved": not purge_data}
+        _run(runner, ("systemctl", "--user", "daemon-reload"))
+    return {"uninstalled": True, "data_purged": purge_data, "state_preserved": not purge_data, "modified_backups": backups}
 
 
 def read_bot_token(env_file: Path) -> str:
