@@ -66,6 +66,22 @@ class InstallPaths:
         return self.systemd_dir / "hermes-peek.service"
 
 
+@dataclass(frozen=True, slots=True)
+class HermesTarget:
+    hermes_home: Path
+
+    @classmethod
+    def from_paths(cls, paths: InstallPaths) -> "HermesTarget":
+        return cls(paths.hermes_home.expanduser().resolve())
+
+    @property
+    def identity(self) -> str:
+        return hashlib.sha256(str(self.hermes_home).encode()).hexdigest()
+
+    def command(self, *arguments: str) -> tuple[str, ...]:
+        return ("env", f"HERMES_HOME={self.hermes_home}", "hermes", *arguments)
+
+
 def _atomic_write(path: Path, content: str, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -167,6 +183,7 @@ def install(
     activate: bool = True,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, object]:
+    target = HermesTarget.from_paths(paths)
     roots = _validate_setup(allowed_roots, external_url, bot_token)
     executable = executable.expanduser().resolve(strict=True)
     source = integration_dir.expanduser().resolve(strict=True)
@@ -190,6 +207,7 @@ def install(
     }
     manifest = {
         "schema_version": 1,
+        "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
         "plugin_dir": str(paths.plugin_dir),
         "env_file": str(paths.env_file),
         "unit_file": str(paths.unit_file),
@@ -201,8 +219,8 @@ def install(
     if activate:
         _run(runner, ("systemctl", "--user", "daemon-reload"))
         _run(runner, ("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
-        _run(runner, ("hermes", "plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
-        _run(runner, ("hermes", "gateway", "restart"))
+        _run(runner, target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
+        _run(runner, target.command("gateway", "restart"))
     return {"installed": True, "activated": activate, "state_preserved": True}
 
 
@@ -213,9 +231,10 @@ def uninstall(
     deactivate: bool = True,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, object]:
+    target = HermesTarget.from_paths(paths)
     if deactivate:
-        _run(runner, ("hermes", "plugins", "disable", "hermes-peek"), optional=True)
-        _run(runner, ("hermes", "gateway", "restart"), optional=True)
+        _run(runner, target.command("plugins", "disable", "hermes-peek"), optional=True)
+        _run(runner, target.command("gateway", "restart"), optional=True)
         _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"), optional=True)
 
     shutil.rmtree(paths.plugin_dir, ignore_errors=True)

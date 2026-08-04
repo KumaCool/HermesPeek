@@ -78,8 +78,8 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert runner.commands == [
         ("systemctl", "--user", "daemon-reload"),
         ("systemctl", "--user", "enable", "--now", "hermes-peek.service"),
-        ("hermes", "plugins", "enable", "--no-allow-tool-override", "hermes-peek"),
-        ("hermes", "gateway", "restart"),
+        ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "enable", "--no-allow-tool-override", "hermes-peek"),
+        ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "gateway", "restart"),
     ]
 
     marker = target.state_dir / "keep.json"
@@ -90,7 +90,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert not target.plugin_dir.exists()
     assert not target.unit_file.exists() and not target.env_file.exists()
     assert marker.exists()
-    assert ("hermes", "plugins", "disable", "hermes-peek") in runner.commands
+    assert ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "disable", "hermes-peek") in runner.commands
 
 
 def test_uninstall_purge_removes_state_and_is_idempotent(tmp_path: Path) -> None:
@@ -137,7 +137,6 @@ def test_read_bot_token_accepts_hermes_env_without_copying_other_secrets(tmp_pat
     assert read_bot_token(env) == token
 
 
-@pytest.mark.xfail(strict=True, reason="TASK 8.2: Hermes commands are not scoped to the selected profile")
 def test_setup_scopes_hermes_commands_to_selected_home(tmp_path: Path) -> None:
     target = paths(tmp_path)
     allowed = tmp_path / "workspace"
@@ -156,9 +155,33 @@ def test_setup_scopes_hermes_commands_to_selected_home(tmp_path: Path) -> None:
         runner=runner,
     )
 
-    hermes_commands = [command for command in runner.commands if command[0] == "hermes"]
+    hermes_commands = [command for command in runner.commands if "hermes" in command]
     assert hermes_commands
-    assert all(str(target.hermes_home) in command for command in hermes_commands)
+    assert all(f"HERMES_HOME={target.hermes_home}" in command for command in hermes_commands)
+
+
+def test_manifest_records_stable_target_identity(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"
+    allowed.mkdir()
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("launcher", encoding="utf-8")
+
+    install(
+        paths=target,
+        integration_dir=PLUGIN,
+        executable=executable,
+        allowed_roots=(allowed,),
+        external_url="https://preview.example.test",
+        bot_token="123456789:" + "G" * 35,
+        activate=False,
+    )
+
+    manifest = json.loads(target.manifest_file.read_text(encoding="utf-8"))
+    assert manifest["target"] == {
+        "hermes_home": str(target.hermes_home),
+        "identity": hashlib.sha256(str(target.hermes_home).encode()).hexdigest(),
+    }
 
 
 @pytest.mark.xfail(strict=True, reason="TASK 8.3: the Gateway plugin cannot load setup's service-only env")
