@@ -30,6 +30,32 @@ def _spool_for(state_dir: Path, session_id: str) -> Path | None:
     return None
 
 
+def publish_action(state_dir: Path, session_id: str, user_id: str) -> dict[str, str] | None:
+    """Publish one session spool and consume it after action creation."""
+    settings = Settings.from_env()
+    spool = _spool_for(state_dir, session_id)
+    if spool is None:
+        return None
+    record = json.loads(spool.read_text(encoding="utf-8"))
+    files = tuple(Path(item) for item in record.get("paths", []))
+    if not files:
+        return None
+    service = PreviewService(
+        registry=PreviewRegistry(settings.state_dir),
+        path_policy=PathPolicy(settings.allowed_roots, max_file_bytes=settings.max_file_bytes),
+        default_ttl_seconds=settings.default_ttl_seconds,
+        external_base_url=str(settings.external_base_url) if settings.external_base_url else None,
+    )
+    published = service.publish(
+        files, entry=files[0], title="Hermes files", owner_telegram_user_id=user_id,
+    )
+    if published.url is None:
+        return None
+    action = {"type": "url", "label": "Open preview", "url": published.url}
+    spool.unlink()
+    return action
+
+
 def handle(event_type: str, context: dict[str, Any]) -> None:
     if event_type != "agent:end" or context.get("platform") != "telegram":
         return

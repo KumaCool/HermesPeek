@@ -94,7 +94,7 @@ def test_patch_payload_extracts_each_updated_file_but_not_deleted_file(tmp_path:
     assert record["paths"] == sorted([str(first), str(second)])
 
 
-def test_plugin_registers_only_post_tool_call_hook() -> None:
+def test_plugin_registers_supported_hooks() -> None:
     package = PLUGIN_PATH.parent
     spec = importlib.util.spec_from_file_location(
         "hermes_peek_plugin", package / "__init__.py",
@@ -111,5 +111,4 @@ def test_plugin_registers_only_post_tool_call_hook() -> None:
             hooks.append((name, callback))
 
     module.register(Context())
-    assert len(hooks) == 1
-    assert hooks[0][0] == "post_tool_call"
+    assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]

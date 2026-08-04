@@ -20,6 +20,20 @@ def load_handler():
     return module
 
 
+def load_plugin():
+    plugin = Path(__file__).resolve().parents[2] / "integrations" / "hermes" / "__init__.py"
+    spec = importlib.util.spec_from_file_location(
+        "hermes_peek_plugin",
+        plugin,
+        submodule_search_locations=[str(plugin.parent)],
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def write_spool(state: Path, session: str, paths: list[Path], name: str = "item") -> Path:
     directory = state / "collector"
     directory.mkdir(parents=True, exist_ok=True)
@@ -95,3 +109,48 @@ def test_failure_keeps_spool_and_duplicate_delivery_is_suppressed(monkeypatch, t
     hook.handle("agent:end", context)
     hook.handle("agent:end", context)
     assert calls == 1
+
+
+def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tmp_path: Path) -> None:
+    plugin = load_plugin()
+    root = tmp_path / "files"
+    root.mkdir()
+    document = root / "result.md"
+    document.write_text("# Result")
+    state = tmp_path / "state"
+    spool = write_spool(state, "session-action", [document])
+    monkeypatch.setenv("HERMES_PEEK_ALLOWED_ROOTS", str(root))
+    monkeypatch.setenv("HERMES_PEEK_STATE_DIR", str(state))
+    monkeypatch.setenv("HERMES_PEEK_EXTERNAL_BASE_URL", "https://preview.example/")
+    monkeypatch.delenv("HERMES_PEEK_TELEGRAM_BOT_TOKEN", raising=False)
+
+    action = plugin._final_message_actions(
+        session_id="session-action",
+        platform="telegram",
+        user_id="123",
+        chat_id="-1001",
+        thread_id="6030",
+        chat_type="forum",
+        response_text="Done.",
+    )
+
+    assert action == {
+        "type": "url",
+        "label": "Open preview",
+        "url": action["url"],
+    }
+    assert action["url"].startswith("https://preview.example/p/")
+    assert not spool.exists()
+
+
+def test_plugin_registers_collector_and_final_message_action_hooks() -> None:
+    plugin = load_plugin()
+    hooks = []
+
+    class Context:
+        def register_hook(self, name, callback):
+            hooks.append((name, callback))
+
+    plugin.register(Context())
+
+    assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]

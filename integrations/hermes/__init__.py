@@ -39,5 +39,29 @@ def _post_tool_call(
         return
 
 
+def _final_message_actions(
+    response_text: str = "",
+    session_id: str = "",
+    platform: str = "",
+    user_id: str = "",
+    **_: Any,
+) -> dict[str, str] | None:
+    """Publish collected files and return an action for Hermes' final reply."""
+    if platform != "telegram" or not response_text or not session_id or not user_id:
+        return None
+    state_dir = os.environ.get("HERMES_PEEK_STATE_DIR")
+    if not state_dir:
+        return None
+    try:
+        # Imported lazily so the post_tool_call collector remains lightweight.
+        from .handler import publish_action
+
+        return publish_action(Path(state_dir), session_id, user_id)
+    except Exception:
+        # Final response delivery must never depend on preview publication.
+        return None
+
+
 def register(ctx) -> None:
     ctx.register_hook("post_tool_call", _post_tool_call)
+    ctx.register_hook("final_message_actions", _final_message_actions)
