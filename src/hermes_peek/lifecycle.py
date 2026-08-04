@@ -241,6 +241,7 @@ def _install_apply(
     runner: CommandRunner = _default_runner,
     service_backend: Any | None = None,
     transaction_id: str = "pending",
+    defer_gateway_restart: bool = False,
 ) -> dict[str, object]:
     target = HermesTarget.from_paths(paths)
     roots = _validate_setup(allowed_roots, external_url, bot_token)
@@ -302,8 +303,10 @@ def _install_apply(
         _run(runner, ("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
         backend.verify_running()
         _run(runner, target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
-        _run(runner, target.command("gateway", "restart"))
-    return {"installed": True, "activated": activate, "state_preserved": True}
+        if not defer_gateway_restart:
+            _run(runner, target.command("gateway", "restart"))
+    return {"installed": True, "activated": activate, "state_preserved": True,
+            "activation_pending_gateway_restart": bool(activate and defer_gateway_restart)}
 
 
 @contextmanager

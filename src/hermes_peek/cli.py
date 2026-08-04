@@ -56,6 +56,16 @@ def lifecycle_runner(command):
     return subprocess.run(command, text=True, capture_output=True, check=False)
 
 
+def _running_inside_gateway_session() -> bool:
+    """Avoid restarting the Gateway from a turn currently served by it."""
+    try:
+        import importlib
+        get_session_env = importlib.import_module("gateway.session_context").get_session_env
+        return bool(get_session_env("HERMES_SESSION_PLATFORM", ""))
+    except (ImportError, AttributeError, RuntimeError):
+        return bool(os.environ.get("HERMES_SESSION_PLATFORM"))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hermes-peek")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -171,6 +181,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     activate=not args.no_activate,
                     telegram=TelegramLifecycle(telegram_lifecycle_transport()),
                     configure_telegram_menu=args.configure_telegram_menu,
+                    defer_gateway_restart=_running_inside_gateway_session(),
                 )
             else:
                 if args.dry_run and not args.purge:

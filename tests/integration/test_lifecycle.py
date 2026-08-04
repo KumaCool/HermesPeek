@@ -407,6 +407,23 @@ def test_rollback_refuses_concurrent_lifecycle_operation(tmp_path: Path) -> None
             rollback_transaction(target, "a" * 32)
 
 
+def test_setup_defers_gateway_restart_for_current_gateway_session(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = StatefulRunner()
+
+    result = install(
+        paths=target, integration_dir=PLUGIN, executable=executable,
+        allowed_roots=(allowed,), external_url="https://preview.example.test",
+        bot_token="123456789:" + "D" * 35, runner=runner,
+        service_backend=FakeServiceBackend(runner), defer_gateway_restart=True,
+    )
+
+    assert result["activation_pending_gateway_restart"] is True
+    assert not any("gateway restart" in " ".join(command) for command in runner.commands)
+
+
 def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
