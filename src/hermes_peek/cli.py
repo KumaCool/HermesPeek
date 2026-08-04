@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -28,12 +29,18 @@ from hermes_peek.registry import (
     PreviewRegistry,
 )
 from hermes_peek.service import PreviewService, PublishError
+from hermes_peek.lifecycle_ux import status as lifecycle_status, doctor as lifecycle_doctor
+from hermes_peek.service_backend import SystemdUserBackend
 from hermes_peek.telegram import TelegramClient, TelegramNotificationError
 
 
 def telegram_transport():
     """Production uses httpx's default transport; tests inject MockTransport here."""
     return None
+
+
+def lifecycle_runner(command):
+    return subprocess.run(command, text=True, capture_output=True, check=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,6 +82,13 @@ def build_parser() -> argparse.ArgumentParser:
     uninstall.add_argument("--hermes-home", type=Path)
     uninstall.add_argument("--purge-data", action="store_true")
     uninstall.add_argument("--no-deactivate", action="store_true")
+    status = subparsers.add_parser("status", help="Show lifecycle status")
+    status.add_argument("--json", action="store_true")
+    status.add_argument("--hermes-home", type=Path)
+    doctor = subparsers.add_parser("doctor", help="Run read-only lifecycle diagnostics")
+    doctor.add_argument("--hermes-home", type=Path)
+    service = subparsers.add_parser("service", help="Manage the local service")
+    service.add_argument("action", choices=("start", "stop", "restart", "logs"))
     return parser
 
 
@@ -89,6 +103,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(arguments)
     try:
+        if args.command in {"status", "doctor", "service"}:
+            paths = InstallPaths.for_user(hermes_home=getattr(args, "hermes_home", None))
+            if args.command == "status":
+                output = lifecycle_status(paths, lifecycle_runner)
+            elif args.command == "doctor":
+                output = lifecycle_doctor(paths, lifecycle_runner)
+            else:
+                backend = SystemdUserBackend(lifecycle_runner)
+                operation = getattr(backend, args.action)
+                value = operation()
+                output = {"action": args.action, "ok": True}
+                if value is not None:
+                    output["output"] = value
+            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            return 0
         if args.command in {"setup", "uninstall"}:
             paths = InstallPaths.for_user(hermes_home=args.hermes_home)
             if args.command == "setup":
