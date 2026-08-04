@@ -88,6 +88,14 @@ journalctl --user -u hermes-peek.service --since today
 
 ## 7. 停止与卸载
 
+生命周期 CLI 的目标是按安全顺序禁用准确 profile 的 Hermes 插件、重启 Gateway、确认服务退出，再删除 manifest 证明属于 HermesPeek 的资源。当前仓库命令仍是开发原型，尚缺事务回滚、停服硬门槛与所有权保护，**不得在真实 profile 上直接采用以下命令**：
+
+```bash
+hermes-peek uninstall
+```
+
+目标语义是默认保留状态目录，只有 dry-run、删除清单和明确确认后才执行 purge。当前原型的 `--purge-data` 不代表最终安全接口。完整方案与实施状态见 [`06-installation-uninstallation.md`](06-installation-uninstallation.md) 和 [`plan/03-lifecycle-setup-uninstall-rollout.md`](plan/03-lifecycle-setup-uninstall-rollout.md)。以下手工命令也只作为经批准维护窗口中的故障恢复参考，不应由普通用户盲目执行：
+
 ```bash
 systemctl --user disable --now hermes-peek.service
 rm ~/.config/systemd/user/hermes-peek.service

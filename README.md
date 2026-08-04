@@ -88,6 +88,30 @@ http://127.0.0.1:8765/preview?path=/path/to/safe/workspace/README.md
 uv run pytest
 ```
 
+## 安装与卸载
+
+生命周期的目标是由单一 CLI 管理，不需要手工复制插件、编辑 systemd unit 或逐条运行脚本。当前仓库已有以下命令的**开发原型**，但尚未达到生产发布门槛，也未在真实 Hermes profile 上验收：
+
+```bash
+hermes-peek setup \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test
+```
+
+安全卸载默认停止服务、禁用 Hermes 插件并删除配置，同时保留 Preview Registry：
+
+```bash
+hermes-peek uninstall
+```
+
+确认无需恢复时才永久删除状态：
+
+```bash
+hermes-peek uninstall --purge-data
+```
+
+当前原型仍有 profile 作用域、Gateway 共享配置、事务回滚、安全停服和资源所有权等阻断缺口，不应直接用于真实卸载。Telegram Main Mini App 的首次绑定没有公开 Bot API，必须由 Bot owner 在 BotFather 完成一次；普通用户可使用维护者预配置的 Bot。完整目标方案、当前进度和发布门槛见 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md) 与 [`docs/plan/03-lifecycle-setup-uninstall-rollout.md`](docs/plan/03-lifecycle-setup-uninstall-rollout.md)。
+
 ## 安全模型
 
 HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
@@ -124,7 +148,10 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 - [03 安全模型](docs/03-security.md)
 - [04 Hermes 集成](docs/04-hermes-integration.md)
 - [05 本机服务运维](docs/05-operations.md)
+- [06 安装、升级与安全卸载](docs/06-installation-uninstallation.md)
 - [01 实施任务计划、TASK 状态与验收矩阵](docs/plan/01-implementation-task-plan.md)
+- [02 Telegram Topic Mini App 落地方案](docs/plan/02-telegram-topic-mini-app-rollout.md)
+- [03 生命周期 Setup/Uninstall 实施计划](docs/plan/03-lifecycle-setup-uninstall-rollout.md)
 
 ## 路线图
 
@@ -135,6 +162,8 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 5. Hermes Plugin 和 Gateway Hook 自动收集；
 6. 经授权验证 HTTPS 与生产入口；
 7. 通过 Hermes 通用 `final_message_actions` 扩展点，将预览按钮融合进最终回复（代码与离线集成已完成，真实 Gateway 验收待授权）。
+8. 通过 Main Mini App Direct Link、短期 opaque launch reference 和服务端 `initData`/owner 校验，实现 Telegram Topic Mini App 闭环（方案已落地，代码与真实验收待执行）。
+9. 通过带事务、回滚、资源所有权、状态诊断和显式 purge 的单一 CLI 管理完整生命周期（方案与计划已落地；当前仅有未完成原型）。
 
 路线图不代表相关能力已经实现，实时进度以任务计划中的 TASK 状态为准。
 

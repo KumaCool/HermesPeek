@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0–5 DONE（TASK 5.3 未批准、不执行）；阶段 6 代码与离线集成 DONE，真实运行 Gateway 验收待项目负责人单独批准`
+**当前总体状态：** `阶段 0–5 DONE（TASK 5.3 未批准、不执行）；阶段 6 代码与离线集成 DONE；阶段 7 已规划且存在部分未提交原型；阶段 8 生命周期方案与计划已于 2026-08-05 评审通过，存在未完成原型，真实环境验收仍待项目负责人单独批准`
 
 ---
 
@@ -623,5 +623,41 @@ uv run mypy src/hermes_peek
 8. 才进入下一个 TASK。
 
 阶段结束：运行全量测试，确认工作区干净，统一汇报实际命令与结果，等待“继续”。
+
+---
+
+## 4. 阶段 7：Telegram Topic Mini App 闭环
+
+**状态：** `PLANNED`
+
+阶段 7 把群组/Forum Topic 中的普通 Preview HTTPS 按钮改为 Telegram Main Mini App Direct Link，并通过短期 opaque launch reference、服务端 `Telegram.WebApp.initData` 校验和 Preview owner 比对打开指定 Preview。
+
+完整实施任务、API、测试矩阵、部署、真实验收和回滚步骤见：
+
+- [`02-telegram-topic-mini-app-rollout.md`](02-telegram-topic-mini-app-rollout.md)
+
+已验证前提：Main Mini App 无参数入口已由项目负责人在 Telegram 客户端实测成功。尚未实现或验收的内容不得记为完成，包括 launch reference、`startapp` 路由、Topic Direct Link action、真实 profile 安装和 Gateway 重启。
+
+未经项目负责人明确授权，阶段 7 的真实部署 TASK 保持 `BLOCKED_PENDING_APPROVAL`。
+
+---
+
+## 5. 阶段 8：安装、升级、安全卸载与 Purge 生命周期
+
+**状态：** `REVIEW_APPROVED / PROTOTYPE_EXISTS / READY_TO_CONTINUE`
+
+阶段 8 将当前手工安装和运维步骤收敛为单一 CLI，覆盖 profile 发现、安装计划、共享配置、service、Hermes plugin、Telegram 可自动化设置、事务回滚、默认保留数据的卸载，以及带 dry-run 和确认的 purge。
+
+当前已存在 `setup`、`uninstall`、`--purge-data`、plugin 打包和基础离线测试原型，全量回归曾达到 `82 passed`；但审计确认仍有 profile 作用域、Gateway 配置断链、无事务回滚、卸载停用失败仍删除、所有权保护不足和 Telegram 仅格式校验等阻断问题。因此不得标记 DONE 或用于真实 profile。
+
+完整目标方案、数据保留矩阵和发布门槛见：
+
+- [`../06-installation-uninstallation.md`](../06-installation-uninstallation.md)
+
+具体 TASK、依赖、当前进度、验收与提交策略见：
+
+- [`03-lifecycle-setup-uninstall-rollout.md`](03-lifecycle-setup-uninstall-rollout.md)
+
+下一步必须先评审 TASK 8.0 文档，再从失败测试和 profile 作用域修复开始；未经明确授权，不执行真实 setup/uninstall、systemd service 变更或 Gateway 重启。
 
 ---
