@@ -68,6 +68,15 @@ def test_cli_exposes_status_doctor_and_service_commands():
     assert parser.parse_args(["setup","--allowed-root","/tmp","--external-url","https://example.test","--plan"]).plan is True
 
 
+def test_cli_service_stop_verifies_process_and_port_exit(monkeypatch, capsys):
+    import hermes_peek.cli as cli
+    calls = []
+    monkeypatch.setattr(cli.SystemdUserBackend, "stop", lambda self: calls.append("stop"))
+    monkeypatch.setattr(cli.SystemdUserBackend, "verify_stopped", lambda self: calls.append("verify"))
+    assert main(["service", "stop"]) == 0
+    assert calls == ["stop", "verify"]
+
+
 def test_setup_plan_is_read_only_redacted_and_lists_actions(tmp_path, monkeypatch, capsys):
     import hermes_peek.cli as cli
     paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")

@@ -122,6 +122,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 backend = SystemdUserBackend(lifecycle_runner)
                 operation = getattr(backend, args.action)
                 value = operation()
+                if args.action == "stop":
+                    backend.verify_stopped()
                 output = {"action": args.action, "ok": True}
                 if value is not None:
                     output["output"] = value

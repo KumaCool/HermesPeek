@@ -74,12 +74,15 @@ class StatefulRunner(RecordingRunner):
 
 
 class FakeServiceBackend:
-    def __init__(self, runner): self.runner = runner
+    def __init__(self, runner): self.runner = runner; self.stopped_verified = False
     def preflight(self): return None
     def verify_running(self):
         if isinstance(self.runner, StatefulRunner):
             self.runner.service_enabled = self.runner.service_active = True
         return {"active": True, "enabled": True}
+    def verify_stopped(self):
+        self.stopped_verified = True
+        return {"active": False, "pid": 0, "port": {"listening": False}}
 
 
 class SetupTelegramTransport:
@@ -144,7 +147,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
 
     marker = target.state_dir / "keep.json"
     marker.write_text("{}", encoding="utf-8")
-    removed = uninstall(paths=target, runner=runner)
+    removed = uninstall(paths=target, runner=runner, service_backend=FakeServiceBackend(runner))
 
     assert removed["uninstalled"] is True and removed["state_preserved"] is True
     assert not target.plugin_dir.exists()
@@ -382,6 +385,32 @@ def test_later_setup_failure_conditionally_restores_telegram_menu(tmp_path: Path
                 activate=False,telegram=telegram,configure_telegram_menu=True,expected_bot_id=7,
                 final_verify=fail_verify)
     assert transport.menu == {"type":"default"}
+
+
+def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = StatefulRunner(); backend = FakeServiceBackend(runner)
+    install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+            external_url="https://preview.example.test", bot_token="123456789:" + "N" * 35,
+            activate=False)
+    runner.plugin_enabled = True
+    uninstall(paths=target, runner=runner, service_backend=backend)
+    assert backend.stopped_verified is True
+    status_commands = [c for c in runner.commands if "plugins status hermes-peek" in " ".join(c)]
+    assert status_commands and not target.plugin_dir.exists()
+
+
+def test_setup_failure_restores_legacy_hook_directory(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    target.legacy_hook_dir.mkdir(parents=True); marker = target.legacy_hook_dir / "user.conf"; marker.write_text("keep")
+    runner = FailingRunner(("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "enable"))
+    with pytest.raises(LifecycleError):
+        install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                external_url="https://preview.example.test", bot_token="123456789:" + "L" * 35,
+                runner=runner, service_backend=FakeServiceBackend(runner))
+    assert marker.read_text() == "keep"
 
 
 def test_uninstall_keeps_resources_when_service_stop_fails(tmp_path: Path) -> None:

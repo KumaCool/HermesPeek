@@ -312,7 +312,8 @@ def install(**kwargs) -> dict[str, object]:
     journal_dir = paths.state_dir / "journal"
     journal_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     journal = journal_dir / f"{transaction_id}.json"
-    resources = (paths.plugin_dir, paths.env_file, paths.config_file, paths.unit_file, paths.manifest_file)
+    resources = (paths.plugin_dir, paths.legacy_hook_dir, paths.env_file, paths.config_file,
+                 paths.unit_file, paths.manifest_file)
     backup = Path(tempfile.mkdtemp(prefix=f"txn-{transaction_id}-", dir=paths.state_dir))
     existed: dict[str, bool] = {}
     for index, resource in enumerate(resources):
@@ -389,12 +390,23 @@ def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: Co
     return {"rolled_back": True, "transaction_id": transaction_id}
 
 
+def _verify_plugin_unloaded(paths: InstallPaths, runner: CommandRunner) -> None:
+    result = runner(HermesTarget.from_paths(paths).command("plugins", "status", "hermes-peek"))
+    try:
+        state = json.loads(result.stdout or "{}") if result.returncode == 0 else {}
+    except (TypeError, ValueError):
+        state = {}
+    if result.returncode or state.get("enabled") or state.get("loaded"):
+        raise LifecycleError("plugin remained enabled or loaded after Gateway restart")
+
+
 def uninstall(
     *,
     paths: InstallPaths,
     purge_data: bool = False,
     deactivate: bool = True,
     runner: CommandRunner = _default_runner,
+    service_backend: Any | None = None,
 ) -> dict[str, object]:
     target = HermesTarget.from_paths(paths)
     if not paths.manifest_file.is_file():
@@ -422,9 +434,13 @@ def uninstall(
             if not any(resolved == root.resolve() or resolved.is_relative_to(root.resolve()) for root in approved):
                 raise LifecycleError("owned resource is outside approved directories")
     if deactivate:
+        from .service_backend import SystemdUserBackend
+        backend = service_backend or SystemdUserBackend(runner)
         _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
+        backend.verify_stopped()
         _run(runner, target.command("plugins", "disable", "hermes-peek"))
         _run(runner, target.command("gateway", "restart"))
+        _verify_plugin_unloaded(paths, runner)
 
     backups: list[str] = []
     backup_dir = paths.state_dir / "uninstall-backups" / target.identity[:12]
