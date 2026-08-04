@@ -48,3 +48,23 @@ def test_preview_shell_is_a_mobile_telegram_app_with_auth_loading_and_error_stat
     assert "var(--tg-theme-bg-color" in style.text
     assert "@media" in style.text
     assert str(tmp_path) not in shell.text + script.text + style.text
+
+
+def test_home_is_a_telegram_startapp_router_without_trusting_user_identity(tmp_path: Path) -> None:
+    root = tmp_path / "files"
+    root.mkdir()
+    settings = Settings(
+        allowed_roots=(root,), state_dir=tmp_path / "state", max_file_bytes=4096,
+        default_ttl_seconds=3600, development=True,
+    )
+    client = TestClient(create_app(settings))
+
+    home = client.get("/")
+
+    assert home.status_code == 200
+    assert 'src="https://telegram.org/js/telegram-web-app.js"' in home.text
+    assert "tgWebAppStartParam" in home.text
+    assert "initDataUnsafe?.start_param" in home.text
+    assert "^pv_[A-Za-z0-9_-]{40,64}$" in home.text
+    assert "location.replace(`/p/${previewId}`)" in home.text
+    assert "user.id" not in home.text

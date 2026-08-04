@@ -110,7 +110,34 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse)
     def home() -> str:
-        return "<!doctype html><title>HermesPeek</title><h1>HermesPeek</h1>"
+        return """<!doctype html><html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HermesPeek</title><script src="https://telegram.org/js/telegram-web-app.js"></script></head>
+<body><main><h1>HermesPeek</h1><p id="launch-state">正在打开预览…</p></main>
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+  const query = new URLSearchParams(window.location.search);
+  const fromQuery = query.get('tgWebAppStartParam');
+  const fromTelegram = tg?.initDataUnsafe?.start_param;
+  const previewId = fromTelegram || fromQuery;
+  const state = document.querySelector('#launch-state');
+  if (!previewId) {
+    state.textContent = '请从 Hermes 消息中的 Open preview 按钮打开预览。';
+    return;
+  }
+  if (fromTelegram && fromQuery && fromTelegram !== fromQuery) {
+    state.textContent = '预览参数无效，请返回 Telegram 后重试。';
+    return;
+  }
+  if (!/^pv_[A-Za-z0-9_-]{40,64}$/.test(previewId)) {
+    state.textContent = '预览参数无效，请返回 Telegram 后重试。';
+    return;
+  }
+  location.replace(`/p/${previewId}`);
+})();
+</script></body></html>"""
 
     @application.get("/p/{preview_id}", response_class=HTMLResponse)
     def preview_shell(preview_id: str) -> str:
