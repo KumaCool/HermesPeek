@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hermes_peek.lifecycle import LifecycleError, InstallPaths, install, read_bot_token, rollback_transaction, uninstall
+from hermes_peek.lifecycle import HermesTarget, LifecycleError, InstallPaths, install, read_bot_token, rollback_transaction, uninstall
 from hermes_peek.lifecycle import plan_purge, purge
 from hermes_peek.telegram_lifecycle import TelegramLifecycle
 
@@ -503,6 +503,29 @@ def test_setup_refuses_invalid_manifest_for_preexisting_plugin_directory(tmp_pat
     with pytest.raises(LifecycleError, match="ownership manifest"):
         install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
                 external_url="https://preview.example.test", bot_token="123456789:" + "I" * 35,
+                activate=False)
+
+    assert user_file.read_text() == "name: user-plugin"
+
+
+def test_setup_refuses_manifest_whose_owned_resources_do_not_cover_plugin_files(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    target.plugin_dir.mkdir(parents=True)
+    user_file = target.plugin_dir / "plugin.yaml"; user_file.write_text("name: user-plugin")
+    digest = hashlib.sha256(user_file.read_bytes()).hexdigest()
+    target.config_dir.mkdir(parents=True)
+    target.manifest_file.write_text(json.dumps({
+        "schema_version": 2,
+        "target": {"identity": HermesTarget.from_paths(target).identity},
+        "plugin_hashes": {"plugin.yaml": digest},
+        "owned_resources": [],
+    }))
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+
+    with pytest.raises(LifecycleError, match="ownership manifest"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable, allowed_roots=(allowed,),
+                external_url="https://preview.example.test", bot_token="123456789:" + "O" * 35,
                 activate=False)
 
     assert user_file.read_text() == "name: user-plugin"

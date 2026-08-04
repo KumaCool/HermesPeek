@@ -403,6 +403,11 @@ def install(**kwargs) -> dict[str, object]:
             target = HermesTarget.from_paths(paths)
             owned = manifest.get("owned_resources")
             hashes = manifest.get("plugin_hashes")
+            owned_by_path = {
+                entry.get("path"): entry
+                for entry in owned
+                if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+            } if isinstance(owned, list) else {}
             valid_manifest = (
                 manifest.get("schema_version") == 2
                 and manifest.get("target", {}).get("identity") == target.identity
@@ -413,6 +418,7 @@ def install(**kwargs) -> dict[str, object]:
                     and (paths.plugin_dir / name).is_file()
                     and not (paths.plugin_dir / name).is_symlink()
                     and hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest() == digest
+                    and owned_by_path.get(str(paths.plugin_dir / name), {}).get("sha256") == digest
                     for name, digest in hashes.items()
                 )
                 and {child.name for child in paths.plugin_dir.iterdir()} == set(hashes)
