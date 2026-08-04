@@ -72,6 +72,15 @@ class StatefulRunner(RecordingRunner):
         return subprocess.CompletedProcess(command, 0, "", "")
 
 
+class FakeServiceBackend:
+    def __init__(self, runner): self.runner = runner
+    def preflight(self): return None
+    def verify_running(self):
+        if isinstance(self.runner, StatefulRunner):
+            self.runner.service_enabled = self.runner.service_active = True
+        return {"active": True, "enabled": True}
+
+
 def paths(tmp_path: Path) -> InstallPaths:
     return InstallPaths(
         hermes_home=tmp_path / "hermes",
@@ -99,6 +108,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         external_url="https://preview.example.test",
         bot_token=token,
         runner=runner,
+        service_backend=FakeServiceBackend(runner),
     )
 
     assert result["installed"] is True and result["activated"] is True
@@ -188,6 +198,7 @@ def test_setup_scopes_hermes_commands_to_selected_home(tmp_path: Path) -> None:
         external_url="https://preview.example.test",
         bot_token="123456789:" + "D" * 35,
         runner=runner,
+        service_backend=FakeServiceBackend(runner),
     )
 
     hermes_commands = [command for command in runner.commands if "hermes" in command]
@@ -264,6 +275,7 @@ def test_setup_rolls_back_files_when_plugin_enable_fails(tmp_path: Path) -> None
             external_url="https://preview.example.test",
             bot_token="123456789:" + "F" * 35,
             runner=runner,
+            service_backend=FakeServiceBackend(runner),
         )
 
     assert not target.plugin_dir.exists()
@@ -282,7 +294,8 @@ def test_setup_failure_restores_service_plugin_and_gateway_state(tmp_path: Path)
     with pytest.raises(LifecycleError, match="transaction"):
         install(paths=target, integration_dir=PLUGIN, executable=executable,
                 allowed_roots=(allowed,), external_url="https://preview.example.test",
-                bot_token="123456789:" + "R" * 35, runner=runner)
+                bot_token="123456789:" + "R" * 35, runner=runner,
+                service_backend=FakeServiceBackend(runner))
 
     assert runner.service_active is False
     assert runner.service_enabled is False
@@ -298,7 +311,8 @@ def test_committed_transaction_can_be_rolled_back_by_id(tmp_path: Path) -> None:
     runner = StatefulRunner()
     result = install(paths=target, integration_dir=PLUGIN, executable=executable,
                      allowed_roots=(allowed,), external_url="https://preview.example.test",
-                     bot_token="123456789:" + "S" * 35, runner=runner)
+                     bot_token="123456789:" + "S" * 35, runner=runner,
+                     service_backend=FakeServiceBackend(runner))
 
     rolled_back = rollback_transaction(target, result["transaction_id"], runner=runner)
 

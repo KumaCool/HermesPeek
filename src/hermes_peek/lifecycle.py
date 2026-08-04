@@ -237,6 +237,7 @@ def _install_apply(
     bot_token: str,
     activate: bool = True,
     runner: CommandRunner = _default_runner,
+    service_backend: Any | None = None,
 ) -> dict[str, object]:
     target = HermesTarget.from_paths(paths)
     roots = _validate_setup(allowed_roots, external_url, bot_token)
@@ -245,6 +246,11 @@ def _install_apply(
     missing = [name for name in _PLUGIN_FILES if not (source / name).is_file()]
     if missing:
         raise LifecycleError("integration package is incomplete")
+
+    if activate:
+        from .service_backend import SystemdUserBackend
+        backend = service_backend or SystemdUserBackend(runner)
+        backend.preflight()
 
     paths.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(paths.state_dir, 0o700)
@@ -283,6 +289,7 @@ def _install_apply(
     if activate:
         _run(runner, ("systemctl", "--user", "daemon-reload"))
         _run(runner, ("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
+        backend.verify_running()
         _run(runner, target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
         _run(runner, target.command("gateway", "restart"))
     return {"installed": True, "activated": activate, "state_preserved": True}
