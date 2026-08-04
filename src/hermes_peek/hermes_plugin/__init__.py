@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,12 @@ from .collector import collect_tool_result
 
 def _configured_roots() -> tuple[Path, ...]:
     value = os.environ.get("HERMES_PEEK_ALLOWED_ROOTS", "")
+    if not value and os.environ.get("HERMES_PEEK_CONFIG_FILE"):
+        try:
+            data = json.loads(Path(os.environ["HERMES_PEEK_CONFIG_FILE"]).read_text(encoding="utf-8"))
+            return tuple(Path(item) for item in data.get("allowed_roots", ()))
+        except (OSError, ValueError, TypeError):
+            return ()
     return tuple(Path(item) for item in value.split(os.pathsep) if item)
 
 

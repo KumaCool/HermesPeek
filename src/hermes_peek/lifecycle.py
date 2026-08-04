@@ -55,7 +55,11 @@ class InstallPaths:
 
     @property
     def env_file(self) -> Path:
-        return self.config_dir / "hermes-peek.env"
+        return self.config_dir / "secrets.env"
+
+    @property
+    def config_file(self) -> Path:
+        return self.config_dir / "config.json"
 
     @property
     def manifest_file(self) -> Path:
@@ -122,9 +126,7 @@ def _validate_setup(allowed_roots: Sequence[Path], external_url: str, bot_token:
 def _render_env(roots: Sequence[Path], paths: InstallPaths, external_url: str, bot_token: str) -> str:
     return "\n".join(
         (
-            f'HERMES_PEEK_ALLOWED_ROOTS="{_env_value(os.pathsep.join(map(str, roots)))}"',
-            f'HERMES_PEEK_STATE_DIR="{_env_value(str(paths.state_dir))}"',
-            f'HERMES_PEEK_EXTERNAL_BASE_URL="{_env_value(external_url.rstrip("/") + "/")}"',
+            f'HERMES_PEEK_CONFIG_FILE="{_env_value(str(paths.config_file))}"',
             f'HERMES_PEEK_TELEGRAM_BOT_TOKEN="{_env_value(bot_token)}"',
             "HERMES_PEEK_DEVELOPMENT=false",
             "",
@@ -200,6 +202,14 @@ def install(
     shutil.rmtree(paths.legacy_hook_dir, ignore_errors=True)
 
     _atomic_write(paths.env_file, _render_env(roots, paths, external_url, bot_token), 0o600)
+    config = {
+        "schema_version": 1,
+        "allowed_roots": [str(root) for root in roots],
+        "state_dir": str(paths.state_dir),
+        "external_base_url": external_url.rstrip("/") + "/",
+        "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
+    }
+    _atomic_write(paths.config_file, json.dumps(config, indent=2, sort_keys=True) + "\n", 0o644)
     _atomic_write(paths.unit_file, _render_unit(paths, executable), 0o644)
     hashes = {
         name: hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest()
@@ -210,6 +220,7 @@ def install(
         "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
         "plugin_dir": str(paths.plugin_dir),
         "env_file": str(paths.env_file),
+        "config_file": str(paths.config_file),
         "unit_file": str(paths.unit_file),
         "state_dir": str(paths.state_dir),
         "plugin_hashes": hashes,

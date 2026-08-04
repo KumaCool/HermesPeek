@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Self
@@ -76,6 +77,25 @@ class Settings(BaseModel):
             "external_base_url": env.get("HERMES_PEEK_EXTERNAL_BASE_URL") or None,
             "development": _parse_bool(env.get("HERMES_PEEK_DEVELOPMENT", "false")),
         }
+        return cls.model_validate(data)
+
+    @classmethod
+    def from_file_and_env(
+        cls, config_file: Path, environment: Mapping[str, str] | None = None
+    ) -> Self:
+        env = os.environ if environment is None else environment
+        raw = json.loads(config_file.expanduser().read_text(encoding="utf-8"))
+        if raw.get("schema_version") != 1:
+            raise ValueError("unsupported HermesPeek configuration schema")
+        data = {key: value for key, value in raw.items() if key in cls.model_fields}
+        overrides = {
+            "max_file_bytes": env.get("HERMES_PEEK_MAX_FILE_BYTES"),
+            "default_ttl_seconds": env.get("HERMES_PEEK_DEFAULT_TTL_SECONDS"),
+            "external_base_url": env.get("HERMES_PEEK_EXTERNAL_BASE_URL"),
+        }
+        data.update({key: value for key, value in overrides.items() if value is not None})
+        if "HERMES_PEEK_DEVELOPMENT" in env:
+            data["development"] = _parse_bool(env["HERMES_PEEK_DEVELOPMENT"])
         return cls.model_validate(data)
 
 

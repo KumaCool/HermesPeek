@@ -184,7 +184,6 @@ def test_manifest_records_stable_target_identity(tmp_path: Path) -> None:
     }
 
 
-@pytest.mark.xfail(strict=True, reason="TASK 8.3: the Gateway plugin cannot load setup's service-only env")
 def test_setup_writes_configuration_that_gateway_plugin_can_load(tmp_path: Path, monkeypatch) -> None:
     target = paths(tmp_path)
     allowed = tmp_path / "workspace"
@@ -208,6 +207,9 @@ def test_setup_writes_configuration_that_gateway_plugin_can_load(tmp_path: Path,
     from hermes_peek.hermes_plugin import _configured_roots
 
     assert _configured_roots() == (allowed.resolve(),)
+    config_text = (target.config_dir / "config.json").read_text(encoding="utf-8")
+    assert "123456789:" not in config_text
+    assert target.env_file.name == "secrets.env"
 
 
 @pytest.mark.xfail(strict=True, reason="TASK 8.4: setup does not roll back files after activation failure")

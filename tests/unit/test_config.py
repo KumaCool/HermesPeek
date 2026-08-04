@@ -9,6 +9,21 @@ from pydantic import ValidationError
 from hermes_peek.config import Settings
 
 
+def test_settings_load_non_secret_file_with_environment_override(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    config = tmp_path / "config.json"
+    config.write_text(__import__("json").dumps({
+        "schema_version": 1,
+        "allowed_roots": [str(root)],
+        "state_dir": str(tmp_path / "state"),
+        "external_base_url": "https://preview.example.test/",
+    }), encoding="utf-8")
+    settings = Settings.from_file_and_env(config, {"HERMES_PEEK_DEVELOPMENT": "true"})
+    assert settings.allowed_roots == (root.resolve(),)
+    assert settings.development is True
+
+
 def test_settings_require_explicit_allowed_roots(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="HERMES_PEEK_ALLOWED_ROOTS"):
         Settings.from_env({}, cwd=tmp_path)
