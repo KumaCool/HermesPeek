@@ -6,6 +6,8 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Sequence
 
@@ -38,6 +40,14 @@ from hermes_peek.lifecycle_ux import (
     status as lifecycle_status,
 )
 from hermes_peek.service_backend import SystemdUserBackend
+from hermes_peek.setup_wizard import (
+    discover_hermes_profiles,
+    run_setup_wizard,
+    select_hermes_profile,
+    validate_allowed_roots,
+    validate_https_origin,
+    validate_secret_file,
+)
 from hermes_peek.telegram import TelegramClient, TelegramNotificationError
 from hermes_peek.telegram_lifecycle import TelegramLifecycle
 
@@ -54,6 +64,14 @@ def telegram_lifecycle_transport():
 
 def lifecycle_runner(command):
     return subprocess.run(command, text=True, capture_output=True, check=False)
+
+
+def setup_https_probe(url: str) -> dict[str, object]:
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            return {"reachable": 200 <= response.status < 500, "status": response.status}
+    except (OSError, urllib.error.URLError):
+        return {"reachable": False, "status": None}
 
 
 def _running_inside_gateway_session() -> bool:
@@ -97,8 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", default=8765, type=_port)
 
     setup = subparsers.add_parser("setup", help="Install and integrate HermesPeek")
-    setup.add_argument("--allowed-root", action="append", required=True, type=Path)
-    setup.add_argument("--external-url", required=True)
+    setup.add_argument("--allowed-root", action="append", type=Path)
+    setup.add_argument("--external-url")
     setup.add_argument("--telegram-bot-username")
     setup.add_argument("--telegram-mini-app-short-name")
     setup.add_argument("--telegram-mini-app-mode", choices=("compact",), default="compact")
@@ -165,8 +183,30 @@ def main(arguments: Sequence[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command in {"setup", "uninstall"}:
-            paths = InstallPaths.for_user(hermes_home=args.hermes_home)
+            if args.command == "setup" and (not args.allowed_root or not args.external_url):
+                if not sys.stdin.isatty():
+                    raise LifecycleError(
+                        "non-interactive setup requires --allowed-root and --external-url"
+                    )
+                default_home = Path.home() / ".hermes"
+                selected_home = args.hermes_home or select_hermes_profile(
+                    discover_hermes_profiles(default_home)
+                )
+                paths = InstallPaths.for_user(hermes_home=selected_home)
+                validate_secret_file(args.telegram_env or paths.hermes_home / ".env")
+                wizard = run_setup_wizard(
+                    paths,
+                    input_fn=input,
+                    https_probe=setup_https_probe,
+                    activate=not args.no_activate,
+                )
+                args.allowed_root = list(wizard["allowed_roots"])
+                args.external_url = wizard["external_url"]
+            else:
+                paths = InstallPaths.for_user(hermes_home=args.hermes_home)
             if args.command == "setup":
+                args.allowed_root = list(validate_allowed_roots(args.allowed_root))
+                args.external_url = validate_https_origin(args.external_url)
                 if args.plan:
                     result = lifecycle_setup_plan(
                         paths,
@@ -184,7 +224,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     paths=paths,
                     integration_dir=Path(__file__).with_name("hermes_plugin"),
                     executable=Path(executable_name),
-                    allowed_roots=args.allowed_root,
+                    allowed_roots=tuple(args.allowed_root),
                     external_url=args.external_url,
                     bot_token=read_bot_token(token_file),
                     telegram_bot_username=args.telegram_bot_username,

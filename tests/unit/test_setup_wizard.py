@@ -1,0 +1,164 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from hermes_peek.cli import build_parser, main
+from hermes_peek.lifecycle import LifecycleError
+
+
+def test_setup_accepts_no_arguments_but_fails_fast_without_tty(monkeypatch, capsys):
+    args = build_parser().parse_args(["setup"])
+    assert args.allowed_root is None
+    assert args.external_url is None
+
+    monkeypatch.setattr("hermes_peek.cli.sys.stdin.isatty", lambda: False)
+
+    assert main(["setup"]) == 2
+    assert "non-interactive setup requires --allowed-root and --external-url" in capsys.readouterr().err
+
+
+def test_profile_discovery_selects_single_profile_and_requires_explicit_choice(tmp_path: Path):
+    from hermes_peek.setup_wizard import discover_hermes_profiles, select_hermes_profile
+
+    default = tmp_path / ".hermes"
+    profile = default / "profiles" / "work"
+    profile.mkdir(parents=True)
+
+    assert discover_hermes_profiles(default) == (profile.resolve(),)
+    assert select_hermes_profile((profile,), input_fn=lambda _: pytest.fail("must not prompt")) == profile.resolve()
+
+    default.mkdir(exist_ok=True)
+    with pytest.raises(LifecycleError, match="explicit profile selection"):
+        select_hermes_profile((default, profile), input_fn=lambda _: "")
+
+
+def test_setup_inputs_reject_unsafe_roots_and_non_origin_urls(tmp_path: Path):
+    from hermes_peek.setup_wizard import validate_allowed_roots, validate_https_origin
+
+    home = tmp_path / "home"
+    home.mkdir()
+    safe = home / "workspace"
+    safe.mkdir()
+    secret = home / ".ssh"
+    secret.mkdir()
+    link = home / "linked"
+    link.symlink_to(safe, target_is_directory=True)
+
+    assert validate_allowed_roots((safe,), home=home) == (safe.resolve(),)
+    for unsafe in (Path("/"), home, secret, link):
+        with pytest.raises(LifecycleError, match="allowed root"):
+            validate_allowed_roots((unsafe,), home=home)
+
+    assert validate_https_origin("https://preview.example.test") == "https://preview.example.test"
+    for invalid in (
+        "http://preview.example.test",
+        "https://user@preview.example.test",
+        "https://preview.example.test/path",
+        "https://preview.example.test?secret=value",
+        "https://preview.example.test/#fragment",
+    ):
+        with pytest.raises(LifecycleError, match="HTTPS origin"):
+            validate_https_origin(invalid)
+
+
+def test_wizard_checks_https_shows_redacted_plan_and_requires_confirmation(tmp_path: Path):
+    from hermes_peek.lifecycle import InstallPaths
+    from hermes_peek.setup_wizard import run_setup_wizard
+
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    token = "123456789:" + "S" * 35
+    (hermes_home / ".env").write_text(f"TELEGRAM_BOT_TOKEN={token}\n")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    paths = InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd")
+    answers = iter((str(workspace), "https://preview.example.test", "no"))
+    output: list[str] = []
+    probes: list[str] = []
+
+    with pytest.raises(LifecycleError, match="cancelled"):
+        run_setup_wizard(
+            paths,
+            input_fn=lambda _: next(answers),
+            output_fn=output.append,
+            https_probe=lambda url: probes.append(url) or {"reachable": True, "status": 200},
+        )
+
+    rendered = "\n".join(output)
+    assert probes == ["https://preview.example.test/healthz"]
+    assert "Setup plan" in rendered
+    assert "TELEGRAM_BOT_TOKEN" in rendered
+    assert token not in rendered
+    assert not paths.config_dir.exists()
+
+
+def test_wizard_rejects_unreachable_https_before_plan(tmp_path: Path):
+    from hermes_peek.lifecycle import InstallPaths
+    from hermes_peek.setup_wizard import run_setup_wizard
+
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    (hermes_home / ".env").write_text("TELEGRAM_BOT_TOKEN=123456789:" + "T" * 35)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    answers = iter((str(workspace), "https://preview.example.test"))
+    output: list[str] = []
+
+    with pytest.raises(LifecycleError, match="not reachable"):
+        run_setup_wizard(
+            InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd"),
+            input_fn=lambda _: next(answers),
+            output_fn=output.append,
+            https_probe=lambda _: {"reachable": False, "status": None},
+        )
+    assert output == []
+
+
+def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path: Path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+
+    home = tmp_path / "home"
+    profile = home / ".hermes" / "profiles" / "work"
+    profile.mkdir(parents=True)
+    token = "123456789:" + "U" * 35
+    (profile / ".env").write_text(f"TELEGRAM_BOT_TOKEN={token}\n")
+    (profile / ".env").chmod(0o600)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("launcher")
+    answers = iter((str(workspace), "https://preview.example.test", "yes"))
+    captured = {}
+
+    monkeypatch.setattr(cli.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    monkeypatch.setattr(cli.shutil, "which", lambda _: str(executable))
+    monkeypatch.setattr(cli, "setup_https_probe", lambda _: {"reachable": True, "status": 200})
+    monkeypatch.setattr(cli, "install_application", lambda **kwargs: captured.update(kwargs) or {"installed": True})
+
+    assert main(["setup", "--no-activate"]) == 0
+    output = capsys.readouterr().out
+    assert captured["paths"].hermes_home == profile.resolve()
+    assert captured["allowed_roots"] == (workspace.resolve(),)
+    assert captured["external_url"] == "https://preview.example.test"
+    assert captured["bot_token"] == token
+    assert "Setup plan" in output
+    assert "restart_gateway" not in output
+    assert token not in output
+
+
+def test_bot_token_file_must_not_be_accessible_to_group_or_others(tmp_path: Path):
+    from hermes_peek.setup_wizard import validate_secret_file
+
+    secret = tmp_path / "telegram.env"
+    secret.write_text("TELEGRAM_BOT_TOKEN=123456789:" + "V" * 35)
+    secret.chmod(0o644)
+
+    with pytest.raises(LifecycleError, match="permissions"):
+        validate_secret_file(secret)
+
+    secret.chmod(0o600)
+    assert validate_secret_file(secret) == secret
