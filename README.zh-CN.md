@@ -77,7 +77,7 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-仓库已经包含生命周期 CLI、无参数 setup 向导和经过隔离验证的 Linux 安装器实现。但当前 GitHub Release **没有安装器和 checksum 资产**，因此还不存在可工作的远程一键安装 URL。不要把 Release 下载或 `curl ... | sh` 描述为当前可用。未来 Release 发布安装器后应优先使用该 Release 资产；当前只能在克隆仓库后，以锁定环境和 `uv run hermes-peek setup` 做仓库开发演练。
+仓库现已可重复构建并离线验证 Linux Release 资产集合（`wheel`、`sdist`、`install.sh` 和 `SHA256SUMS`）。本地或 CI 门禁通过**不等于资产已经发布**：只有现场检查 GitHub Release 确实包含全部匹配资产后，远程一键安装 URL 才可使用。在获批版本 tag 和 Release 发布前，仍应克隆仓库并以锁定环境和 `uv run hermes-peek setup` 做仓库开发演练。macOS、Windows 和没有 systemd user manager 的 Linux 一键生命周期保持 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 

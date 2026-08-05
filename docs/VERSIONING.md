@@ -29,6 +29,7 @@ Both values must match the Git tag without its `v` prefix. For example, tag `v0.
 4. Move relevant entries from `Unreleased` to a dated section in `CHANGELOG.md`.
 5. Verify README links, packaging metadata, and sensitive-data scans.
 6. Run the complete test and build gate.
+   Build the upload set with `uv run python scripts/build_release_assets.py --output dist/release`, then verify it with `uv run python scripts/verify_release_assets.py dist/release --tag v<version>`.
 7. Commit the release metadata.
 8. Create an annotated tag named `v<version>`.
 9. Push `main` and the tag.
@@ -44,6 +45,9 @@ uv sync --locked
 uv run pytest
 uv run python -m compileall -q src integrations tests
 uv build
+uv run python scripts/build_release_assets.py --output dist/release
+uv run python scripts/verify_release_assets.py dist/release
+uv run python scripts/offline_linux_acceptance.py --assets dist/release --root .acceptance
 ```
 
 A release must not be described as verified if this gate fails. Any known failure must either be fixed before tagging or explicitly approved and documented as a release blocker waiver.

@@ -77,7 +77,7 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-The repository contains the lifecycle CLI, no-argument setup wizard, and a verified Linux installer implementation. However, the current GitHub Release has **no installer or checksum assets**, so there is no working remote one-command install URL yet. Do not present a release download or `curl ... | sh` command as currently available. After a future release publishes the installer, prefer that release asset; for a repository development rehearsal today, clone the repository, install its locked environment, and use `uv run hermes-peek setup`.
+The repository can reproducibly build and offline-verify the Linux release payload set (`wheel`, `sdist`, `install.sh`, and `SHA256SUMS`). These assets are **not published merely because the local/CI gate passes**: use the remote one-command URL only after the inspected GitHub Release contains all matching assets. Until an approved version tag and Release are published, clone the repository, install its locked environment, and use `uv run hermes-peek setup` for a repository development rehearsal. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND` for the one-command lifecycle.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 

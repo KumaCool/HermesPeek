@@ -66,7 +66,7 @@ if ! "$UV_COMMAND" --version >/dev/null 2>&1; then
     exit 1
 fi
 
-ASSET="hermes_peek-${INSTALLER_VERSION}-py3-none-any.whl"
+ASSET="hermes_peek-0.1.0-py3-none-any.whl"
 RELEASE_BASE_URL="${HERMES_PEEK_RELEASE_BASE_URL:-https://github.com/KumaCool/HermesPeek/releases/download/v${INSTALLER_VERSION}}"
 CURL_COMMAND="${HERMES_PEEK_CURL:-curl}"
 INSTALL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/hermes-peek"
