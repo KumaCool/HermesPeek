@@ -659,3 +659,21 @@ uv run mypy src/hermes_peek
 下一步必须先评审 TASK 8.0 文档，再从失败测试和 profile 作用域修复开始；未经明确授权，不执行真实 setup/uninstall、systemd service 变更或 Gateway 重启。
 
 ---
+
+## 6. 阶段 9：项目分发的 Telegram 会话预览 Skill
+
+**状态：** `REVIEW_APPROVED / READY_TO_IMPLEMENT`
+
+阶段 9 将“把 README 发我看下”从 Agent 私有记忆和 `terminal + publish --notify` 兼容流程，升级为随 HermesPeek 仓库、源码包和安装生命周期分发的正式能力：仓库内 `hermes-peek-preview` Skill 负责自然语言触发、文件定位和成功/失败语义；`hermes_peek_send_preview` Plugin Tool 负责从当前 Gateway Session Context 读取严格原位路由、安全加载 Secret、发布 owner-bound Preview，并在同一私聊、群组或 Forum Topic 发送唯一 `Open preview` 消息。成功后 Skill 输出 `NO_REPLY`，不再追加确认文本。
+
+完整方案见：
+
+- [`../07-conversational-preview-delivery.md`](../07-conversational-preview-delivery.md)
+
+具体 TASK、TDD 顺序、Skill/Plugin 生命周期分发、离线门禁、真实 Telegram 授权和回滚步骤见：
+
+- [`04-conversational-preview-delivery-rollout.md`](04-conversational-preview-delivery-rollout.md)
+
+方案与计划已于 2026-08-05 获项目负责人明确评审批准，下一步从 TASK 9.1 的 Skill RED 测试开始。真实 Profile 更新与 Gateway 外部重启仍需在离线阶段完成后单独授权。
+
+---
