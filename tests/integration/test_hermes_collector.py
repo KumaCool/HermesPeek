@@ -110,5 +110,8 @@ def test_plugin_registers_supported_hooks() -> None:
         def register_hook(self, name, callback):
             hooks.append((name, callback))
 
+        def register_tool(self, **_):
+            pass
+
     module.register(Context())
     assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]

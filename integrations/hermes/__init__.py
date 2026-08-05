@@ -70,3 +70,21 @@ def _final_message_actions(response_text: str = "", session_id: str = "",
 def register(ctx) -> None:
     ctx.register_hook("post_tool_call", _post_tool_call)
     ctx.register_hook("final_message_actions", _final_message_actions)
+    from .preview_tool import send_preview
+    ctx.register_tool(
+        name="hermes_peek_send_preview",
+        toolset="hermes-peek",
+        description="Publish files and send one Preview to the current Telegram conversation.",
+        emoji="🔎",
+        schema={
+            "type": "object",
+            "properties": {
+                "files": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                "entry": {"type": "string"},
+                "title": {"type": "string", "minLength": 1, "maxLength": 120},
+            },
+            "required": ["files", "entry", "title"],
+            "additionalProperties": False,
+        },
+        handler=send_preview,
+    )

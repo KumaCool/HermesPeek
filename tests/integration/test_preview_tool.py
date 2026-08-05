@@ -69,7 +69,8 @@ def test_route_rejects_missing_or_uncertain_context_without_environment_fallback
 def write_pointer(tmp_path: Path, *, mode: int = 0o600, symlink: bool = False, token: str | None = None):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"allowed_roots": [str(tmp_path / "files")], "state_dir": str(tmp_path / "state"),
-                                  "external_base_url": "https://preview.example.test/"}))
+                                  "external_base_url": "https://preview.example.test/",
+                                  "telegram_bot_username": "PreviewFixtureBot"}))
     secret = tmp_path / "secrets.env"
     content = "OTHER_SECRET=ignored\n"
     if token is not None:
