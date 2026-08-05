@@ -21,7 +21,12 @@ class LifecycleError(RuntimeError):
 
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
-_PLUGIN_FILES = ("plugin.yaml", "__init__.py", "collector.py", "handler.py", "preview_tool.py")
+_PLUGIN_FILES = (
+    "plugin.yaml", "__init__.py", "collector.py", "handler.py", "preview_tool.py",
+    "hermes_peek/__init__.py", "hermes_peek/config.py", "hermes_peek/models.py",
+    "hermes_peek/paths.py", "hermes_peek/registry.py", "hermes_peek/service.py",
+    "hermes_peek/telegram.py",
+)
 _PLUGIN_CONFIG_POINTER = ".hermes-peek-config.json"
 _BOT_TOKEN = re.compile(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$")
 
@@ -280,7 +285,10 @@ def _install_apply(
         skill_source = source.parents[2] / "skills" / "hermes-peek-preview"
     if not (skill_source / "SKILL.md").is_file() or not (skill_source / "references" / "delivery-contract.md").is_file():
         raise LifecycleError("preview skill package is incomplete")
-    missing = [name for name in _PLUGIN_FILES if not (source / name).is_file()]
+    missing = [
+        name for name in _PLUGIN_FILES
+        if not (source.parent / name.split("/", 1)[1] if name.startswith("hermes_peek/") else source / name).is_file()
+    ]
     if missing:
         raise LifecycleError("integration package is incomplete")
     if paths.legacy_hook_dir.exists() or paths.legacy_hook_dir.is_symlink():
@@ -299,7 +307,10 @@ def _install_apply(
         shutil.rmtree(paths.skill_dir)
     shutil.copytree(skill_source, paths.skill_dir)
     for name in _PLUGIN_FILES:
-        shutil.copy2(source / name, paths.plugin_dir / name)
+        destination = paths.plugin_dir / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source_file = source.parent / name.split("/", 1)[1] if name.startswith("hermes_peek/") else source / name
+        shutil.copy2(source_file, destination)
     _atomic_write(
         paths.plugin_dir / _PLUGIN_CONFIG_POINTER,
         json.dumps({"config_file": str(paths.config_file), "env_file": str(paths.env_file)}, sort_keys=True) + "\n",
@@ -462,7 +473,7 @@ def install(**kwargs) -> dict[str, object]:
                     and owned_by_path.get(str(paths.plugin_dir / name), {}).get("sha256") == digest
                     for name, digest in hashes.items()
                 )
-                and {child.name for child in paths.plugin_dir.iterdir()} == set(hashes)
+                and {path.relative_to(paths.plugin_dir).as_posix() for path in paths.plugin_dir.rglob("*") if path.is_file()} == set(hashes)
             )
         except (OSError, ValueError, TypeError):
             valid_manifest = False
@@ -570,8 +581,26 @@ def _uninstall_transaction(
             shutil.rmtree(child)
             continue
         expected = owned_hashes.get(child.name)
-        if expected is None or child.is_symlink():
+        if expected is None:
+            if child.is_dir() and not child.is_symlink() and child.name == "hermes_peek":
+                # Runtime package files are tracked with slash-separated manifest keys.
+                for nested in list(child.rglob("*")):
+                    if nested.is_symlink() or not nested.is_file():
+                        raise LifecycleError("plugin runtime package contains an unsafe resource")
+                    relative = nested.relative_to(paths.plugin_dir).as_posix()
+                    nested_expected = owned_hashes.get(relative)
+                    if nested_expected is None:
+                        raise LifecycleError("plugin directory contains an unowned resource")
+                    actual = hashlib.sha256(nested.read_bytes()).hexdigest()
+                    if actual != nested_expected:
+                        backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+                        destination = backup_dir / relative.replace("/", "__")
+                        shutil.move(nested, destination); backups.append(str(destination))
+                shutil.rmtree(child)
+                continue
             raise LifecycleError("plugin directory contains an unowned resource")
+        if child.is_dir() or child.is_symlink():
+            raise LifecycleError("plugin directory contains an unsafe resource")
         actual = hashlib.sha256(child.read_bytes()).hexdigest()
         if actual != expected:
             backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)

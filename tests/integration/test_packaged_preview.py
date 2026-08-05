@@ -36,10 +36,15 @@ def test_fresh_process_discovers_installed_skill_and_registered_tool(tmp_path: P
     plugin.mkdir(parents=True); skill.mkdir(parents=True)
     for name in ("__init__.py", "collector.py", "handler.py", "preview_tool.py"):
         (plugin / name).write_bytes((ROOT / "src" / "hermes_peek" / "hermes_plugin" / name).read_bytes())
+    runtime_package = plugin / "hermes_peek"
+    runtime_package.mkdir()
+    for name in ("__init__.py", "config.py", "models.py", "paths.py", "registry.py", "service.py", "telegram.py"):
+        (runtime_package / name).write_bytes((ROOT / "src" / "hermes_peek" / name).read_bytes())
     (skill / "SKILL.md").write_bytes((ROOT / "skills" / "hermes-peek-preview" / "SKILL.md").read_bytes())
     script = """
 import importlib.util, json, pathlib, sys
 home=pathlib.Path(sys.argv[1]); package=home/'plugins'/'hermes-peek'
+sys.path.insert(0, str(package))
 spec=importlib.util.spec_from_file_location('fresh_preview_plugin', package/'__init__.py', submodule_search_locations=[str(package)])
 module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spec.loader.exec_module(module)
 class Context:
