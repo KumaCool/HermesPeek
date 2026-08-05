@@ -45,9 +45,11 @@ module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spe
 class Context:
  def __init__(self): self.tools=[]; self.hooks=[]
  def register_hook(self,name,callback): self.hooks.append(name)
- def register_tool(self,**kwargs): self.tools.append(kwargs['name'])
+ def register_tool(self,**kwargs): self.tools.append(kwargs)
 ctx=Context(); module.register(ctx)
-print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_file(), 'tools':ctx.tools, 'hooks':ctx.hooks}))
+payload={'files':['/tmp/result.md'],'entry':'/tmp/result.md','title':'Result'}
+dispatch=ctx.tools[0]['handler'](payload, task_id='task-123')
+print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_file(), 'tools':[tool['name'] for tool in ctx.tools], 'hooks':ctx.hooks, 'dispatch':dispatch}))
 """
     result = subprocess.run([sys.executable, "-c", script, str(hermes_home)], cwd=tmp_path,
                             check=True, capture_output=True, text=True)
@@ -55,3 +57,4 @@ print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_f
     assert discovered["skill"] is True
     assert discovered["tools"] == ["hermes_peek_send_preview"]
     assert discovered["hooks"] == ["post_tool_call", "final_message_actions"]
+    assert discovered["dispatch"]["error_code"] == "route_unavailable"

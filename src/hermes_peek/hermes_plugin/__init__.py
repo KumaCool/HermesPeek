@@ -86,5 +86,5 @@ def register(ctx) -> None:
             "required": ["files", "entry", "title"],
             "additionalProperties": False,
         },
-        handler=send_preview,
+        handler=lambda args, **_: send_preview(**args),
     )
