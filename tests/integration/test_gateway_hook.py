@@ -149,14 +149,24 @@ def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tm
     assert not spool.exists()
 
 
-def test_plugin_registers_collector_and_final_message_action_hooks() -> None:
+def test_plugin_registers_collector_final_action_and_preview_tool() -> None:
     plugin = load_plugin()
     hooks = []
+    tools = []
 
     class Context:
         def register_hook(self, name, callback):
             hooks.append((name, callback))
 
+        def register_tool(self, **kwargs):
+            tools.append(kwargs)
+
     plugin.register(Context())
 
     assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]
+    assert len(tools) == 1
+    registered = tools[0]
+    assert registered["name"] == "hermes_peek_send_preview"
+    assert set(registered["schema"]["properties"]) == {"files", "entry", "title"}
+    assert set(registered["schema"]["required"]) == {"files", "entry", "title"}
+    assert registered["handler"]
