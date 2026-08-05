@@ -2,9 +2,9 @@
 
 > 本计划执行 [`../08-one-click-ai-telegram-onboarding.md`](../08-one-click-ai-telegram-onboarding.md)。
 >
-> **评审状态：** `PENDING_REVIEW`。未经项目负责人明确评审批准，不得开始测试或代码实施。
+> **评审状态：** `REVIEW_APPROVED`。项目负责人于 2026-08-06 明确要求“落地方案”，授权 TASK 10.1–10.5 按本计划连续实施；TASK 10.6 的真实环境、Gateway 重启、BotFather 与 Telegram 现场验收仍需独立授权。
 
-**计划状态：** `PLANNED / NOT STARTED`
+**计划状态：** `APPROVED / IMPLEMENTING`
 
 ## 1. 阶段目标
 
@@ -24,11 +24,11 @@
 - 获批后按完整阶段连续实施，阶段内不中途汇报；
 - 每个 TASK 按 `RED → GREEN → REFACTOR` 实施，现场验收后创建独立 Git commit；
 - 不把 Token、用户 ID、chat ID、thread ID、机器路径、内部域名或真实 Preview URL提交到 Git；
-- 不修改 Hermes 主配置、Gateway 配置、审批配置或其他 profile；
+- 不修改非目标 profile，也不修改目标 profile 中与 HermesPeek Plugin 启用无关的 Hermes、Telegram、审批或 Gateway 配置；启用目标 profile 的 HermesPeek Plugin 必须作为已披露、需确认且可回滚的 setup 变更；
 - 不自动修改 HTTPS、端口、防火墙、反向代理、Tailscale Serve/Funnel 或证书；
 - 真实 profile、service、Gateway 重启、Telegram 菜单与真实消息验收需要独立部署授权；
 - BotFather Main Mini App owner 流程只能引导和验证，不能宣称自动绕过；
-- Windows、macOS、Linux 必须共享一个行为契约，不允许文档声称未经测试的平台可用。
+- 首版一键生命周期只支持已有 systemd user backend 的 Linux；macOS、Windows 保持 `UNSUPPORTED/PENDING_BACKEND`，在各自 service backend、锁和完整生命周期验收完成前不得发布对应安装入口。
 
 ## 3. 方案来源
 
@@ -44,10 +44,10 @@
 |---|---|---|---|---|
 | TASK 10.0 | 方案、计划与 README 入口 | `PENDING_REVIEW` | 方案、计划、双语 README 导航 | 负责人明确批准；文档链接与命令依据通过 |
 | TASK 10.1 | Setup 交互式向导 | `NOT_STARTED` | 无必填参数的 `hermes-peek setup` | 多 profile、缺 HTTPS、Secret 输入、plan 确认均有测试 |
-| TASK 10.2 | 固定 Release 一键安装脚本 | `NOT_STARTED` | `install.sh`、PowerShell 入口、哈希验证 | 干净隔离环境安装/失败/幂等测试 |
+| TASK 10.2 | 固定 Release Linux 一键安装脚本 | `NOT_STARTED` | `install.sh`、哈希验证、平台门禁 | 干净 Linux 隔离环境安装/失败/幂等测试；其他平台准确拒绝 |
 | TASK 10.3 | AI 安装契约与仓库 Agent 指引 | `NOT_STARTED` | README 提示词、`AGENTS.md` | Agent 先计划、Secret 不进聊天、副作用有确认 |
 | TASK 10.4 | Telegram onboarding 与诊断 | `NOT_STARTED` | Bot/Main Mini App 检查和结构化 doctor | getMe、allowed users 指引、HTTPS、可选 short name、菜单边界 |
-| TASK 10.5 | 打包、发布与跨平台离线验收 | `NOT_STARTED` | Release 资产、checksum、CI | Linux/macOS/Windows 矩阵与 fresh-profile 闭环 |
+| TASK 10.5 | Linux 打包、发布与离线验收 | `NOT_STARTED` | Release 资产、checksum、Linux CI | Linux fresh-profile 闭环；macOS/Windows 明确标记待 backend |
 | TASK 10.6 | 真实端到端安装验收 | `BLOCKED_PENDING_APPROVAL` | 新环境安装及私聊/群组/Topic 证据 | 真实 Gateway、BotFather、HTTPS 和 Telegram 现场结果 |
 
 ## 5. TASK 细化
@@ -111,7 +111,7 @@ docs: design one-click Telegram onboarding
 feat: add interactive setup wizard
 ```
 
-### TASK 10.2：固定 Release 一键安装脚本
+### TASK 10.2：固定 Release Linux 一键安装脚本
 
 **状态：** `NOT_STARTED`
 
@@ -119,8 +119,7 @@ feat: add interactive setup wizard
 
 **交付物：**
 
-- POSIX `install.sh`；
-- Windows PowerShell 安装入口；
+- Linux `install.sh`；
 - Release wheel 或平台资产；
 - SHA-256 checksum 文件和校验逻辑；
 - `--version`、`--non-interactive`、`--dry-run` 或等价可测试入口。
@@ -135,6 +134,7 @@ feat: add interactive setup wizard
 6. 缺 Hermes 或缺受支持 Python 时给出准确引导；
 7. 不使用 `sudo`，不静默修改网络或 Gateway；
 8. 从 `main` 安装时明确标记开发通道，README 默认推荐 release。
+9. macOS、Windows 和非 systemd Linux 在任何写入前以 `UNSUPPORTED/PENDING_BACKEND` 失败，不提供只有下载能力却无法完成生命周期的伪安装器。
 
 **提交：**
 
@@ -178,7 +178,7 @@ docs: add AI-assisted installation contract
 
 **交付物：**
 
-- `doctor --json` 或等价结构化检查：Bot Token 可读、`getMe`、Webhook 状态、HTTPS、Bot username、Main Mini App Direct Link，以及可选的命名 Mini App short name；
+- `doctor --json` 或等价结构化检查：Bot Token 可读、`getMe`、Webhook 状态、HTTPS、Bot username、可构造的 Main Mini App Direct Link，以及可选的命名 Mini App short name；状态必须区分身份已验证、可靠配置证据、URL 匹配未验证和 Telegram 客户端现场打开待验收；
 - setup 完成后的 BotFather 待办清单；
 - 私聊菜单修改继续保持显式 opt-in 和可回滚；
 - 文档中的私聊/群组/Topic 验收命令。
@@ -188,7 +188,7 @@ docs: add AI-assisted installation contract
 1. 同一个 Hermes Bot 身份一致；
 2. 缺 allowed users 时阻塞并链接 Hermes 配置，不擅自改主配置；
 3. 群组 Privacy Mode 只给出可选方案，不自动修改；
-4. short name 为空时使用 Main Mini App Direct Link；只有配置了命名 Mini App 时才验证带 short name 的链接；
+4. short name 为空时使用 Main Mini App Direct Link；非空值必须按 Telegram 官方实际 short-name 规则校验，代码、测试和文档共享同一 3–30 字符契约；只有配置了命名 Mini App 时才验证带 short name 的链接；
 5. `setChatMenuButton` 不被误报为 Main Mini App 已注册；
 6. Telegram API 错误完全脱敏；
 7. rollback 不覆盖用户在安装后做的新菜单修改。
@@ -199,7 +199,7 @@ docs: add AI-assisted installation contract
 feat: diagnose Telegram onboarding readiness
 ```
 
-### TASK 10.5：打包、发布与跨平台离线验收
+### TASK 10.5：Linux 打包、发布与离线验收
 
 **状态：** `NOT_STARTED`
 
@@ -209,18 +209,19 @@ feat: diagnose Telegram onboarding readiness
 
 - 发布工作流与 checksum；
 - wheel/sdist/installer 资产验证；
-- Linux、macOS、Windows CI；
+- Linux systemd user 环境 CI；
 - fresh Hermes profile 安装/升级/卸载/rollback 验收；
 - 双语 README 最终切换为一键安装主入口。
 
 **验收依据：**
 
-- 每个平台从发布资产安装，不从工作区隐式导入；
+- Linux 从发布资产安装，不从工作区隐式导入；
 - 新 profile 可发现 Skill 和 Tool；
 - setup、status、doctor、upgrade、rollback、uninstall 闭环；
 - installer 固定的版本与 release 资产一致；
 - 敏感信息扫描、构建、全量测试和文档链接通过；
 - README 中不再以开发安装作为普通用户第一入口。
+- macOS、Windows 与不受支持的 Linux backend 在 README 和 installer 中保持 `UNSUPPORTED/PENDING_BACKEND`，不声明可用。
 
 **提交：**
 

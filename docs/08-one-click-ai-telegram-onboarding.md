@@ -23,6 +23,8 @@
 
 ## 2. 目标用户体验
 
+首个正式的一键生命周期版本只支持具备 systemd user backend 的 Linux。macOS、Windows 和不具备受支持 service backend 的 Linux 仍可用于本地开发，但安装器必须在任何写入前标记为 `UNSUPPORTED/PENDING_BACKEND`；在 launchd、Windows service/Task Scheduler 与对应锁实现和验收完成前，不宣称一键安装可用。
+
 ### 2.1 一键交互安装
 
 最终公开入口：
@@ -55,7 +57,7 @@ sh install-hermes-peek.sh
 - 静默创建 Telegram Bot；
 - 把 Token 放进命令行、Shell history、日志或仓库；
 - 擅自建立公网入口、修改防火墙、反向代理、Tailscale Serve/Funnel 或证书；
-- 修改 Hermes 主配置、Gateway 配置或其他 profile；
+- 修改非目标 profile，或修改目标 profile 中与 HermesPeek Plugin 启用无关的 Hermes、Telegram、审批或 Gateway 配置；setup 启用目标 profile 的 HermesPeek Plugin 属于必须预先展示并确认的受控变更；
 - 在无法验证 service、Plugin、Skill 或 Telegram 前提时声称成功；
 - 从正在运行的 Gateway 会话内强制重启 Gateway。
 
@@ -74,7 +76,7 @@ hermes-peek setup
 3. 让用户选择允许预览的目录，拒绝 `/`、整个 home、Secret 目录和不安全 symlink；
 4. 要求填写 Telegram 客户端可访问的 HTTPS Origin；
 5. 在线检查 `/healthz`、TLS 和 Telegram Bot 身份；
-6. 告知用户 BotFather Main Mini App 是否仍未完成；
+6. 分层报告 Main Mini App 状态：Bot 身份是否验证、是否有可信配置证据、URL 匹配是否仍未验证，以及是否仍需 Telegram 客户端现场打开；不得根据 `getMe` 成功或能够构造 Direct Link 推断 BotFather 已配置完成；
 7. 先显示变更计划和重启影响，再要求确认；
 8. 执行事务化 setup；
 9. 若 Gateway 重启必须由外部操作者完成，输出准确命令，不伪装为已激活；
@@ -302,7 +304,7 @@ README 应把普通用户路径放在开发安装之前：
 
 | 层级 | 验收证据 |
 |---|---|
-| 安装脚本 | 干净 Linux/macOS/Windows 环境的隔离测试；固定 release 与哈希校验 |
+| 安装脚本 | 干净 Linux systemd user 环境的隔离测试；固定 release 与哈希校验；其他平台在写入前准确拒绝 |
 | CLI 安装 | `hermes-peek --version`、`status --json`、`doctor` |
 | Hermes 集成 | 目标 profile 中 Skill/Plugin 可发现；新会话暴露 Tool |
 | Service | 进程、监听和 `/healthz` 现场通过 |

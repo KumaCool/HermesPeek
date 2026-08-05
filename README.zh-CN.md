@@ -235,7 +235,7 @@ uv run hermes-peek setup \
 
 只有在明确希望 setup 修改 Bot 菜单时才使用 `--configure-telegram-menu`。Telegram Main Mini App 的首次绑定仍需 Bot owner 在 BotFather 中完成，无法仅依靠本仓库安全地自动配置。
 
-执行 setup 前，还需要在 Hermes 中配置 Telegram Bot 和 allowed users，准备 Telegram 客户端可访问的 HTTPS Origin，并在 BotFather 中为同一个 Bot 绑定 Main Mini App。私聊、群组、Forum Topic、Privacy Mode、short name、Gateway 激活以及首条真实 Preview 的完整步骤见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-完整配置)。
+执行 setup 前，需要在 Hermes 中配置 Telegram Bot 和 allowed users，并准备 Telegram 客户端可访问的 HTTPS Origin。私聊 Preview 不要求绑定 Main Mini App；在群组或 Forum Topic 使用 Preview 前，必须在 BotFather 中为同一个 Bot 绑定 Main Mini App。Privacy Mode、可选 short name、Gateway 激活以及首条真实 Preview 的完整步骤见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-完整配置)。
 
 检查安装状态：
 

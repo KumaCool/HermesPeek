@@ -2,12 +2,12 @@
 
 > 本计划执行 [`../06-installation-uninstallation.md`](../06-installation-uninstallation.md)。本文维护任务、依赖、当前代码进度、验收命令、回滚门槛和提交边界。
 
-**计划状态（2026-08-05）：** `OFFLINE_ACCEPTED / REAL_ENVIRONMENT_APPROVAL_REQUIRED`
+**计划状态（2026-08-05）：** `REAL_ENVIRONMENT_ACCEPTED_FOR_RECORDED_LINUX_PROFILE / NOT_GENERAL_RELEASE`
 
 **执行约束：**
 
 - 先评审方案和计划，再继续修改生命周期代码；
-- 当前原型不进入真实 Hermes profile，不重启真实 Gateway；
+- TASK 8.1–8.10 实施阶段不进入真实 Hermes profile、不重启真实 Gateway；TASK 8.11 后来在独立授权下完成了一个记录在案的 Linux profile 真实验收；
 - 每个 TASK 独立提交并记录真实验收证据；
 - 任一时刻只允许一个 TASK 为 `IN_PROGRESS` 或 `VERIFYING`；
 - 所有 Secret、能力型 Preview 标识和连接密钥在文档/日志中写为 `[REDACTED]`。

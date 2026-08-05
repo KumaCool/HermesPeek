@@ -1,8 +1,8 @@
 # HermesPeek 生命周期方案：安装、升级、安全卸载与 Purge
 
-> **文档状态：** 方案已于 2026-08-05 经项目负责人评审通过。当前仓库已有未经真实环境验收的离线实现；离线验收不等于生产发布。
+> **文档状态：** 方案已于 2026-08-05 经项目负责人评审通过。当前仓库已有离线验收通过的实现，并在独立授权下完成过一个记录在案的 Linux profile 真实生命周期验收；单环境验收不等于通用生产发布。
 >
-> **当前实现状态（2026-08-05）：** `OFFLINE ACCEPTED / NOT PRODUCTION READY`。profile 作用域、共享配置、事务回滚、service 健康验证、所有权卸载、purge、Telegram 条件回滚和诊断 UX 已完成隔离测试；安装生命周期同时管理仓库分发的 Preview Skill 与 Plugin Tool。新 Skill/Tool 仅在新 Hermes Session 中发现，活跃 Gateway 需另行授权重启。真实 Hermes profile、systemd、Gateway 与 Telegram 验收仍待项目负责人明确授权。
+> **当前实现状态（2026-08-05）：** `RECORDED LINUX REAL-ENV ACCEPTANCE / NOT GENERAL RELEASE`。profile 作用域、共享配置、事务回滚、service 健康验证、所有权卸载、purge、Telegram 条件回滚和诊断 UX 已完成隔离测试；TASK 8.11 另记录了一个获授权 Linux profile 的真实 setup/uninstall/purge/rollback、systemd、Gateway 与 Telegram 验收。该证据不覆盖全新用户 onboarding、BotFather Main Mini App、跨平台 backend 或 Release 一键安装。新 Skill/Tool 仍仅在新 Hermes Session 中发现，之后对任何真实 profile 的变更和活跃 Gateway 重启都需独立授权。
 
 ## 1. 目标与非目标
 

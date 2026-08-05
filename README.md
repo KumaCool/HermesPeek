@@ -235,7 +235,7 @@ uv run hermes-peek setup \
 
 Use `--configure-telegram-menu` only when you explicitly want setup to change the bot menu. Telegram's first Main Mini App binding still requires the bot owner to configure it in BotFather; it cannot be safely automated by this repository alone.
 
-Before setup, configure the Telegram Bot in Hermes, restrict allowed users, prepare a Telegram-reachable HTTPS Origin, and bind the same Bot's Main Mini App in BotFather. For private chats, groups, Forum Topics, Privacy Mode, short names, Gateway activation, and the first real Preview test, follow [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-complete-configuration).
+Before setup, configure the Telegram Bot in Hermes, restrict allowed users, and prepare a Telegram-reachable HTTPS Origin. Private-chat Preview does not require a Main Mini App binding. Before using Preview in a group or Forum Topic, bind the same Bot's Main Mini App in BotFather. For Privacy Mode, optional short names, Gateway activation, and the first real Preview test, follow [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-complete-configuration).
 
 Check the installation:
 

@@ -688,7 +688,7 @@ uv run mypy src/hermes_peek
 
 - [`../08-one-click-ai-telegram-onboarding.md`](../08-one-click-ai-telegram-onboarding.md)
 
-具体 TASK、TDD 顺序、跨平台发布、真实 Telegram 授权与验收门槛见：
+具体 TASK、TDD 顺序、首版 Linux 发布、其他平台 backend 门禁、真实 Telegram 授权与验收门槛见：
 
 - [`05-one-click-ai-telegram-onboarding-rollout.md`](05-one-click-ai-telegram-onboarding-rollout.md)
 
