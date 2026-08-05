@@ -13,9 +13,17 @@ class FakeTransport:
 
 def test_get_me_and_webhook_checks_are_read_only():
     transport = FakeTransport({"getMe": {"ok": True, "result": {"id": 7, "username": "peek_bot"}},
-                               "getWebhookInfo": {"ok": True, "result": {"url": "https://hook.invalid"}}})
+                               "getWebhookInfo": {"ok": True, "result": {
+                                   "url": "https://hook.invalid", "pending_update_count": 3,
+                                   "last_error_message": "secret detail",
+                               }}})
     result = TelegramLifecycle(transport).inspect(TOKEN, expected_bot_id=7)
     assert result["bot_username"] == "peek_bot"
+    assert result["identity_verified"] is True
+    assert result["webhook"] == {
+        "configured": True, "pending_update_count": 3, "last_error_present": True,
+    }
+    assert "secret detail" not in str(result)
     assert [call[0] for call in transport.calls] == ["getMe", "getWebhookInfo"]
 
 def test_wrong_bot_fails_without_settings_side_effect_and_redacts_token():

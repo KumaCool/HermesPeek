@@ -8,7 +8,7 @@ import httpx
 
 ChatType = Literal["private", "group", "supergroup"]
 _BOT_USERNAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{4,31}$")
-_SHORT_NAME = re.compile(r"^[A-Za-z0-9_]{3,64}$")
+_SHORT_NAME = re.compile(r"^[A-Za-z0-9_]{3,30}$")
 _LAUNCH_REF = re.compile(r"^lr_[A-Za-z0-9_-]{20,64}$")
 
 

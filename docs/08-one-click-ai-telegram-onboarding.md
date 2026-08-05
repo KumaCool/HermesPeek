@@ -250,7 +250,7 @@ uv run hermes-peek setup \
 
 ```bash
 hermes-peek status --json
-hermes-peek doctor
+hermes-peek doctor --json
 hermes gateway status
 ```
 
@@ -265,6 +265,20 @@ hermes gateway restart
 ```text
 把 README 发我看下
 ```
+
+`doctor --json` 只做只读诊断，并分层报告：Token 文件可读性与权限、`getMe`
+身份、Webhook、HTTPS health、Bot username、HermesPeek 配置证据，以及 Main Mini
+App Direct Link 是否可构造。`verified` 身份或可构造链接都**不能**证明 BotFather 已
+注册 Main Mini App；URL 匹配保持 `unverified`，Telegram 客户端打开保持 `pending`，
+直到 TASK 10.6 现场验收。缺少 `TELEGRAM_ALLOWED_USERS`（或明确的群组允许用户）时
+诊断为阻塞项，请运行 `hermes gateway setup` 并遵循
+[Hermes Telegram 配置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram)，
+HermesPeek 不修改 Hermes 主配置。`setChatMenuButton` 只是可选私聊入口，不是 Main
+Mini App 注册证据。
+
+setup 输出的待办清单分别保留 BotFather owner 操作、私聊、群组、Forum Topic 的
+Telegram 客户端验收。群组 Privacy Mode 只提供选择建议；是否关闭、是否授予管理员，
+以及变更后移除并重新加入 Bot，均由 Bot/group owner 决定。
 
 通过标准：
 

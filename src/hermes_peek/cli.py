@@ -143,6 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true")
     status.add_argument("--hermes-home", type=Path)
     doctor = subparsers.add_parser("doctor", help="Run read-only lifecycle diagnostics")
+    doctor.add_argument("--json", action="store_true")
     doctor.add_argument("--hermes-home", type=Path)
     service = subparsers.add_parser("service", help="Manage the local service")
     service.add_argument("action", choices=("start", "stop", "restart", "logs"))
@@ -154,6 +155,23 @@ def _port(value: str) -> int:
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be between 1 and 65535")
     return port
+
+
+def _telegram_onboarding_checklist() -> list[dict[str, object]]:
+    return [
+        {
+            "scope": "botfather",
+            "status": "pending_owner_action",
+            "action": "Configure and open the Main Mini App for this bot in BotFather.",
+            "menu_button_is_not_main_mini_app_registration": True,
+        },
+        {"scope": "private_chat", "status": "pending_client_acceptance",
+         "action": "Start a new private session, request one preview, and open it."},
+        {"scope": "group", "status": "pending_client_acceptance",
+         "action": "Mention the bot (or choose owner-approved Privacy Mode/admin settings) and verify the preview stays in the group."},
+        {"scope": "forum_topic", "status": "pending_client_acceptance",
+         "action": "Request and open one preview in the original chat and topic thread."},
+    ]
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -236,6 +254,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     defer_gateway_restart=_running_inside_gateway_session(),
                     runner=lifecycle_runner,
                 )
+                result["telegram_onboarding_checklist"] = _telegram_onboarding_checklist()
             else:
                 if args.dry_run and not args.purge:
                     raise LifecycleError("--dry-run requires --purge")

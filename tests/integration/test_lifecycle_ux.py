@@ -57,11 +57,54 @@ def test_doctor_matrix_has_named_checks_and_actionable_suggestions(tmp_path):
     assert {"manifest","service_health","plugin_loaded","gateway","telegram","https","config_drift"} <= names
     assert report["suggestions"] and all(isinstance(item,str) for item in report["suggestions"])
 
+
+def test_doctor_layers_telegram_onboarding_evidence_without_claiming_botfather_acceptance(tmp_path):
+    from hermes_peek.lifecycle_ux import doctor
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    paths.hermes_home.mkdir(); (paths.hermes_home/".env").write_text(
+        "TELEGRAM_BOT_TOKEN=fake-token\nTELEGRAM_ALLOWED_USERS=1001\n"
+    ); (paths.hermes_home/".env").chmod(0o600)
+    paths.config_dir.mkdir(); paths.config_file.write_text(json.dumps({
+        "external_base_url":"https://preview.example.test",
+        "telegram_bot_username":"peek_bot",
+        "telegram_mini_app_short_name":"named_app",
+    }))
+    report=doctor(paths,MatrixRunner(),
+        port_probe=lambda h,p:{"listening":True,"address":"127.0.0.1:8765","pid":321},
+        health_probe=lambda u:{"ok":True,"status":200},
+        https_probe=lambda u:{"reachable":True,"status":200,"configured":True},
+        telegram_probe=lambda:{"verified":True,"identity_verified":True,"bot_id":7,
+            "bot_username":"peek_bot","webhook":{"configured":False,"pending_update_count":0,
+            "last_error_present":False},"main_mini_app_requires_botfather":True})
+    onboarding=report["telegram_onboarding"]
+    assert onboarding["token_file"] == {"readable": True, "permissions_restricted": True}
+    assert onboarding["allowed_users"]["configured"] is True
+    assert onboarding["identity"]["status"] == "verified"
+    assert onboarding["configuration_evidence"]["status"] == "reliable"
+    assert onboarding["main_mini_app"]["direct_link_constructable"] is True
+    assert onboarding["main_mini_app"]["short_name"] == "named_app"
+    assert onboarding["main_mini_app"]["url_match"] == "unverified"
+    assert onboarding["main_mini_app"]["telegram_client_acceptance"] == "pending"
+    assert onboarding["main_mini_app"]["botfather_configured"] == "not_inferable"
+
+
+def test_doctor_blocks_missing_allowed_users_with_official_hermes_configuration_link(tmp_path):
+    from hermes_peek.lifecycle_ux import doctor
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    paths.hermes_home.mkdir(); (paths.hermes_home/".env").write_text("TELEGRAM_BOT_TOKEN=fake-token\n")
+    report=doctor(paths,MatrixRunner(),telegram_probe=lambda:{"verified":True,"bot_username":"peek_bot"})
+    allowed=report["telegram_onboarding"]["allowed_users"]
+    assert allowed["status"] == "blocking"
+    assert allowed["configured"] is False
+    assert allowed["configure_with"] == "hermes gateway setup"
+    assert allowed["documentation"].startswith("https://hermes-agent.nousresearch.com/")
+
 def test_cli_exposes_status_doctor_and_service_commands():
     from hermes_peek.cli import build_parser
     parser=build_parser()
     assert parser.parse_args(["status", "--json"]).command == "status"
     assert parser.parse_args(["doctor"]).command == "doctor"
+    assert parser.parse_args(["doctor", "--json"]).json is True
     assert parser.parse_args(["service", "restart"]).action == "restart"
     purge = parser.parse_args(["uninstall", "--purge", "--dry-run"])
     assert purge.purge is True and purge.dry_run is True and purge.yes is False
@@ -112,6 +155,25 @@ def test_setup_cli_constructs_telegram_lifecycle_and_inspects_bot(tmp_path, monk
     assert captured["runner"] is cli.lifecycle_runner
 
 
+def test_setup_outputs_owner_onboarding_checklist_without_claiming_menu_registers_main_app(tmp_path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+    paths = InstallPaths(tmp_path/"hermes", tmp_path/"config", tmp_path/"state", tmp_path/"systemd")
+    allowed = tmp_path/"workspace"; allowed.mkdir(); executable = tmp_path/"hermes-peek"; executable.write_text("x")
+    env = tmp_path/"telegram.env"; env.write_text("TELEGRAM_BOT_TOKEN=fake-token")
+    monkeypatch.setattr(cli.InstallPaths, "for_user", classmethod(lambda cls, **kw: paths))
+    monkeypatch.setattr(cli.shutil, "which", lambda name: str(executable))
+    monkeypatch.setattr(cli, "read_bot_token", lambda path: "fake-token")
+    monkeypatch.setattr(cli, "install_application", lambda **kw: {"installed": True})
+    assert main(["setup", "--allowed-root", str(allowed), "--external-url", "https://preview.example.test",
+                 "--telegram-env", str(env), "--telegram-bot-username", "peek_bot", "--no-activate"]) == 0
+    result=json.loads(capsys.readouterr().out)
+    checklist=result["telegram_onboarding_checklist"]
+    assert {item["scope"] for item in checklist} == {"botfather", "private_chat", "group", "forum_topic"}
+    botfather=next(item for item in checklist if item["scope"] == "botfather")
+    assert botfather["status"] == "pending_owner_action"
+    assert botfather["menu_button_is_not_main_mini_app_registration"] is True
+
+
 def test_gateway_session_detection_uses_systemd_cgroup(monkeypatch):
     import hermes_peek.cli as cli
     monkeypatch.delenv("HERMES_SESSION_PLATFORM", raising=False)
@@ -139,7 +201,7 @@ def test_default_https_probe_is_read_only_and_redacted(monkeypatch):
     seen = []
     monkeypatch.setattr(ux.urllib.request, "urlopen", lambda request, timeout: seen.append((request.full_url, request.method)) or Response())
     assert ux._https_probe("https://preview.example.test/") == {"reachable": True, "status": 204, "configured": True}
-    assert seen == [("https://preview.example.test/", "HEAD")]
+    assert seen == [("https://preview.example.test/healthz", "HEAD")]
 
 
 def test_default_telegram_probe_reads_installed_token_and_redacts_failure(tmp_path, monkeypatch):

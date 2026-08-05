@@ -33,8 +33,18 @@ class TelegramLifecycle:
         if expected_bot_id is not None and identity.get("id") != expected_bot_id:
             raise LifecycleError("Telegram Bot identity mismatch")
         webhook = self._call("getWebhookInfo", token)
-        return {"bot_id": identity.get("id"), "bot_username": identity.get("username"),
-                "webhook_configured": bool(webhook.get("url")), "main_mini_app_requires_botfather": True}
+        return {
+            "bot_id": identity.get("id"),
+            "bot_username": identity.get("username"),
+            "identity_verified": True,
+            "webhook_configured": bool(webhook.get("url")),
+            "webhook": {
+                "configured": bool(webhook.get("url")),
+                "pending_update_count": webhook.get("pending_update_count", 0),
+                "last_error_present": bool(webhook.get("last_error_message")),
+            },
+            "main_mini_app_requires_botfather": True,
+        }
     def set_menu(self, token: str, url: str) -> dict[str, Any]:
         old = self._call("getChatMenuButton", token)
         applied = {"type": "web_app", "text": "Preview", "web_app": {"url": url}}

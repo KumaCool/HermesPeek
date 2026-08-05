@@ -4,11 +4,13 @@ import hashlib
 import json
 import urllib.error
 import urllib.request
+import stat
 from pathlib import Path
 from typing import Any, Callable
 
 from .lifecycle import HermesTarget, InstallPaths, LifecycleError, _plugin_state, read_bot_token
 from .telegram_lifecycle import TelegramLifecycle, UrllibTelegramTransport
+from .telegram import build_mini_app_direct_link
 from .service_backend import HealthProbe, PortProbe, Runner, SystemdUserBackend, _health_probe, _port_probe
 
 Probe = Callable[[], dict[str, Any]]
@@ -65,7 +67,7 @@ def _https_probe(url: str) -> dict[str, Any]:
     if not url:
         return {"reachable": False, "status": None, "configured": False}
     try:
-        request = urllib.request.Request(url, method="HEAD")
+        request = urllib.request.Request(url.rstrip("/") + "/healthz", method="HEAD")
         with urllib.request.urlopen(request, timeout=3) as response:
             return {"reachable": 200 <= response.status < 500, "status": response.status, "configured": True}
     except (OSError, urllib.error.URLError):
@@ -138,4 +140,86 @@ def doctor(paths: InstallPaths, runner: Runner, **probes: Any) -> dict[str, Any]
         {"name": "config_drift", "ok": not report["drift"]["detected"], "suggestion": "review modified installer-owned resources before repair"},
     ]
     return {"schema_version": 1, "checks": checks,
-            "suggestions": [check["suggestion"] for check in checks if not check["ok"]]}
+            "suggestions": [check["suggestion"] for check in checks if not check["ok"]],
+            "telegram_onboarding": _telegram_onboarding(paths, report)}
+
+
+_HERMES_TELEGRAM_DOCS = "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram"
+
+
+def _read_env_names(path: Path) -> set[str]:
+    try:
+        return {
+            line.split("=", 1)[0].strip()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#") and "=" in line
+        }
+    except OSError:
+        return set()
+
+
+def _telegram_onboarding(paths: InstallPaths, report: dict[str, Any]) -> dict[str, Any]:
+    try:
+        config = json.loads(paths.config_file.read_text(encoding="utf-8"))
+        if not isinstance(config, dict):
+            config = {}
+    except (OSError, ValueError):
+        config = {}
+    token_path = paths.env_file if paths.env_file.is_file() else paths.hermes_home / ".env"
+    readable = token_path.is_file() and token_path.stat().st_mode & stat.S_IRUSR != 0
+    restricted = readable and token_path.stat().st_mode & 0o077 == 0
+    hermes_names = _read_env_names(paths.hermes_home / ".env")
+    allowed = bool({"TELEGRAM_ALLOWED_USERS", "TELEGRAM_GROUP_ALLOWED_USERS"} & hermes_names)
+    telegram = report["telegram"]
+    configured_username = str(config.get("telegram_bot_username") or "").removeprefix("@")
+    verified_username = str(telegram.get("bot_username") or "").removeprefix("@")
+    identity_verified = bool(telegram.get("identity_verified") or telegram.get("verified"))
+    evidence_reliable = bool(
+        identity_verified and configured_username and configured_username == verified_username
+        and config.get("external_base_url")
+    )
+    short_name = config.get("telegram_mini_app_short_name") or None
+    constructable = False
+    if verified_username:
+        try:
+            build_mini_app_direct_link(
+                verified_username, "lr_" + "x" * 20, short_name=short_name
+            )
+            constructable = True
+        except ValueError:
+            pass
+    return {
+        "token_file": {"readable": bool(readable), "permissions_restricted": bool(restricted)},
+        "allowed_users": {
+            "configured": allowed,
+            "status": "ready" if allowed else "blocking",
+            "configure_with": "hermes gateway setup",
+            "documentation": _HERMES_TELEGRAM_DOCS,
+        },
+        "identity": {
+            "status": "verified" if identity_verified else "unverified",
+            "bot_id": telegram.get("bot_id"),
+            "bot_username": verified_username or None,
+        },
+        "webhook": telegram.get("webhook", {
+            "configured": bool(telegram.get("webhook_configured")),
+            "pending_update_count": None,
+            "last_error_present": None,
+        }),
+        "https_health": report["https"],
+        "configuration_evidence": {
+            "status": "reliable" if evidence_reliable else "insufficient"
+        },
+        "main_mini_app": {
+            "direct_link_constructable": constructable,
+            "short_name": short_name,
+            "url_match": "unverified",
+            "telegram_client_acceptance": "pending",
+            "botfather_configured": "not_inferable",
+            "menu_button_is_registration_evidence": False,
+        },
+        "privacy_mode": {
+            "status": "owner_decision",
+            "guidance": "For groups, mention the bot, disable Privacy Mode in BotFather, or make it an admin; no change is made by doctor.",
+        },
+    }

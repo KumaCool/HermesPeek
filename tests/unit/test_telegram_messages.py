@@ -17,6 +17,15 @@ def test_main_mini_app_direct_link_uses_opaque_reference() -> None:
     assert url == f"https://t.me/KumaHermes666_bot?startapp={reference}&mode=compact"
 
 
+def test_named_mini_app_short_name_uses_official_three_to_thirty_character_contract() -> None:
+    reference = "lr_" + "a" * 32
+    assert f"/{'a' * 30}?" in build_mini_app_direct_link(
+        "KumaHermes666_bot", reference, short_name="a" * 30
+    )
+    with pytest.raises(ValueError, match="short name"):
+        build_mini_app_direct_link("KumaHermes666_bot", reference, short_name="a" * 31)
+
+
 @pytest.mark.parametrize("reference", ["lr_short", "lr_../../etc/passwd", "pv_" + "a" * 32])
 def test_direct_link_rejects_invalid_launch_reference(reference: str) -> None:
     with pytest.raises(ValueError):
