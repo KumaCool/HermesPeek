@@ -182,7 +182,7 @@ HermesPeek 的设计目标是“只读、最小暴露、显式授权”：
 5. Hermes Plugin 和 Gateway Hook 自动收集；
 6. 经授权验证 HTTPS 与生产入口；
 7. 通过 Hermes 通用 `final_message_actions` 扩展点，将预览按钮融合进最终回复（代码与离线集成已完成，真实 Gateway 验收待授权）。
-8. 通过 Main Mini App Direct Link、短期 opaque launch reference 和服务端 `initData`/owner 校验，实现 Telegram Topic Mini App 闭环（方案已落地，代码与真实验收待执行）。
+8. 通过 Main Mini App Direct Link、短期 opaque launch reference 和服务端 `initData`/owner 校验，实现 Telegram Topic Mini App 闭环（实现与离线验收已完成，真实 Topic 核心链路已部分验收；剩余安全场景见专项计划）。
 9. 通过带事务、回滚、资源所有权、状态诊断和显式 purge 的单一 CLI 管理完整生命周期（离线实现与隔离验收已完成；真实环境验收待授权）。
 
 路线图不代表相关能力已经实现，实时进度以任务计划中的 TASK 状态为准。

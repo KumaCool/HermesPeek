@@ -2,7 +2,7 @@
 
 > 本文是 [`../01-design-development-plan.md`](../01-design-development-plan.md) 的执行拆分。设计依据与架构决策以设计文档为准；本文只维护 TASK、状态、验收证据与提交边界。
 
-**当前总体状态：** `阶段 0–5 DONE（TASK 5.3 未批准、不执行）；阶段 6 代码与离线集成 DONE；阶段 7 已规划且存在部分未提交原型；阶段 8 生命周期方案与计划已于 2026-08-05 评审通过，存在未完成原型，真实环境验收仍待项目负责人单独批准`
+**当前总体状态：** `阶段 0–5 DONE（TASK 5.3 未批准、不执行）；阶段 6 代码与离线集成 DONE；阶段 7 实现与离线验收 DONE、真实 Topic 核心链路 PARTIAL_REAL_ACCEPTANCE；阶段 8 离线实现与验收 DONE，完整真实生命周期验收仍待执行`
 
 ---
 
@@ -628,7 +628,7 @@ uv run mypy src/hermes_peek
 
 ## 4. 阶段 7：Telegram Topic Mini App 闭环
 
-**状态：** `PLANNED`
+**状态：** `IMPLEMENTED / OFFLINE_DONE / PARTIAL_REAL_ACCEPTANCE`
 
 阶段 7 把群组/Forum Topic 中的普通 Preview HTTPS 按钮改为 Telegram Main Mini App Direct Link，并通过短期 opaque launch reference、服务端 `Telegram.WebApp.initData` 校验和 Preview owner 比对打开指定 Preview。
 
@@ -636,9 +636,7 @@ uv run mypy src/hermes_peek
 
 - [`02-telegram-topic-mini-app-rollout.md`](02-telegram-topic-mini-app-rollout.md)
 
-已验证前提：Main Mini App 无参数入口已由项目负责人在 Telegram 客户端实测成功。尚未实现或验收的内容不得记为完成，包括 launch reference、`startapp` 路由、Topic Direct Link action、真实 profile 安装和 Gateway 重启。
-
-未经项目负责人明确授权，阶段 7 的真实部署 TASK 保持 `BLOCKED_PENDING_APPROVAL`。
+已完成配置与 Direct Link 构造、短期 launch reference、`startapp` 启动认证、Topic action、兼容通知路径和隔离测试。项目负责人已确认真实 Topic 按钮可在 Telegram Mini App 中打开 README；同一按钮可重复打开。Gateway 新会话自动 action、转发拒绝、撤销、Tailnet 断连恢复和完整日志扫描仍待验收，详见阶段 7 专项计划。
 
 ---
 

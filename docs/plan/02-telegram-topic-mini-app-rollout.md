@@ -29,9 +29,9 @@ Telegram Mini App 容器
 - HermesPeek 已实现 Preview Registry、Telegram `initData` 签名验证、owner 鉴权、短期会话和受控文件读取；
 - Hermes 已实现 `final_message_actions`，Telegram adapter 可在最终回复的新发送或原消息 edit 路径附加 URL 按钮；
 - HermesPeek 插件已能收集本轮成功写入的文件并创建最终消息 action；
-- 当前群组/Topic action 仍指向普通 `https://<host>/p/<preview_id>`，点击后不是 Direct Link Mini App；
-- 当前 `/` 仅显示介绍页，尚未从 `start_param` 启动指定 Preview；
-- 当前真实 Hermes profile 尚未安装新版插件，Gateway 尚未重启，真实 Topic 闭环尚未验收。
+- 群组/Topic action 已改为 Main Mini App Direct Link，并使用短期 `launch_ref`；
+- `/` 已从 `start_param` 进入服务端 launch auth，再跳转到受保护 Preview；
+- 当前真实 Hermes profile 已完成受控插件与服务升级，Topic 核心链路已由项目负责人确认可用；完整真实安全场景仍待验收。
 
 Mini App 仍是 Telegram 内的网页容器。它不会把 Preview 内容直接渲染进 Topic 消息正文；如需正文原生展示，必须另行发送文本、Markdown 或附件。
 
@@ -182,7 +182,7 @@ Set-Cookie: hermes_peek_session=...; HttpOnly; Secure; SameSite=Lax
 
 ### TASK 7.1：配置和 Direct Link 构造器
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 交付物：
 
@@ -208,7 +208,7 @@ feat: add Telegram Mini App direct links
 
 ### TASK 7.2：短期 launch reference Registry
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 交付物：
 
@@ -228,7 +228,7 @@ feat: add expiring Mini App launch references
 
 ### TASK 7.3：Mini App 启动路由和认证
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 交付物：
 
@@ -249,7 +249,7 @@ feat: open previews from Telegram startapp
 
 ### TASK 7.4：最终消息与显式通知按钮改造
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 交付物：
 
@@ -270,7 +270,7 @@ feat: route Telegram topic previews through Mini App
 
 ### TASK 7.5：文档和离线验收
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 更新：
 
@@ -292,7 +292,7 @@ docs: document Telegram Topic Mini App rollout
 
 ### TASK 7.6：真实部署与 Topic 验收
 
-**状态：** `BLOCKED_PENDING_APPROVAL`
+**状态：** `PARTIAL_REAL_ACCEPTANCE`
 
 前置条件：
 
@@ -303,7 +303,26 @@ docs: document Telegram Topic Mini App rollout
 - 项目负责人明确授权安装、配置变更和 Gateway 重启；
 - 已准备回滚版本和维护窗口。
 
-未经上述授权，不得执行本 TASK。
+项目负责人已在当前 Telegram Topic 明确要求继续验证。已完成的真实验收包括：
+
+- BotFather Main Mini App 已启用，Main Mini App Direct Link 可用；
+- 当前 profile 的 HermesPeek 插件与服务完成受控升级，服务 `/healthz` 正常；
+- Topic 中发送的按钮为 `t.me/<bot>?startapp=lr_...`，不再是普通 Preview HTTPS URL；
+- 项目负责人确认 README 在 Telegram Mini App 容器中成功打开；
+- 同一按钮可重复打开；Topic Direct Link 每次显示 Telegram 平台确认页属于平台预期行为；
+- 私聊 `web_app` 按钮仍可用；
+- 真实验收期间未执行 uninstall 或 purge。
+
+尚未完成：从 Gateway 新会话自动触发最终消息 action 的重启后验收、他人转发拒绝、Preview revoke、Tailnet 断连恢复和完整生产日志脱敏扫描。因此阶段状态不得记为全部真实验收完成。
+
+### 实施与验收记录（2026-08-05）
+
+- `087d954 feat: open topic previews as Telegram Mini Apps`：Direct Link、短期 launch reference、启动认证和 Topic action；
+- `888de90 fix: align lifecycle activation with live Hermes`：真实 Hermes 生命周期兼容修复；
+- 隔离全量回归：147 tests passed；
+- 提交后 Mini App/Gateway 定向回归：22 tests passed；
+- `compileall`、`git diff --check` 和 staged Secret 扫描通过；
+- Telegram Topic 真实消息成功发送并由项目负责人确认可用；能力型 URL、Preview ID、用户/聊天/Topic 标识和私有域名不写入仓库验收记录。
 
 ## 7. 测试矩阵
 
