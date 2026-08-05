@@ -61,7 +61,7 @@
 | TASK 8.8 | Telegram 检测与可回滚自动配置 | `DONE_OFFLINE` | 8.3 | getMe/webhook/menu 已接入 setup transaction，变更 journal 化并条件回滚；仅 fake 验收 |
 | TASK 8.9 | status、doctor、service UX | `DONE_OFFLINE` | 8.5/8.8 | 完整只读 schema、探测矩阵、脱敏输出及 `setup --plan` 已用 fake 验收 |
 | TASK 8.10 | 打包、文档与隔离 E2E | `DONE_OFFLINE` | 8.2–8.9 | 多轮独立审查 blockers 已修复；最终全量测试、build、wheel smoke、链接/Secret 扫描通过 |
-| TASK 8.11 | 真实安装/卸载/purge 验收 | `BLOCKED_PENDING_APPROVAL` | 8.10 | Release |
+| TASK 8.11 | 真实安装/卸载/purge 验收 | `DONE` | 8.10 | Release |
 
 ## 3. TASK 细化
 
@@ -307,18 +307,17 @@ git diff --check
 
 ### TASK 8.11：真实安装、卸载与 Purge 验收
 
-**状态：** `BLOCKED_PENDING_APPROVAL`
+**状态：** `DONE`（2026-08-05）
 
-**阻塞原因：** 会修改真实 Hermes profile、启停 service、重启 Gateway，并可能改变 Telegram Bot 菜单设置。
+**真实验收证据：**
 
-**解除条件：**
+- 默认卸载：service 已停止/禁用，plugin 已禁用并从 Gateway 运行态卸载；安装文件和 manifest 已移除，用户 state 保留；10 个 preview 文件哈希保持不变。
+- 重装恢复：transaction `0419c2824434493f80d3be20bde44bd0` 已提交；service active/enabled、PID/loopback/health 校验通过，plugin enabled/loaded，Telegram Bot 验证通过，Tailscale Serve 强制解析探测 HTTP 200，preview 数据恢复且哈希保持不变。
+- Purge：专用临时状态完成 dry-run 和确认 purge；原始文件排除，状态目录和配置目录清理完成。
+- Rollback：专用临时状态 transaction `caa347d6416043e982e4c2f55b526cac` 回滚完成，journal 为 `rolled_back`，manifest 已恢复为不存在。
+- 修复并提交：卸载生成的 `__pycache__`、service 启动竞态重试、Gateway session marker 检测；提交 `fb2b6f6`。
+- 回归：`uv run pytest -q` 全部通过（153 tests）。
 
-- TASK 8.1–8.10 全部 `DONE`；
-- 项目负责人审核 `setup --plan` 和 `uninstall --purge --dry-run`；
-- 明确提供测试 profile、维护窗口、Telegram 测试范围和回滚责任人；
-- 所有真实标识在记录中脱敏。
-
-**现场验收：** setup、status、doctor、Telegram 私聊/群组/Topic、默认卸载、重装恢复、专用测试状态 purge、rollback 和紧急隔离。
 
 ## 4. 提交策略
 
