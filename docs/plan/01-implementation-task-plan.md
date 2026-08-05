@@ -677,3 +677,21 @@ uv run mypy src/hermes_peek
 方案与计划已于 2026-08-05 获项目负责人明确评审批准，下一步从 TASK 9.1 的 Skill RED 测试开始。真实 Profile 更新与 Gateway 外部重启仍需在离线阶段完成后单独授权。
 
 ---
+
+## 7. 阶段 10：一键安装、AI 辅助安装与 Telegram 接入
+
+**状态：** `PENDING_REVIEW / NOT_STARTED`
+
+阶段 10 把当前面向开发者的显式参数安装升级为普通用户闭环：带 Release 校验的一键安装入口、无参数交互式 setup、可复制给 AI Agent 的安全安装契约，以及覆盖 Hermes Bot、allowed users、群组隐私、HTTPS、BotFather Main Mini App、Gateway 新会话和真实 Preview 的 Telegram 配置流程。
+
+完整方案见：
+
+- [`../08-one-click-ai-telegram-onboarding.md`](../08-one-click-ai-telegram-onboarding.md)
+
+具体 TASK、TDD 顺序、跨平台发布、真实 Telegram 授权与验收门槛见：
+
+- [`05-one-click-ai-telegram-onboarding-rollout.md`](05-one-click-ai-telegram-onboarding-rollout.md)
+
+本阶段尚未获评审批准。未经项目负责人明确批准，不得开始测试或代码实施；网络入口、真实 Profile、service、Gateway 重启、Telegram 菜单和真实消息验收仍需独立授权。
+
+---

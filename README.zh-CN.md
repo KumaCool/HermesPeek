@@ -75,6 +75,18 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 - 如需使用 Telegram Mini App，需要一个 Telegram 客户端可以访问的 HTTPS 地址；
 - 只有在需要 Telegram 通知或 Mini App 集成时才需要 Telegram Bot。
 
+## 安装方式
+
+HermesPeek 当前已经提供生命周期 CLI，但**尚未发布远程一键安装脚本，也没有无参数交互式 setup 向导**。在 onboarding 能力实施并发布前，请使用下方的显式 setup 流程。
+
+已经形成方案、等待实施的目标体验包括：
+
+- 带校验的一键安装；
+- 可直接复制给 AI Agent 的安全安装提示词；
+- 覆盖 Telegram Bot、allowed users、群组/Topic、HTTPS 和 Main Mini App 的完整配置教程。
+
+完整用户流程和安全边界见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，实施门禁见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。在该计划完成且 Release 真正发布安装器之前，不应把 `curl ... | sh` 当作当前可用命令。
+
 ## 开发环境安装
 
 克隆仓库并安装锁定的开发依赖：
@@ -223,6 +235,8 @@ uv run hermes-peek setup \
 
 只有在明确希望 setup 修改 Bot 菜单时才使用 `--configure-telegram-menu`。Telegram Main Mini App 的首次绑定仍需 Bot owner 在 BotFather 中完成，无法仅依靠本仓库安全地自动配置。
 
+执行 setup 前，还需要在 Hermes 中配置 Telegram Bot 和 allowed users，准备 Telegram 客户端可访问的 HTTPS Origin，并在 BotFather 中为同一个 Bot 绑定 Main Mini App。私聊、群组、Forum Topic、Privacy Mode、short name、Gateway 激活以及首条真实 Preview 的完整步骤见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-完整配置)。
+
 检查安装状态：
 
 ```bash
@@ -316,9 +330,11 @@ uv run pre-commit run --all-files
 - [Hermes 集成](docs/04-hermes-integration.md)
 - [服务运维](docs/05-operations.md)
 - [安装、升级、卸载与 Purge](docs/06-installation-uninstallation.md)
+- [一键安装、AI 辅助安装与 Telegram 接入](docs/08-one-click-ai-telegram-onboarding.md)
 - [实施任务计划](docs/plan/01-implementation-task-plan.md)
 - [Telegram Topic Mini App 落地方案](docs/plan/02-telegram-topic-mini-app-rollout.md)
 - [生命周期 Setup/Uninstall 实施计划](docs/plan/03-lifecycle-setup-uninstall-rollout.md)
+- [一键安装、AI 与 Telegram 接入实施计划](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)
 
 ## 参与贡献
 

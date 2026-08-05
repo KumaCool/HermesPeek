@@ -75,6 +75,18 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 - an HTTPS URL reachable by the Telegram client for Telegram Mini App use;
 - a Telegram bot only if Telegram notifications or Mini App integration are required.
 
+## Installation paths
+
+HermesPeek currently provides a lifecycle CLI, but it does **not yet ship a remote one-command installer or a no-argument interactive setup wizard**. Until the onboarding work is implemented and released, use the explicit setup flow below.
+
+The proposed target experience includes:
+
+- a verified one-command installer;
+- a copy-paste prompt for AI-assisted installation;
+- a complete Telegram Bot, allowed-user, group/Topic, HTTPS, and Main Mini App guide.
+
+Review the proposed user journey and its security boundaries in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md). The implementation remains gated by [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md); commands such as `curl ... | sh` must not be treated as available until that plan is implemented and a release publishes the installer.
+
 ## Install for development
 
 Clone the repository and install the locked development environment:
@@ -223,6 +235,8 @@ uv run hermes-peek setup \
 
 Use `--configure-telegram-menu` only when you explicitly want setup to change the bot menu. Telegram's first Main Mini App binding still requires the bot owner to configure it in BotFather; it cannot be safely automated by this repository alone.
 
+Before setup, configure the Telegram Bot in Hermes, restrict allowed users, prepare a Telegram-reachable HTTPS Origin, and bind the same Bot's Main Mini App in BotFather. For private chats, groups, Forum Topics, Privacy Mode, short names, Gateway activation, and the first real Preview test, follow [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-complete-configuration).
+
 Check the installation:
 
 ```bash
@@ -316,9 +330,11 @@ Tests are designed to be offline by default. They do not require real Telegram c
 - [Hermes integration](docs/04-hermes-integration.md)
 - [Operations](docs/05-operations.md)
 - [Installation, upgrade, uninstall, and purge](docs/06-installation-uninstallation.md)
+- [One-command install, AI-assisted install, and Telegram onboarding](docs/08-one-click-ai-telegram-onboarding.md)
 - [Implementation task plan](docs/plan/01-implementation-task-plan.md)
 - [Telegram Topic Mini App rollout](docs/plan/02-telegram-topic-mini-app-rollout.md)
 - [Lifecycle setup/uninstall rollout](docs/plan/03-lifecycle-setup-uninstall-rollout.md)
+- [One-command, AI, and Telegram onboarding rollout](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)
 
 ## Contributing
 
