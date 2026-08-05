@@ -49,7 +49,7 @@ class Context:
 ctx=Context(); module.register(ctx)
 payload={'files':['/tmp/result.md'],'entry':'/tmp/result.md','title':'Result'}
 dispatch=ctx.tools[0]['handler'](payload, task_id='task-123')
-print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_file(), 'tools':[tool['name'] for tool in ctx.tools], 'hooks':ctx.hooks, 'dispatch':dispatch}))
+print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_file(), 'tools':[tool['name'] for tool in ctx.tools], 'hooks':ctx.hooks, 'schema':ctx.tools[0]['schema'], 'dispatch':dispatch}))
 """
     result = subprocess.run([sys.executable, "-c", script, str(hermes_home)], cwd=tmp_path,
                             check=True, capture_output=True, text=True)
@@ -57,4 +57,8 @@ print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_f
     assert discovered["skill"] is True
     assert discovered["tools"] == ["hermes_peek_send_preview"]
     assert discovered["hooks"] == ["post_tool_call", "final_message_actions"]
+    schema = discovered["schema"]
+    assert schema["name"] == "hermes_peek_send_preview"
+    assert schema["parameters"]["required"] == ["files", "entry", "title"]
+    assert schema["parameters"]["additionalProperties"] is False
     assert discovered["dispatch"]["error_code"] == "route_unavailable"

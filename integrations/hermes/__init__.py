@@ -77,14 +77,18 @@ def register(ctx) -> None:
         description="Publish files and send one Preview to the current Telegram conversation.",
         emoji="🔎",
         schema={
-            "type": "object",
-            "properties": {
-                "files": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-                "entry": {"type": "string"},
-                "title": {"type": "string", "minLength": 1, "maxLength": 120},
+            "name": "hermes_peek_send_preview",
+            "description": "Publish files and send one Preview to the current Telegram conversation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "files": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                    "entry": {"type": "string"},
+                    "title": {"type": "string", "minLength": 1, "maxLength": 120},
+                },
+                "required": ["files", "entry", "title"],
+                "additionalProperties": False,
             },
-            "required": ["files", "entry", "title"],
-            "additionalProperties": False,
         },
         handler=lambda args, **_: send_preview(**args),
     )

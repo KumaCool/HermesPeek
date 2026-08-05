@@ -167,6 +167,8 @@ def test_plugin_registers_collector_final_action_and_preview_tool() -> None:
     assert len(tools) == 1
     registered = tools[0]
     assert registered["name"] == "hermes_peek_send_preview"
-    assert set(registered["schema"]["properties"]) == {"files", "entry", "title"}
-    assert set(registered["schema"]["required"]) == {"files", "entry", "title"}
+    schema = registered["schema"]
+    assert schema["name"] == "hermes_peek_send_preview"
+    assert set(schema["parameters"]["properties"]) == {"files", "entry", "title"}
+    assert set(schema["parameters"]["required"]) == {"files", "entry", "title"}
     assert registered["handler"]
