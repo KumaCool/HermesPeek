@@ -81,6 +81,74 @@ The repository can reproducibly build and offline-verify the Linux release paylo
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
+## Operator quickstart
+
+> No public Release currently contains both `install.sh` and `SHA256SUMS`, so there is no valid remote one-command install yet. The following is the currently working Linux + systemd user repository flow. It will be replaced with the verified one-command entry after publication.
+
+### 1. Install and run the setup wizard
+
+```bash
+git clone https://github.com/KumaCool/HermesPeek.git
+cd HermesPeek
+uv sync --locked
+uv run hermes-peek setup
+```
+
+`setup` discovers Hermes profiles and asks for an approved preview workspace, a Telegram-reachable HTTPS origin, the bot username, and a local Secret file. It shows a redacted plan before confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
+
+For a non-interactive environment, first provide all values and print a read-only plan:
+
+```bash
+uv run hermes-peek setup \
+  --hermes-home "$HERMES_HOME" \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test \
+  --telegram-bot-username <bot-username> \
+  --telegram-env /path/to/restricted/secrets.env \
+  --plan
+```
+
+Review the plan, then remove `--plan` to apply it. The user-only Secret file should contain `TELEGRAM_BOT_TOKEN=...`; never commit it.
+
+### 2. Complete Hermes and Telegram configuration
+
+1. Follow the [Hermes Telegram documentation](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram), enable Telegram, and add your Telegram user ID to allowed users. HermesPeek never broadens authorization automatically.
+2. Private-chat Preview does not require a Main Mini App. Before using Direct Links in a group or Forum Topic, the bot owner must bind a Main Mini App to the same bot in BotFather; `setChatMenuButton` is not a substitute.
+3. The HTTPS origin must be reachable from the actual Telegram client. Privacy Mode, BotFather, and network configuration remain separate owner actions or approvals.
+4. After setup, follow its checklist for Gateway activation, then start a new Hermes session so it can discover the new Skill and Tool.
+
+### 3. Verify real usability
+
+```bash
+uv run hermes-peek status --json
+uv run hermes-peek doctor --json
+```
+
+Passing these checks proves installation/configuration readiness only. Final acceptance requires requesting a real Preview from a new Hermes session and opening it in the intended private chat, group, or Topic.
+
+### 4. Upgrade, rollback, and uninstall
+
+The current CLI has no public `upgrade` subcommand. To upgrade, check out/install a verified fixed version and run `setup --plan`/`setup` again; do not copy internal Plugin or Skill files. Roll back a committed setup with its transaction ID:
+
+```bash
+uv run hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+```
+
+The default uninstall removes HermesPeek integration resources while **retaining Preview data**:
+
+```bash
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+```
+
+To permanently remove the Registry, spool, logs, journals, and backups, inspect the Purge plan first and then explicitly confirm it:
+
+```bash
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+```
+
+Purge never deletes original project files under an allowed root. See [Installation, upgrade, uninstall, and purge](docs/06-installation-uninstallation.md) for the complete retention matrix, deactivation failure behavior, and recovery guidance.
+
 ## Install with an AI agent
 
 Copy the prompt below into an agent that has terminal access. AI-assisted installation does not waive approvals.

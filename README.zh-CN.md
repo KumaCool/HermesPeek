@@ -81,6 +81,74 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
+## 普通用户快速开始
+
+> 当前还没有包含 `install.sh` 和 `SHA256SUMS` 的公开 Release，因此现在不能使用远程一键安装命令。以下是当前真实可用的 Linux + systemd user 仓库安装流程；Release 发布后，本节会替换为已校验的一键命令。
+
+### 1. 安装并启动向导
+
+```bash
+git clone https://github.com/KumaCool/HermesPeek.git
+cd HermesPeek
+uv sync --locked
+uv run hermes-peek setup
+```
+
+`setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
+
+无交互环境可先显式生成只读计划：
+
+```bash
+uv run hermes-peek setup \
+  --hermes-home "$HERMES_HOME" \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test \
+  --telegram-bot-username <bot-username> \
+  --telegram-env /path/to/restricted/secrets.env \
+  --plan
+```
+
+审核后去掉 `--plan` 执行。Secret 文件应为仅当前用户可读，并包含 `TELEGRAM_BOT_TOKEN=...`；不要提交该文件。
+
+### 2. 完成 Hermes 与 Telegram 配置
+
+1. 按 [Hermes Telegram 配置文档](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram)启用 Telegram，并把自己的 Telegram user ID 加入允许用户（allowed users）；HermesPeek 不会擅自放宽授权。
+2. 私聊 Preview 不要求 Main Mini App。群组或 Forum Topic 使用 Direct Link 前，Bot owner 必须在 BotFather 中为同一个 Bot 配置 Main Mini App；`setChatMenuButton` 不能替代这一步。
+3. HTTPS Origin 必须能从实际 Telegram 客户端访问。Privacy Mode、BotFather 和网络配置都需要 owner 单独操作或确认。
+4. setup 完成后，根据其待办清单处理 Gateway 激活；然后开启一个新的 Hermes 会话，让新会话重新发现 Skill 和 Tool。
+
+### 3. 检查是否真的可用
+
+```bash
+uv run hermes-peek status --json
+uv run hermes-peek doctor --json
+```
+
+这两条命令通过只代表安装和配置检查通过。最终仍需在新的 Hermes 会话中发起一次真实 Preview，并确认它能在目标私聊、群组或 Topic 中打开。
+
+### 4. 升级、回滚和卸载
+
+当前 CLI 尚无公开 `upgrade` 子命令。升级时应切换到经过校验的固定版本、重新安装该版本，并再次运行 `setup --plan`/`setup`；不要直接复制内部 Plugin 或 Skill 文件。setup 返回的 transaction ID 可用于回滚：
+
+```bash
+uv run hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+```
+
+默认卸载会移除 HermesPeek 集成资源，但**保留 Preview 数据**：
+
+```bash
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+```
+
+若还要永久删除 Registry、spool、日志、journal 和备份，必须先查看 Purge 清单，再明确确认：
+
+```bash
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
+uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+```
+
+Purge 不会删除允许根目录中的原始项目文件。更完整的保留矩阵、停服失败处理和恢复说明见[安装、升级、卸载与 Purge](docs/06-installation-uninstallation.md)。
+
 ## 使用 AI Agent 安装
 
 把下面提示词复制给具备终端工具的 Agent。AI 辅助安装不会免除任何确认。

@@ -51,6 +51,30 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_without_a_fake_re
         )
 
 
+def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:
+    for path in (ENGLISH_README, CHINESE_README):
+        text = read(path)
+        assert_terms(
+            text,
+            (
+                ("operator quickstart", "普通用户快速开始"),
+                ("git clone https://github.com/KumaCool/HermesPeek.git",),
+                ("uv sync --locked",),
+                ("uv run hermes-peek setup",),
+                ("status --json",),
+                ("doctor --json",),
+                ("botfather",),
+                ("allowed users", "允许用户"),
+                ("new hermes session", "新的 hermes 会话"),
+                ("default uninstall", "默认卸载"),
+                ("preview data", "preview 数据"),
+                ("--purge --dry-run",),
+                ("rollback", "回滚"),
+                ("upgrade", "升级"),
+            ),
+        )
+
+
 def test_repository_agent_guide_enforces_discovery_secret_confirmation_and_completion_contracts() -> None:
     text = read(AGENT_GUIDE)
     assert_terms(
