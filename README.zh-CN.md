@@ -306,6 +306,8 @@ uv run pre-commit run --all-files
 
 ## 项目文档
 
+- [版本变更记录](CHANGELOG.md)
+- [版本控制与发布流程](docs/VERSIONING.md)
 - [产品决策](docs/00-product-decisions.md)
 - [设计与开发方案](docs/01-design-development-plan.md)
 - [系统架构](docs/02-architecture.md)

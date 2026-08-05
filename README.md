@@ -306,6 +306,8 @@ Tests are designed to be offline by default. They do not require real Telegram c
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md)
+- [Versioning and releases](docs/VERSIONING.md)
 - [Product decisions](docs/00-product-decisions.md)
 - [Design and development plan](docs/01-design-development-plan.md)
 - [Architecture](docs/02-architecture.md)
