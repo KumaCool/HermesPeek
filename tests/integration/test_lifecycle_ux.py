@@ -119,6 +119,17 @@ def test_gateway_session_detection_uses_systemd_cgroup(monkeypatch):
     assert cli._running_inside_gateway_session() is True
 
 
+def test_gateway_session_detection_prefers_exported_session_marker(monkeypatch):
+    import hermes_peek.cli as cli
+    import sys
+    from types import SimpleNamespace
+    monkeypatch.setenv("HERMES_SESSION_PLATFORM", "telegram")
+    monkeypatch.setattr(cli.Path, "read_text", lambda self, **kw: "0::/")
+    monkeypatch.setitem(sys.modules, "gateway.session_context", SimpleNamespace(get_session_env=lambda key, default: default))
+
+    assert cli._running_inside_gateway_session() is True
+
+
 def test_default_https_probe_is_read_only_and_redacted(monkeypatch):
     import hermes_peek.lifecycle_ux as ux
     class Response:

@@ -67,7 +67,7 @@ def _running_inside_gateway_session() -> bool:
     try:
         import importlib
         get_session_env = importlib.import_module("gateway.session_context").get_session_env
-        return bool(get_session_env("HERMES_SESSION_PLATFORM", ""))
+        return bool(get_session_env("HERMES_SESSION_PLATFORM", "")) or bool(os.environ.get("HERMES_SESSION_PLATFORM"))
     except (ImportError, AttributeError, RuntimeError):
         return bool(os.environ.get("HERMES_SESSION_PLATFORM"))
 

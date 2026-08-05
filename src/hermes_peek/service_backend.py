@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import socket
 import subprocess
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
@@ -101,13 +102,17 @@ class SystemdUserBackend:
         return {**state, "pid": pid, "port": port, "health": health}
 
     def verify_running(self) -> dict[str, Any]:
-        result = self.inspect()
-        address = str(result["port"].get("address") or "")
-        loopback = address.startswith("127.") or address.startswith("[::1]") or address.startswith("::1")
-        if not (result["active"] and result["pid"] > 0 and result["port"].get("listening")
-                and result["port"].get("pid") == result["pid"] and loopback and result["health"].get("ok")):
-            raise LifecycleError("service failed PID, loopback port, or health verification")
-        return result
+        result: dict[str, Any] = {}
+        for attempt in range(20):
+            result = self.inspect()
+            address = str(result["port"].get("address") or "")
+            loopback = address.startswith("127.") or address.startswith("[::1]") or address.startswith("::1")
+            if (result["active"] and result["pid"] > 0 and result["port"].get("listening")
+                    and result["port"].get("pid") == result["pid"] and loopback and result["health"].get("ok")):
+                return result
+            if attempt < 19:
+                time.sleep(0.25)
+        raise LifecycleError("service failed PID, loopback port, or health verification")
 
     def verify_stopped(self) -> dict[str, Any]:
         result = self.inspect()

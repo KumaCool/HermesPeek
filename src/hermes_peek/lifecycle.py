@@ -543,6 +543,11 @@ def _uninstall_transaction(
     owned_entries = {entry["path"]: entry for entry in manifest.get("owned_resources", [])}
     owned_hashes = manifest.get("plugin_hashes", {})
     for child in list(paths.plugin_dir.iterdir()) if paths.plugin_dir.is_dir() else []:
+        if child.name == "__pycache__" and child.is_dir() and not child.is_symlink():
+            if any(item.is_symlink() or item.is_dir() for item in child.iterdir()):
+                raise LifecycleError("plugin bytecode cache contains an unsafe resource")
+            shutil.rmtree(child)
+            continue
         expected = owned_hashes.get(child.name)
         if expected is None or child.is_symlink():
             raise LifecycleError("plugin directory contains an unowned resource")

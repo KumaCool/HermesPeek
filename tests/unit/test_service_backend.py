@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 
 import pytest
@@ -57,6 +58,19 @@ def test_service_verification_requires_matching_pid_loopback_port_and_health():
     runner = ProbeRunner()
     result = SystemdUserBackend(runner, port_probe=fake_port_probe(runner), health_probe=fake_health_probe(runner)).verify_running()
     assert result == {"active": True, "enabled": True, "pid": 321, "port": {"listening": True, "address": "127.0.0.1:8765", "pid": 321}, "health": {"ok": True, "status": 200}}
+
+
+def test_service_verification_retries_during_startup(monkeypatch):
+    runner = ProbeRunner()
+    attempts = iter((False, False, True))
+    health = lambda url: {"ok": next(attempts), "status": 200}
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = SystemdUserBackend(runner, port_probe=fake_port_probe(runner), health_probe=health).verify_running()
+
+    assert result["health"]["ok"] is True
+    assert sleeps == [0.25, 0.25]
 
 
 @pytest.mark.parametrize("listen,pid,health", [("0.0.0.0:8765",321,True), ("127.0.0.1:8765",999,True), ("127.0.0.1:8765",321,False)])
