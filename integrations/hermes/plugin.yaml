@@ -2,5 +2,7 @@ name: hermes-peek
 version: 0.1.0
 description: Collect successful Hermes file writes for secure preview publication.
 hooks:
+  - pre_llm_call
   - post_tool_call
+  - transform_llm_output
   - final_message_actions

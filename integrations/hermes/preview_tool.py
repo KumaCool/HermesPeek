@@ -43,19 +43,17 @@ def resolve_route(getter: SessionGetter = get_session_env) -> SessionRoute:
     platform = getter("HERMES_SESSION_PLATFORM", "")
     chat_id = getter("HERMES_SESSION_CHAT_ID", "")
     user_id = getter("HERMES_SESSION_USER_ID", "")
-    chat_type = getter("HERMES_SESSION_CHAT_TYPE", "")
     thread_id = getter("HERMES_SESSION_THREAD_ID", "")
     if platform != "telegram" or not chat_id or not user_id:
         raise PreviewToolError("route_unavailable", "current Telegram route is unavailable")
-    if chat_type == "forum":
-        if not thread_id:
-            raise PreviewToolError("route_unavailable", "current Telegram topic route is unavailable")
+    # Hermes exposes the Telegram route but not a HERMES_SESSION_CHAT_TYPE
+    # ContextVar. Telegram group/supergroup IDs are negative; private-chat IDs
+    # are positive. A thread ID always identifies a forum supergroup topic.
+    if thread_id:
         return SessionRoute(chat_id, user_id, "supergroup", thread_id)
-    if chat_type in {"dm", "private"}:
-        return SessionRoute(chat_id, user_id, "private", None)
-    if chat_type in {"group", "supergroup"}:
+    if chat_id.startswith("-"):
         return SessionRoute(chat_id, user_id, "group", None)
-    raise PreviewToolError("route_unavailable", "current Telegram route is unavailable")
+    return SessionRoute(chat_id, user_id, "private", None)
 
 
 def _load_json_file(path: Path) -> dict:
@@ -174,9 +172,10 @@ def send_preview(*, files, entry, title) -> dict:
             thread_id=int(route.thread_id) if route.thread_id is not None else None,
         )
         message_id = result.get("message_id")
-        return {"success": True, "sent": True, "message_id": message_id,
-                "button_type": "mini_app" if route.chat_type == "private" else "direct_link"}
+        return json.dumps({"success": True, "sent": True, "message_id": message_id,
+                           "button_type": "mini_app" if route.chat_type == "private" else "direct_link"},
+                          ensure_ascii=False)
     except PreviewToolError as exc:
-        return _failure(exc.code, str(exc))
+        return json.dumps(_failure(exc.code, str(exc)), ensure_ascii=False)
     except Exception:
-        return _failure("delivery_failed", "preview could not be delivered")
+        return json.dumps(_failure("delivery_failed", "preview could not be delivered"), ensure_ascii=False)

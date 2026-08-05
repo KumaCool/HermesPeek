@@ -31,22 +31,21 @@ def session_getter(values: dict[str, str]):
 def test_route_uses_request_scoped_dm_group_and_topic_context() -> None:
     tool = load_preview_tool()
     dm = tool.resolve_route(session_getter({
-        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "dm-route",
-        "HERMES_SESSION_USER_ID": "dm-owner", "HERMES_SESSION_CHAT_TYPE": "dm",
+        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "6229635708",
+        "HERMES_SESSION_USER_ID": "dm-owner",
     }))
     group = tool.resolve_route(session_getter({
-        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "group-route",
-        "HERMES_SESSION_USER_ID": "group-owner", "HERMES_SESSION_CHAT_TYPE": "group",
+        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "-1001234567890",
+        "HERMES_SESSION_USER_ID": "group-owner",
     }))
     topic = tool.resolve_route(session_getter({
-        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "topic-route",
-        "HERMES_SESSION_USER_ID": "topic-owner", "HERMES_SESSION_CHAT_TYPE": "forum",
-        "HERMES_SESSION_THREAD_ID": "topic-thread",
+        "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "-1001234567890",
+        "HERMES_SESSION_USER_ID": "topic-owner", "HERMES_SESSION_THREAD_ID": "topic-thread",
     }))
-    assert (dm.chat_id, dm.user_id, dm.chat_type, dm.thread_id) == ("dm-route", "dm-owner", "private", None)
-    assert (group.chat_id, group.user_id, group.chat_type, group.thread_id) == ("group-route", "group-owner", "group", None)
+    assert (dm.chat_id, dm.user_id, dm.chat_type, dm.thread_id) == ("6229635708", "dm-owner", "private", None)
+    assert (group.chat_id, group.user_id, group.chat_type, group.thread_id) == ("-1001234567890", "group-owner", "group", None)
     assert (topic.chat_id, topic.user_id, topic.chat_type, topic.thread_id) == (
-        "topic-route", "topic-owner", "supergroup", "topic-thread",
+        "-1001234567890", "topic-owner", "supergroup", "topic-thread",
     )
 
 
@@ -55,7 +54,6 @@ def test_route_uses_request_scoped_dm_group_and_topic_context() -> None:
     {"HERMES_SESSION_PLATFORM": "discord", "HERMES_SESSION_CHAT_ID": "route", "HERMES_SESSION_USER_ID": "owner"},
     {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_USER_ID": "owner"},
     {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "route"},
-    {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "route", "HERMES_SESSION_USER_ID": "owner", "HERMES_SESSION_CHAT_TYPE": "forum"},
 ])
 def test_route_rejects_missing_or_uncertain_context_without_environment_fallback(monkeypatch, values) -> None:
     tool = load_preview_tool()
@@ -108,9 +106,9 @@ def configured_delivery(tmp_path: Path, monkeypatch, *, chat_type="dm", thread="
     tool = load_preview_tool()
     files = tmp_path / "files"; files.mkdir(); document = files / "result.md"; document.write_text("# Result")
     pointer, token = write_pointer(tmp_path, token="fixture-token")
-    values = {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": "request-route",
-              "HERMES_SESSION_USER_ID": "request-owner", "HERMES_SESSION_CHAT_TYPE": chat_type,
-              "HERMES_SESSION_THREAD_ID": thread}
+    chat_id = "-1001234567890" if chat_type == "forum" else "6229635708"
+    values = {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_CHAT_ID": chat_id,
+              "HERMES_SESSION_USER_ID": "request-owner", "HERMES_SESSION_THREAD_ID": thread}
     monkeypatch.setattr(tool, "get_session_env", session_getter(values))
     monkeypatch.setattr(tool, "POINTER_FILE", pointer)
     return tool, document, token
@@ -122,7 +120,7 @@ def test_handler_sends_exactly_once_and_returns_redacted_success(tmp_path: Path,
     monkeypatch.setattr(tool, "telegram_transport", lambda: httpx.MockTransport(
         lambda request: requests.append(request) or httpx.Response(200, json={"ok": True, "result": {"message_id": 17}})
     ))
-    result = tool.send_preview(files=[str(document)], entry=str(document), title="Result")
+    result = json.loads(tool.send_preview(files=[str(document)], entry=str(document), title="Result"))
     assert result == {"success": True, "sent": True, "message_id": 17, "button_type": "mini_app"}
     assert len(requests) == 1
     serialized = json.dumps(result)
@@ -136,7 +134,7 @@ def test_topic_preserves_thread_and_owner_and_telegram_failure_is_safe(tmp_path:
     monkeypatch.setattr(tool, "telegram_transport", lambda: httpx.MockTransport(
         lambda request: captured.append(json.loads(request.content)) or httpx.Response(503, json={"ok": False})
     ))
-    result = tool.send_preview(files=[str(document)], entry=str(document), title="Result")
+    result = json.loads(tool.send_preview(files=[str(document)], entry=str(document), title="Result"))
     assert result["success"] is False and result["sent"] is False
     assert result["error_code"] == "delivery_failed"
     assert captured[0]["message_thread_id"] == 42
@@ -149,6 +147,6 @@ def test_invalid_input_fails_before_send(tmp_path: Path, monkeypatch) -> None:
     tool, document, _ = configured_delivery(tmp_path, monkeypatch)
     calls = []
     monkeypatch.setattr(tool, "telegram_transport", lambda: calls.append(True))
-    result = tool.send_preview(files=["relative.md"], entry=str(document), title="")
+    result = json.loads(tool.send_preview(files=["relative.md"], entry=str(document), title=""))
     assert result["success"] is False and result["error_code"] == "invalid_input"
     assert calls == []

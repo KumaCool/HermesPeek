@@ -149,7 +149,7 @@ def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tm
     assert not spool.exists()
 
 
-def test_plugin_registers_collector_final_action_and_preview_tool() -> None:
+def test_plugin_registers_delivery_guards_collector_final_action_and_preview_tool() -> None:
     plugin = load_plugin()
     hooks = []
     tools = []
@@ -163,7 +163,9 @@ def test_plugin_registers_collector_final_action_and_preview_tool() -> None:
 
     plugin.register(Context())
 
-    assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]
+    assert [name for name, _ in hooks] == [
+        "pre_llm_call", "post_tool_call", "transform_llm_output", "final_message_actions",
+    ]
     assert len(tools) == 1
     registered = tools[0]
     assert registered["name"] == "hermes_peek_send_preview"
@@ -172,3 +174,31 @@ def test_plugin_registers_collector_final_action_and_preview_tool() -> None:
     assert set(schema["parameters"]["properties"]) == {"files", "entry", "title"}
     assert set(schema["parameters"]["required"]) == {"files", "entry", "title"}
     assert registered["handler"]
+
+
+def test_successful_direct_delivery_suppresses_confirmation_but_failure_does_not() -> None:
+    plugin = load_plugin()
+    session_id = "preview-session"
+
+    plugin._reset_preview_delivery_state(session_id=session_id)
+    plugin._post_tool_call(
+        tool_name="hermes_peek_send_preview",
+        result=json.dumps({"success": True, "sent": True, "message_id": 17}),
+        session_id=session_id,
+    )
+    assert plugin._suppress_confirmation_after_preview(
+        response_text="发送成功", session_id=session_id,
+    ) == "NO_REPLY"
+    # State is consumed and cannot silence a later turn accidentally.
+    assert plugin._suppress_confirmation_after_preview(
+        response_text="unrelated reply", session_id=session_id,
+    ) is None
+
+    plugin._post_tool_call(
+        tool_name="hermes_peek_send_preview",
+        result=json.dumps({"success": False, "sent": False, "error": "delivery failed"}),
+        session_id=session_id,
+    )
+    assert plugin._suppress_confirmation_after_preview(
+        response_text="delivery failed", session_id=session_id,
+    ) is None

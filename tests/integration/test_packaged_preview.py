@@ -61,7 +61,9 @@ print(json.dumps({'skill': (home/'skills'/'hermes-peek-preview'/'SKILL.md').is_f
     discovered = json.loads(result.stdout)
     assert discovered["skill"] is True
     assert discovered["tools"] == ["hermes_peek_send_preview"]
-    assert discovered["hooks"] == ["post_tool_call", "final_message_actions"]
+    assert discovered["hooks"] == [
+        "pre_llm_call", "post_tool_call", "transform_llm_output", "final_message_actions",
+    ]
     schema = discovered["schema"]
     assert schema["name"] == "hermes_peek_send_preview"
     assert schema["parameters"]["required"] == ["files", "entry", "title"]

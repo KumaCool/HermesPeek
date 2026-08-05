@@ -114,4 +114,6 @@ def test_plugin_registers_supported_hooks() -> None:
             pass
 
     module.register(Context())
-    assert [name for name, _ in hooks] == ["post_tool_call", "final_message_actions"]
+    assert [name for name, _ in hooks] == [
+        "pre_llm_call", "post_tool_call", "transform_llm_output", "final_message_actions",
+    ]

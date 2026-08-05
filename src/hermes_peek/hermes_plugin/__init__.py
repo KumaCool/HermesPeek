@@ -2,10 +2,55 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import threading
 from pathlib import Path
 from typing import Any
 
+# Hermes loads user plugins as standalone modules. Make the bundled runtime
+# package importable for absolute imports used by the plugin's helper modules.
+_PLUGIN_DIR = str(Path(__file__).resolve().parent.parent)
+if _PLUGIN_DIR not in sys.path:
+    sys.path.insert(0, _PLUGIN_DIR)
+
 from .collector import collect_tool_result
+
+
+_preview_delivery_lock = threading.Lock()
+_preview_delivered_sessions: set[str] = set()
+
+
+def _reset_preview_delivery_state(session_id: str = "", **_: Any) -> None:
+    if not session_id:
+        return
+    with _preview_delivery_lock:
+        _preview_delivered_sessions.discard(session_id)
+
+
+def _record_successful_preview_delivery(
+    tool_name: str = "", result: Any = None, session_id: str = "", **_: Any,
+) -> None:
+    if tool_name != "hermes_peek_send_preview" or not session_id:
+        return
+    try:
+        payload = json.loads(result) if isinstance(result, str) else result
+    except (ValueError, TypeError):
+        return
+    if not isinstance(payload, dict) or payload.get("success") is not True or payload.get("sent") is not True:
+        return
+    with _preview_delivery_lock:
+        _preview_delivered_sessions.add(session_id)
+
+
+def _suppress_confirmation_after_preview(
+    response_text: str = "", session_id: str = "", **_: Any,
+) -> str | None:
+    if not response_text or not session_id:
+        return None
+    with _preview_delivery_lock:
+        delivered = session_id in _preview_delivered_sessions
+        _preview_delivered_sessions.discard(session_id)
+    return "NO_REPLY" if delivered else None
 
 
 def _shared_config() -> dict[str, Any]:
@@ -39,6 +84,9 @@ def _configured_state_dir() -> Path | None:
 
 def _post_tool_call(tool_name: str = "", args: Any = None, result: Any = None,
                     session_id: str = "", task_id: str = "", **_: Any) -> None:
+    _record_successful_preview_delivery(
+        tool_name=tool_name, result=result, session_id=session_id,
+    )
     roots = _configured_roots(); state_dir = _configured_state_dir()
     if not roots or state_dir is None:
         return
@@ -68,17 +116,19 @@ def _final_message_actions(response_text: str = "", session_id: str = "",
 
 
 def register(ctx) -> None:
+    ctx.register_hook("pre_llm_call", _reset_preview_delivery_state)
     ctx.register_hook("post_tool_call", _post_tool_call)
+    ctx.register_hook("transform_llm_output", _suppress_confirmation_after_preview)
     ctx.register_hook("final_message_actions", _final_message_actions)
     from .preview_tool import send_preview
     ctx.register_tool(
         name="hermes_peek_send_preview",
         toolset="hermes-peek",
-        description="Publish files and send one Preview to the current Telegram conversation.",
+        description="Publish files and send one Preview to the current Telegram conversation. On success, the Preview is the complete user-visible response; do not add confirmation text.",
         emoji="🔎",
         schema={
             "name": "hermes_peek_send_preview",
-            "description": "Publish files and send one Preview to the current Telegram conversation.",
+            "description": "Publish files and send one Preview to the current Telegram conversation. A successful send is the complete response and requires NO_REPLY, with no confirmation text.",
             "parameters": {
                 "type": "object",
                 "properties": {
