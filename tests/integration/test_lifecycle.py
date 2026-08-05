@@ -135,6 +135,9 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert result["state_preserved"] is True and result["transaction_id"]
     assert (target.plugin_dir / "plugin.yaml").exists()
     assert (target.plugin_dir / "handler.py").exists()
+    assert (target.plugin_dir / "preview_tool.py").exists()
+    assert (target.skill_dir / "SKILL.md").exists()
+    assert (target.skill_dir / "references" / "delivery-contract.md").exists()
     assert target.unit_file.exists() and target.env_file.exists() and target.manifest_file.exists()
     config = json.loads(target.config_file.read_text(encoding="utf-8"))
     assert config["telegram_mini_app_mode"] == "compact"
@@ -624,6 +627,19 @@ def test_uninstall_preserves_unowned_or_modified_plugin_directory(tmp_path: Path
         uninstall(paths=target, deactivate=False)
 
     assert user_file.exists()
+
+
+def test_uninstall_refuses_modified_preview_skill(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    install(paths=target, integration_dir=PLUGIN, executable=executable,
+            allowed_roots=(allowed,), external_url="https://preview.example.test",
+            bot_token="123456789:" + "Y" * 35, activate=False)
+    skill = target.skill_dir / "SKILL.md"
+    skill.write_text(skill.read_text() + "\nuser change\n")
+    with pytest.raises(LifecycleError, match="skill was modified"):
+        uninstall(paths=target, deactivate=False)
+    assert skill.exists()
 
 
 def test_uninstall_backs_up_modified_owned_plugin(tmp_path: Path) -> None:

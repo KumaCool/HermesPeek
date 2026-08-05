@@ -54,6 +54,10 @@ class InstallPaths:
         return self.hermes_home / "plugins" / "hermes-peek"
 
     @property
+    def skill_dir(self) -> Path:
+        return self.hermes_home / "skills" / "hermes-peek-preview"
+
+    @property
     def legacy_hook_dir(self) -> Path:
         return self.hermes_home / "hooks" / "hermes-peek"
 
@@ -271,6 +275,11 @@ def _install_apply(
     roots = _validate_setup(allowed_roots, external_url, bot_token)
     executable = executable.expanduser().resolve(strict=True)
     source = integration_dir.expanduser().resolve(strict=True)
+    skill_source = source.parent / "skills" / "hermes-peek-preview"
+    if not skill_source.is_dir():
+        skill_source = source.parents[2] / "skills" / "hermes-peek-preview"
+    if not (skill_source / "SKILL.md").is_file() or not (skill_source / "references" / "delivery-contract.md").is_file():
+        raise LifecycleError("preview skill package is incomplete")
     missing = [name for name in _PLUGIN_FILES if not (source / name).is_file()]
     if missing:
         raise LifecycleError("integration package is incomplete")
@@ -286,6 +295,9 @@ def _install_apply(
     paths.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(paths.state_dir, 0o700)
     paths.plugin_dir.mkdir(parents=True, exist_ok=True)
+    if paths.skill_dir.exists() or paths.skill_dir.is_symlink():
+        shutil.rmtree(paths.skill_dir)
+    shutil.copytree(skill_source, paths.skill_dir)
     for name in _PLUGIN_FILES:
         shutil.copy2(source / name, paths.plugin_dir / name)
     _atomic_write(
@@ -314,7 +326,8 @@ def _install_apply(
         name: hashlib.sha256((paths.plugin_dir / name).read_bytes()).hexdigest()
         for name in owned_plugin_files
     }
-    owned_paths = [paths.plugin_dir / name for name in owned_plugin_files] + [paths.env_file, paths.config_file, paths.unit_file]
+    skill_paths = [path for path in paths.skill_dir.rglob("*") if path.is_file()]
+    owned_paths = [paths.plugin_dir / name for name in owned_plugin_files] + skill_paths + [paths.env_file, paths.config_file, paths.unit_file]
     manifest = {
         "schema_version": 2,
         "transaction_id": transaction_id,
@@ -367,7 +380,7 @@ def _install_transaction(**kwargs) -> dict[str, object]:
     journal_dir = paths.state_dir / "journal"
     journal_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     journal = journal_dir / f"{transaction_id}.json"
-    resources = (paths.plugin_dir, paths.legacy_hook_dir, paths.env_file, paths.config_file,
+    resources = (paths.plugin_dir, paths.skill_dir, paths.legacy_hook_dir, paths.env_file, paths.config_file,
                  paths.unit_file, paths.manifest_file)
     backup = Path(tempfile.mkdtemp(prefix=f"txn-{transaction_id}-", dir=paths.state_dir))
     existed: dict[str, bool] = {}
@@ -521,7 +534,7 @@ def _uninstall_transaction(
         owned = manifest.get("owned_resources")
         if not isinstance(owned, list):
             raise LifecycleError("manifest owned resources are invalid")
-        approved = (paths.plugin_dir, paths.config_dir, paths.systemd_dir)
+        approved = (paths.plugin_dir, paths.skill_dir, paths.config_dir, paths.systemd_dir)
         for entry in owned:
             resource = Path(entry.get("path", ""))
             if resource.is_symlink():
@@ -537,6 +550,14 @@ def _uninstall_transaction(
         _run(runner, target.command("plugins", "disable", "hermes-peek"))
         _run(runner, target.command("gateway", "restart"))
         _verify_plugin_unloaded(paths, runner)
+
+    skill_entries = [entry for entry in manifest.get("owned_resources", []) if Path(entry.get("path", "")).is_relative_to(paths.skill_dir)]
+    for entry in skill_entries:
+        resource = Path(entry["path"])
+        if not resource.is_file() or resource.is_symlink() or hashlib.sha256(resource.read_bytes()).hexdigest() != entry.get("sha256"):
+            raise LifecycleError("installed preview skill was modified; refusing removal")
+    if paths.skill_dir.exists():
+        shutil.rmtree(paths.skill_dir)
 
     backups: list[str] = []
     backup_dir = paths.state_dir / "uninstall-backups" / target.identity[:12]

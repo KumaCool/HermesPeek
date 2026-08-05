@@ -51,4 +51,4 @@ testpaths = ["tests"]
 packages = ["src/hermes_peek"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "integrations", "deploy", "docs", "README.md", "README.zh-CN.md", "CHANGELOG.md", "LICENSE"]
+include = ["src", "skills", "tests", "integrations", "deploy", "docs", "README.md", "README.zh-CN.md", "CHANGELOG.md", "LICENSE"]

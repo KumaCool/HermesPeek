@@ -37,6 +37,7 @@ A Preview stores a reference to the file, not a static copy of its contents. Ref
 - Telegram Mini App authentication using signed `initData`.
 - Preview owner authorization and short-lived sessions.
 - Telegram private-chat buttons and group/Topic Mini App Direct Links.
+- Complete conversational delivery installs the repository-distributed `hermes-peek-preview` Skill, the `hermes_peek_send_preview` Plugin Tool, and the Preview service together. The dedicated Tool uses the current Telegram session route; `publish --notify` remains available for CLI and troubleshooting use. Skill and Tool discovery takes effect in a new Hermes session (and, for an active Gateway, after an operator-authorized restart).
 - Optional Hermes plugin integration:
   - collects successful `write_file` and `patch` results;
   - adds an `Open preview` action to the final Hermes reply when the integration is installed and enabled.

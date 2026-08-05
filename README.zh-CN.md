@@ -37,6 +37,7 @@ Preview 保存的是文件引用，而不是文件内容的静态副本。刷新
 - 使用签名的 Telegram `initData` 验证 Mini App 用户身份；
 - Preview owner 授权和短期会话；
 - 支持 Telegram 私聊按钮以及群组/Topic Mini App Direct Link；
+- 完整会话交付会一起安装仓库分发的 `hermes-peek-preview` Skill、`hermes_peek_send_preview` Plugin Tool 与 Preview 服务。专用 Tool 只使用当前 Telegram 会话路由；`publish --notify` 继续用于 CLI 与排障。Skill 与 Tool 会在新的 Hermes 会话中发现；活跃 Gateway 还需由操作员另行授权重启；
 - 可选的 Hermes 插件集成：
   - 收集成功执行的 `write_file` 和 `patch` 结果；
   - 安装并启用集成后，可在 Hermes 最终回复中添加 `Open preview` 操作；
