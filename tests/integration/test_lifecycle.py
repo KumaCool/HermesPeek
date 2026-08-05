@@ -478,6 +478,8 @@ def test_installed_plugin_resolves_shared_config_without_gateway_environment(tmp
 
     assert module._configured_state_dir() == target.state_dir
     assert module._configured_roots() == (allowed,)
+    pointer = json.loads((target.plugin_dir / ".hermes-peek-config.json").read_text())
+    assert pointer == {"config_file": str(target.config_file), "env_file": str(target.env_file)}
 
 
 def test_setup_refuses_unowned_legacy_hook_without_removing_it(tmp_path: Path) -> None:

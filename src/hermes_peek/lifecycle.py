@@ -21,7 +21,7 @@ class LifecycleError(RuntimeError):
 
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
-_PLUGIN_FILES = ("plugin.yaml", "__init__.py", "collector.py", "handler.py")
+_PLUGIN_FILES = ("plugin.yaml", "__init__.py", "collector.py", "handler.py", "preview_tool.py")
 _PLUGIN_CONFIG_POINTER = ".hermes-peek-config.json"
 _BOT_TOKEN = re.compile(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$")
 
@@ -290,7 +290,7 @@ def _install_apply(
         shutil.copy2(source / name, paths.plugin_dir / name)
     _atomic_write(
         paths.plugin_dir / _PLUGIN_CONFIG_POINTER,
-        json.dumps({"config_file": str(paths.config_file)}, sort_keys=True) + "\n",
+        json.dumps({"config_file": str(paths.config_file), "env_file": str(paths.env_file)}, sort_keys=True) + "\n",
         0o644,
     )
 
