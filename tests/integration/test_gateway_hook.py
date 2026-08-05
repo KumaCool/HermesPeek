@@ -60,6 +60,7 @@ def test_agent_end_publishes_sends_to_topic_and_consumes_spool(monkeypatch, tmp_
     monkeypatch.setenv("HERMES_PEEK_ALLOWED_ROOTS", str(root))
     monkeypatch.setenv("HERMES_PEEK_STATE_DIR", str(state))
     monkeypatch.setenv("HERMES_PEEK_EXTERNAL_BASE_URL", "https://preview.example/")
+    monkeypatch.setenv("HERMES_PEEK_TELEGRAM_BOT_USERNAME", "ExamplePreviewBot")
     monkeypatch.setenv("HERMES_PEEK_TELEGRAM_BOT_TOKEN", "[REDACTED]")
     sent = {}
 
@@ -75,7 +76,9 @@ def test_agent_end_publishes_sends_to_topic_and_consumes_spool(monkeypatch, tmp_
         "chat_id": "-1001", "chat_type": "forum", "thread_id": "6030",
     })
     assert sent["message_thread_id"] == 6030
-    assert sent["reply_markup"]["inline_keyboard"][0][0]["url"].startswith("https://preview.example/p/")
+    button_url = sent["reply_markup"]["inline_keyboard"][0][0]["url"]
+    assert button_url.startswith("https://t.me/ExamplePreviewBot?startapp=lr_")
+    assert "preview.example" not in button_url and str(document) not in button_url
     assert not spool.exists()
 
 
@@ -90,6 +93,7 @@ def test_failure_keeps_spool_and_duplicate_delivery_is_suppressed(monkeypatch, t
     monkeypatch.setenv("HERMES_PEEK_ALLOWED_ROOTS", str(root))
     monkeypatch.setenv("HERMES_PEEK_STATE_DIR", str(state))
     monkeypatch.setenv("HERMES_PEEK_EXTERNAL_BASE_URL", "https://preview.example/")
+    monkeypatch.setenv("HERMES_PEEK_TELEGRAM_BOT_USERNAME", "ExamplePreviewBot")
     monkeypatch.setenv("HERMES_PEEK_TELEGRAM_BOT_TOKEN", "[REDACTED]")
     monkeypatch.setattr(hook, "telegram_transport", lambda: httpx.MockTransport(
         lambda _: httpx.Response(500, json={"ok": False})
@@ -122,6 +126,7 @@ def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tm
     monkeypatch.setenv("HERMES_PEEK_ALLOWED_ROOTS", str(root))
     monkeypatch.setenv("HERMES_PEEK_STATE_DIR", str(state))
     monkeypatch.setenv("HERMES_PEEK_EXTERNAL_BASE_URL", "https://preview.example/")
+    monkeypatch.setenv("HERMES_PEEK_TELEGRAM_BOT_USERNAME", "ExamplePreviewBot")
     monkeypatch.delenv("HERMES_PEEK_TELEGRAM_BOT_TOKEN", raising=False)
 
     action = plugin._final_message_actions(
@@ -139,7 +144,8 @@ def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tm
         "label": "Open preview",
         "url": action["url"],
     }
-    assert action["url"].startswith("https://preview.example/p/")
+    assert action["url"].startswith("https://t.me/ExamplePreviewBot?startapp=lr_")
+    assert "preview.example" not in action["url"] and str(document) not in action["url"]
     assert not spool.exists()
 
 

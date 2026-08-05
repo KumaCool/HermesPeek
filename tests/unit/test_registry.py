@@ -9,6 +9,8 @@ import pytest
 from hermes_peek.models import FileEntry, PreviewRecord
 from hermes_peek.registry import (
     CorruptPreviewError,
+    LaunchRefNotFoundError,
+    LaunchRegistry,
     PreviewNotFoundError,
     PreviewRegistry,
 )
@@ -111,3 +113,40 @@ def test_concurrent_creates_leave_complete_independent_records(tmp_path: Path) -
     assert len({record.preview_id for record in records}) == 40
     assert all(registry.get(record.preview_id) == record for record in records)
     assert not list((tmp_path / "state" / "previews").glob("*.tmp"))
+
+
+def test_launch_reference_is_opaque_owner_bound_and_expires(tmp_path: Path) -> None:
+    now = datetime(2026, 8, 5, tzinfo=UTC)
+    registry = LaunchRegistry(tmp_path / "state")
+    reference = registry.create(
+        preview_id="pv_" + "a" * 43, owner_telegram_user_id="123",
+        expires_at=now + timedelta(minutes=15), now=now,
+    )
+    assert reference.startswith("lr_") and len(reference) >= 40
+    assert registry.resolve(reference, now=now)["owner_telegram_user_id"] == "123"
+    stored = (registry.directory / f"{reference}.json").read_text()
+    assert "absolute_path" not in stored and "init_data" not in stored and "bot_token" not in stored
+    with pytest.raises(LaunchRefNotFoundError, match="expired"):
+        registry.resolve(reference, now=now + timedelta(minutes=16))
+
+
+def test_launch_reference_rejects_corrupt_unknown_and_traversal_records(tmp_path: Path) -> None:
+    registry = LaunchRegistry(tmp_path / "state")
+    corrupt = "lr_" + "b" * 32
+    (registry.directory / f"{corrupt}.json").write_text("{broken", encoding="utf-8")
+    for reference in (corrupt, "lr_" + "z" * 32, "lr_../../etc/passwd"):
+        with pytest.raises(LaunchRefNotFoundError, match="Launch reference"):
+            registry.resolve(reference)
+
+
+def test_concurrent_launch_references_are_unique_and_complete(tmp_path: Path) -> None:
+    registry = LaunchRegistry(tmp_path / "state")
+    now = datetime.now(UTC)
+    def create(_: int) -> str:
+        return registry.create(preview_id="pv_" + "c" * 43, owner_telegram_user_id="123",
+                               expires_at=now + timedelta(minutes=15), now=now)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        references = list(executor.map(create, range(40)))
+    assert len(set(references)) == 40
+    assert all(registry.resolve(reference, now=now)["preview_id"].startswith("pv_") for reference in references)
+    assert not list(registry.directory.glob("*.tmp"))
