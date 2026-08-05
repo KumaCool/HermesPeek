@@ -42,8 +42,8 @@
 
 | TASK | 名称 | 状态 | 交付物 | 核心验收依据 |
 |---|---|---|---|---|
-| TASK 10.0 | 方案、计划与 README 入口 | `PENDING_REVIEW` | 方案、计划、双语 README 导航 | 负责人明确批准；文档链接与命令依据通过 |
-| TASK 10.1 | Setup 交互式向导 | `NOT_STARTED` | 无必填参数的 `hermes-peek setup` | 多 profile、缺 HTTPS、Secret 输入、plan 确认均有测试 |
+| TASK 10.0 | 方案、计划与 README 入口 | `DONE` | 方案、计划、双语 README 导航 | 负责人已批准；文档链接与命令依据通过 |
+| TASK 10.1 | Setup 交互式向导 | `DONE` | 无必填参数的 `hermes-peek setup` | 多 profile、缺 HTTPS、Secret 文件、plan 确认均有测试；`181 passed` |
 | TASK 10.2 | 固定 Release Linux 一键安装脚本 | `NOT_STARTED` | `install.sh`、哈希验证、平台门禁 | 干净 Linux 隔离环境安装/失败/幂等测试；其他平台准确拒绝 |
 | TASK 10.3 | AI 安装契约与仓库 Agent 指引 | `NOT_STARTED` | README 提示词、`AGENTS.md` | Agent 先计划、Secret 不进聊天、副作用有确认 |
 | TASK 10.4 | Telegram onboarding 与诊断 | `NOT_STARTED` | Bot/Main Mini App 检查和结构化 doctor | getMe、allowed users 指引、HTTPS、可选 short name、菜单边界 |
@@ -54,7 +54,7 @@
 
 ### TASK 10.0：方案、计划与 README 入口
 
-**状态：** `PENDING_REVIEW`
+**状态：** `DONE`（2026-08-06，提交 `f8f81fc`）
 
 **方案来源：** 方案全文；用户关于一键安装、AI 提示词和 Telegram 配置缺失的反馈。
 
@@ -81,7 +81,7 @@ docs: design one-click Telegram onboarding
 
 ### TASK 10.1：Setup 交互式向导
 
-**状态：** `NOT_STARTED`
+**状态：** `DONE`（2026-08-06，提交 `581c25e`）
 
 **方案来源：** 方案 §2.2、§4、§6。
 
@@ -103,7 +103,9 @@ docs: design one-click Telegram onboarding
 7. Gateway 内调用返回待外部重启，不自杀式重启；
 8. 所有输出不含 Secret 和部署敏感信息。
 
-**验收命令：** 目标测试路径在实施前按当前测试布局确认；至少覆盖 CLI 单元测试、临时 profile 生命周期集成测试和全量回归。
+**验收命令：** `uv run pytest tests/unit/test_setup_wizard.py -q`；`uv run pytest -q`。
+
+**验收结果：** 向导目标测试通过（7 项行为测试）；全量通过（181 tests，1 条既有 Starlette/httpx 弃用警告）。
 
 **提交：**
 
