@@ -24,6 +24,10 @@ class Settings(BaseModel):
     max_file_bytes: int = Field(default=_DEFAULT_MAX_FILE_BYTES, gt=0)
     default_ttl_seconds: int = Field(default=_DEFAULT_TTL_SECONDS, gt=0)
     external_base_url: HttpUrl | None = None
+    telegram_bot_username: str | None = None
+    telegram_mini_app_short_name: str | None = None
+    telegram_mini_app_mode: str = "compact"
+    launch_ref_ttl_seconds: int = Field(default=900, gt=0)
     development: bool = False
 
     @field_validator("allowed_roots")
@@ -78,6 +82,10 @@ class Settings(BaseModel):
                 "HERMES_PEEK_DEFAULT_TTL_SECONDS", str(_DEFAULT_TTL_SECONDS)
             ),
             "external_base_url": env.get("HERMES_PEEK_EXTERNAL_BASE_URL") or None,
+            "telegram_bot_username": env.get("HERMES_PEEK_TELEGRAM_BOT_USERNAME") or None,
+            "telegram_mini_app_short_name": env.get("HERMES_PEEK_TELEGRAM_MINI_APP_SHORT_NAME") or None,
+            "telegram_mini_app_mode": env.get("HERMES_PEEK_TELEGRAM_MINI_APP_MODE", "compact"),
+            "launch_ref_ttl_seconds": env.get("HERMES_PEEK_LAUNCH_REF_TTL_SECONDS", "900"),
             "development": _parse_bool(env.get("HERMES_PEEK_DEVELOPMENT", "false")),
         }
         return cls.model_validate(data)
@@ -95,6 +103,10 @@ class Settings(BaseModel):
             "max_file_bytes": env.get("HERMES_PEEK_MAX_FILE_BYTES"),
             "default_ttl_seconds": env.get("HERMES_PEEK_DEFAULT_TTL_SECONDS"),
             "external_base_url": env.get("HERMES_PEEK_EXTERNAL_BASE_URL"),
+            "telegram_bot_username": env.get("HERMES_PEEK_TELEGRAM_BOT_USERNAME"),
+            "telegram_mini_app_short_name": env.get("HERMES_PEEK_TELEGRAM_MINI_APP_SHORT_NAME"),
+            "telegram_mini_app_mode": env.get("HERMES_PEEK_TELEGRAM_MINI_APP_MODE"),
+            "launch_ref_ttl_seconds": env.get("HERMES_PEEK_LAUNCH_REF_TTL_SECONDS"),
         }
         data.update({key: value for key, value in overrides.items() if value is not None})
         if "HERMES_PEEK_DEVELOPMENT" in env:

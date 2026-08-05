@@ -69,6 +69,8 @@ def _final_message_actions(
     session_id: str = "",
     platform: str = "",
     user_id: str = "",
+    chat_type: str = "",
+    thread_id: str = "",
     **_: Any,
 ) -> dict[str, str] | None:
     """Publish collected files and return an action for Hermes' final reply."""
@@ -81,6 +83,9 @@ def _final_message_actions(
         # Imported lazily so the post_tool_call collector remains lightweight.
         from .handler import publish_action
 
+        topic = chat_type == "forum" and bool(thread_id)
+        if topic:
+            return publish_action(state_dir, session_id, user_id, topic=True)
         return publish_action(state_dir, session_id, user_id)
     except Exception:
         # Final response delivery must never depend on preview publication.

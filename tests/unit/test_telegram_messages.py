@@ -5,10 +5,22 @@ import json
 import httpx
 import pytest
 
-from hermes_peek.telegram import TelegramClient, TelegramNotificationError, build_notification_payload
+from hermes_peek.telegram import TelegramClient, TelegramNotificationError, build_mini_app_direct_link, build_notification_payload
 
 
 PREVIEW_URL = "https://preview.example/p/pv_opaque"
+
+
+def test_main_mini_app_direct_link_uses_opaque_reference() -> None:
+    reference = "lr_" + "a" * 32
+    url = build_mini_app_direct_link("@KumaHermes666_bot", reference)
+    assert url == f"https://t.me/KumaHermes666_bot?startapp={reference}&mode=compact"
+
+
+@pytest.mark.parametrize("reference", ["lr_short", "lr_../../etc/passwd", "pv_" + "a" * 32])
+def test_direct_link_rejects_invalid_launch_reference(reference: str) -> None:
+    with pytest.raises(ValueError):
+        build_mini_app_direct_link("KumaHermes666_bot", reference)
 
 
 def test_private_chat_uses_web_app_button() -> None:

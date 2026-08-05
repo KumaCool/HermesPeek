@@ -65,6 +65,6 @@ def test_home_is_a_telegram_startapp_router_without_trusting_user_identity(tmp_p
     assert 'src="https://telegram.org/js/telegram-web-app.js"' in home.text
     assert "tgWebAppStartParam" in home.text
     assert "initDataUnsafe?.start_param" in home.text
-    assert "^pv_[A-Za-z0-9_-]{40,64}$" in home.text
+    assert "^lr_[A-Za-z0-9_-]{20,64}$" in home.text
     assert "location.replace(`/p/${previewId}`)" in home.text
     assert "user.id" not in home.text

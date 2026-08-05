@@ -16,13 +16,18 @@ from hermes_peek.auth import TelegramAuthError, verify_telegram_init_data
 from hermes_peek.config import Settings
 from hermes_peek.models import FileEntry, PreviewRecord
 from hermes_peek.paths import PathPolicy, PathPolicyError
-from hermes_peek.registry import CorruptPreviewError, PreviewNotFoundError, PreviewRegistry
+from hermes_peek.registry import CorruptPreviewError, LaunchRefNotFoundError, LaunchRegistry, PreviewNotFoundError, PreviewRegistry
 from hermes_peek.renderers import RenderError, render_text_preview
 from hermes_peek.service import PreviewService
 
 
 class TelegramAuthRequest(BaseModel):
     preview_id: str
+    init_data: str
+
+
+class TelegramLaunchAuthRequest(BaseModel):
+    launch_ref: str
     init_data: str
 
 
@@ -47,6 +52,7 @@ def create_app(
         name="static",
     )
     sessions: dict[str, tuple[str, str, datetime]] = {}
+    launches = LaunchRegistry(settings.state_dir)
 
     def require_session(
         preview_id: str,
@@ -93,6 +99,32 @@ def create_app(
         response.status_code = 204
         return response
 
+    @application.post("/api/auth/telegram/launch", status_code=204)
+    def telegram_launch_auth(payload: TelegramLaunchAuthRequest, response: Response) -> Response:
+        if bot_token is None:
+            raise HTTPException(status_code=503, detail="Telegram authentication unavailable")
+        try:
+            launch = launches.resolve(payload.launch_ref)
+            record = _available_record(preview_service, launch["preview_id"])
+            identity = verify_telegram_init_data(payload.init_data, bot_token=bot_token)
+        except LaunchRefNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Launch reference not found") from exc
+        except TelegramAuthError as exc:
+            raise HTTPException(status_code=401, detail="Invalid Telegram authentication") from exc
+        if identity.user_id != launch["owner_telegram_user_id"] or identity.user_id != record.owner_telegram_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        token = secrets.token_urlsafe(32)
+        sessions[_token_hash(token)] = (
+            record.preview_id, identity.user_id, datetime.now(UTC) + timedelta(minutes=15)
+        )
+        response.set_cookie(
+            "hermes_peek_session", token, max_age=900, httponly=True,
+            secure=not settings.development, samesite="lax", path="/",
+        )
+        response.headers["X-HermesPeek-Preview-Id"] = record.preview_id
+        response.status_code = 204
+        return response
+
     @application.delete("/api/auth/session", status_code=204)
     def logout(
         response: Response,
@@ -121,9 +153,9 @@ def create_app(
   const query = new URLSearchParams(window.location.search);
   const fromQuery = query.get('tgWebAppStartParam');
   const fromTelegram = tg?.initDataUnsafe?.start_param;
-  const previewId = fromTelegram || fromQuery;
+  const launchRef = fromTelegram || fromQuery;
   const state = document.querySelector('#launch-state');
-  if (!previewId) {
+  if (!launchRef) {
     state.textContent = '请从 Hermes 消息中的 Open preview 按钮打开预览。';
     return;
   }
@@ -131,11 +163,20 @@ def create_app(
     state.textContent = '预览参数无效，请返回 Telegram 后重试。';
     return;
   }
-  if (!/^pv_[A-Za-z0-9_-]{40,64}$/.test(previewId)) {
-    state.textContent = '预览参数无效，请返回 Telegram 后重试。';
+  if (!/^lr_[A-Za-z0-9_-]{20,64}$/.test(launchRef) || !tg?.initData) {
+    state.textContent = '请在 Telegram Mini App 中打开此链接。';
     return;
   }
-  location.replace(`/p/${previewId}`);
+  fetch('/api/auth/telegram/launch', {
+    method: 'POST', credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({launch_ref: launchRef, init_data: tg.initData}),
+  }).then(response => {
+    if (!response.ok) throw new Error('launch authentication failed');
+    const previewId = response.headers.get('X-HermesPeek-Preview-Id');
+    if (!previewId) throw new Error('missing preview');
+    location.replace(`/p/${previewId}`);
+  }).catch(() => { state.textContent = '预览无效、已过期或无权访问。'; });
 })();
 </script></body></html>"""
 

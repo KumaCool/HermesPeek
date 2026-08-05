@@ -1,10 +1,38 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+import re
+from urllib.parse import urlencode
 
 import httpx
 
 ChatType = Literal["private", "group", "supergroup"]
+_BOT_USERNAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{4,31}$")
+_SHORT_NAME = re.compile(r"^[A-Za-z0-9_]{3,64}$")
+_LAUNCH_REF = re.compile(r"^lr_[A-Za-z0-9_-]{20,64}$")
+
+
+def build_mini_app_direct_link(
+    bot_username: str,
+    launch_ref: str,
+    *,
+    short_name: str | None = None,
+    mode: str = "compact",
+) -> str:
+    username = bot_username.removeprefix("@").strip()
+    if not _BOT_USERNAME.fullmatch(username) or not _LAUNCH_REF.fullmatch(launch_ref):
+        raise ValueError("bot username and launch reference are required")
+    if short_name is not None and not _SHORT_NAME.fullmatch(short_name):
+        raise ValueError("invalid Mini App short name")
+    if mode not in {"", "compact"}:
+        raise ValueError("unsupported Mini App mode")
+    path = f"https://t.me/{username}"
+    if short_name:
+        path += f"/{short_name}"
+    query = {"startapp": launch_ref}
+    if mode:
+        query["mode"] = mode
+    return f"{path}?{urlencode(query)}"
 
 
 class TelegramNotificationError(RuntimeError):
@@ -18,6 +46,7 @@ def build_notification_payload(
     preview_url: str,
     title: str,
     thread_id: int | None = None,
+    mini_app_url: str | None = None,
 ) -> dict[str, Any]:
     if chat_type not in {"private", "group", "supergroup"}:
         raise ValueError("chat_type must be private, group, or supergroup")
@@ -30,7 +59,7 @@ def build_notification_payload(
     if chat_type == "private":
         button["web_app"] = {"url": preview_url}
     else:
-        button["url"] = preview_url
+        button["url"] = mini_app_url or preview_url
 
     payload: dict[str, Any] = {
         "chat_id": chat_id,
@@ -64,6 +93,7 @@ class TelegramClient:
         preview_url: str,
         title: str,
         thread_id: int | None = None,
+        mini_app_url: str | None = None,
     ) -> dict[str, Any]:
         payload = build_notification_payload(
             chat_id=chat_id,
@@ -71,6 +101,7 @@ class TelegramClient:
             preview_url=preview_url,
             title=title,
             thread_id=thread_id,
+            mini_app_url=mini_app_url,
         )
         endpoint = f"https://api.telegram.org/bot{self._token}/sendMessage"
         try:
