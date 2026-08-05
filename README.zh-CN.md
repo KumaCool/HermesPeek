@@ -77,15 +77,43 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-HermesPeek 当前已经提供生命周期 CLI，但**尚未发布远程一键安装脚本，也没有无参数交互式 setup 向导**。在 onboarding 能力实施并发布前，请使用下方的显式 setup 流程。
+仓库已经包含生命周期 CLI、无参数 setup 向导和经过隔离验证的 Linux 安装器实现。但当前 GitHub Release **没有安装器和 checksum 资产**，因此还不存在可工作的远程一键安装 URL。不要把 Release 下载或 `curl ... | sh` 描述为当前可用。未来 Release 发布安装器后应优先使用该 Release 资产；当前只能在克隆仓库后，以锁定环境和 `uv run hermes-peek setup` 做仓库开发演练。
 
-已经形成方案、等待实施的目标体验包括：
+完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
-- 带校验的一键安装；
-- 可直接复制给 AI Agent 的安全安装提示词；
-- 覆盖 Telegram Bot、allowed users、群组/Topic、HTTPS 和 Main Mini App 的完整配置教程。
+## 使用 AI Agent 安装
 
-完整用户流程和安全边界见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，实施门禁见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。在该计划完成且 Release 真正发布安装器之前，不应把 `curl ... | sh` 当作当前可用命令。
+把下面提示词复制给具备终端工具的 Agent。AI 辅助安装不会免除任何确认。
+
+<!-- ai-install-prompt:start -->
+```text
+请帮我从 https://github.com/KumaCool/HermesPeek 安装并验证 HermesPeek。
+
+执行前：
+1. 阅读 README.zh-CN.md、docs/08-one-click-ai-telegram-onboarding.md、
+   docs/06-installation-uninstallation.md、AGENTS.md、
+   docs/plan/05-one-click-ai-telegram-onboarding-rollout.md 的实施状态，并检查
+   当前 GitHub Release 资产。把它们作为权威来源，然后只读现场发现真实主机、
+   Hermes profile、service、Gateway、Telegram 配置和缺失输入。
+2. 先输出脱敏计划。在我批准每项副作用前不要做任何变更。修改真实 Hermes
+   profile 或 service、重启 Gateway、修改 Telegram 菜单，以及任何 HTTPS、
+   端口、防火墙、代理、Tailscale、证书或其他网络变更，都必须单独确认。
+3. Secret 不要发送进聊天。不要在聊天中发送，也不要要求我发送 Telegram Bot Token、
+   API Key、密码或其他 Secret。Secret 只能从本机受限权限文件或本机安全输入读取，
+   绝不能出现在聊天、命令参数、计划或日志中。
+4. 优先使用项目的 Release 安装器和 hermes-peek setup；不要复制内部 Plugin/
+   Skill 文件或发明另一套安装流程。只有检查到 Release 确实包含 install.sh、
+   包资产和 checksum 后，Release 安装入口才可使用。在此之前，明确标记为
+   “当前仓库开发演练”，在已检出的仓库中使用锁定环境和 uv run hermes-peek setup，
+   不要给出无效 curl 命令。
+5. 分别验证并报告三个完成层级：(a) 安装完成：CLI/profile/service 检查通过；
+   (b) Hermes 加载完成：目标 profile、Gateway、新会话、Skill 和 Tool 已现场
+   加载；(c) Telegram 现场验收完成：在新会话中真实 Preview 成功发回原私聊、
+   群组或 Topic。不得用离线测试或前一层结果冒充后一层完成。
+6. 最后给出脱敏验证清单，以及仍待 Bot owner 完成的 BotFather、HTTPS、Gateway
+   或 Telegram 步骤。没有现场运行的检查不得声称成功。
+```
+<!-- ai-install-prompt:end -->
 
 ## 开发环境安装
 

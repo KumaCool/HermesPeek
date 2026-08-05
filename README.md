@@ -77,15 +77,52 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-HermesPeek currently provides a lifecycle CLI, but it does **not yet ship a remote one-command installer or a no-argument interactive setup wizard**. Until the onboarding work is implemented and released, use the explicit setup flow below.
+The repository contains the lifecycle CLI, no-argument setup wizard, and a verified Linux installer implementation. However, the current GitHub Release has **no installer or checksum assets**, so there is no working remote one-command install URL yet. Do not present a release download or `curl ... | sh` command as currently available. After a future release publishes the installer, prefer that release asset; for a repository development rehearsal today, clone the repository, install its locked environment, and use `uv run hermes-peek setup`.
 
-The proposed target experience includes:
+The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
-- a verified one-command installer;
-- a copy-paste prompt for AI-assisted installation;
-- a complete Telegram Bot, allowed-user, group/Topic, HTTPS, and Main Mini App guide.
+## Install with an AI agent
 
-Review the proposed user journey and its security boundaries in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md). The implementation remains gated by [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md); commands such as `curl ... | sh` must not be treated as available until that plan is implemented and a release publishes the installer.
+Copy the prompt below into an agent that has terminal access. AI-assisted installation does not waive approvals.
+
+<!-- ai-install-prompt:start -->
+```text
+Help me install and verify HermesPeek from https://github.com/KumaCool/HermesPeek.
+
+Before acting:
+1. Read README.md, docs/08-one-click-ai-telegram-onboarding.md,
+   docs/06-installation-uninstallation.md, AGENTS.md, the rollout status in
+   docs/plan/05-one-click-ai-telegram-onboarding-rollout.md, and inspect the
+   current GitHub Release assets. Treat those as authoritative sources, then
+   perform read-only discovery of the actual host, Hermes profiles, service,
+   Gateway, Telegram configuration, and missing inputs.
+2. First output a redacted plan. Do not make any change until I approve every
+   side effect. Obtain separate confirmation before changing a real Hermes
+   profile or service, restarting Gateway, changing a Telegram menu, or making
+   any HTTPS, port, firewall, proxy, Tailscale, certificate, or other network
+   change.
+3. Do not send or ask me to send a Telegram Bot Token, API key, password, or any
+   Secret in chat. Read Secrets only from a restricted local file or through
+   secure local input (not chat); never expose them in chat, command arguments,
+   plans, or logs.
+4. Prefer the project's release installer and hermes-peek setup; do not copy
+   internal plugin/Skill files or invent another installation flow. A release
+   installer entry is usable only after the inspected Release actually contains
+   install.sh, its package asset, and checksums. Until then, label the work a
+   repository development rehearsal and use the checked-out repository's
+   locked environment plus uv run hermes-peek setup—do not provide a fake curl
+   command.
+5. Verify and report three completion levels separately: (a) installation
+   complete: CLI/profile/service checks pass; (b) Hermes loading complete: the
+   intended profile, Gateway, new session, Skill, and Tool are live; and (c)
+   Telegram acceptance complete: a real new-session Preview succeeds in the
+   original private chat, group, or Topic. Never promote offline tests or an
+   earlier level to a later one.
+6. Finish with the redacted verification checklist and any pending owner-only
+   BotFather, HTTPS, Gateway, or Telegram steps. Do not claim success for a
+   check that was not run.
+```
+<!-- ai-install-prompt:end -->
 
 ## Install for development
 

@@ -45,7 +45,7 @@
 | TASK 10.0 | 方案、计划与 README 入口 | `DONE` | 方案、计划、双语 README 导航 | 负责人已批准；文档链接与命令依据通过 |
 | TASK 10.1 | Setup 交互式向导 | `DONE` | 无必填参数的 `hermes-peek setup` | 多 profile、缺 HTTPS、Secret 文件、plan 确认均有测试；`181 passed` |
 | TASK 10.2 | 固定 Release Linux 一键安装脚本 | `DONE` | `install.sh`、哈希验证、平台门禁 | 11 项隔离安装器测试和全量 192 tests 通过 |
-| TASK 10.3 | AI 安装契约与仓库 Agent 指引 | `NOT_STARTED` | README 提示词、`AGENTS.md` | Agent 先计划、Secret 不进聊天、副作用有确认 |
+| TASK 10.3 | AI 安装契约与仓库 Agent 指引 | `DONE` | README 提示词、`AGENTS.md`、静态契约测试、验证清单 | Agent 先计划、Secret 不进聊天、副作用有确认；目标和全量门禁通过 |
 | TASK 10.4 | Telegram onboarding 与诊断 | `NOT_STARTED` | Bot/Main Mini App 检查和结构化 doctor | getMe、allowed users 指引、HTTPS、可选 short name、菜单边界 |
 | TASK 10.5 | Linux 打包、发布与离线验收 | `NOT_STARTED` | Release 资产、checksum、Linux CI | Linux fresh-profile 闭环；macOS/Windows 明确标记待 backend |
 | TASK 10.6 | 真实端到端安装验收 | `BLOCKED_PENDING_APPROVAL` | 新环境安装及私聊/群组/Topic 证据 | 真实 Gateway、BotFather、HTTPS 和 Telegram 现场结果 |
@@ -150,7 +150,7 @@ feat: add verified one-command installer
 
 ### TASK 10.3：AI 安装契约与仓库 Agent 指引
 
-**状态：** `NOT_STARTED`
+**状态：** `DONE`（2026-08-06）
 
 **方案来源：** 方案 §3、§5。
 
@@ -169,6 +169,8 @@ feat: add verified one-command installer
 - Agent 优先使用 installer/setup，不复制内部文件；
 - 完成定义明确区分安装、加载和真实 Telegram 验收；
 - `AGENTS.md` 不包含机器专属值或用户个人规则。
+
+**验收结果：** 双语提示词、仓库 Agent 规则、三层完成定义和验证清单已由 `tests/test_ai_install_contract.py` 静态约束；目标测试、Markdown 相对链接、敏感/机器专属模式扫描和全量测试通过。当前 Release 仍无 `install.sh` 与 checksum 资产，因此文档只提供发布后入口判定，不把无效远程命令写成当前可用。
 
 **提交：**
 
