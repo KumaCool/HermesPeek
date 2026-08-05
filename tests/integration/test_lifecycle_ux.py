@@ -16,8 +16,8 @@ class MatrixRunner:
         command=tuple(command); self.commands.append(command); joined=" ".join(command)
         if "is-active" in command or "is-enabled" in command: return subprocess.CompletedProcess(command,0,"active\n","")
         if "--property=MainPID" in command: return subprocess.CompletedProcess(command,0,"321\n","")
-        if "plugins status" in joined: return subprocess.CompletedProcess(command,0,json.dumps({"enabled":True,"loaded":True}),"")
-        if "gateway status" in joined: return subprocess.CompletedProcess(command,0,json.dumps({"active":True}),"")
+        if "plugins list --json" in joined: return subprocess.CompletedProcess(command,0,json.dumps([{"name":"hermes-peek","status":"enabled"}]),"")
+        if "gateway status" in joined: return subprocess.CompletedProcess(command,0,"active","")
         return subprocess.CompletedProcess(command,0,"","")
 
 def test_status_and_doctor_are_read_only_and_redacted(tmp_path, capsys):
@@ -109,6 +109,14 @@ def test_setup_cli_constructs_telegram_lifecycle_and_inspects_bot(tmp_path, monk
     assert main(["setup", "--allowed-root", str(allowed), "--external-url", "https://preview.example.test",
                  "--telegram-env", str(env), "--no-activate"]) == 0
     assert captured["telegram"].__class__ is Telegram and captured["transport"] == "transport"
+    assert captured["runner"] is cli.lifecycle_runner
+
+
+def test_gateway_session_detection_uses_systemd_cgroup(monkeypatch):
+    import hermes_peek.cli as cli
+    monkeypatch.delenv("HERMES_SESSION_PLATFORM", raising=False)
+    monkeypatch.setattr(cli.Path, "read_text", lambda self, **kw: "0::/user.slice/app.slice/hermes-gateway.service")
+    assert cli._running_inside_gateway_session() is True
 
 
 def test_default_https_probe_is_read_only_and_redacted(monkeypatch):

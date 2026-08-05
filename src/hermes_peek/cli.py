@@ -59,6 +59,12 @@ def lifecycle_runner(command):
 def _running_inside_gateway_session() -> bool:
     """Avoid restarting the Gateway from a turn currently served by it."""
     try:
+        cgroup = Path("/proc/self/cgroup").read_text(encoding="utf-8")
+        if "hermes-gateway.service" in cgroup:
+            return True
+    except OSError:
+        pass
+    try:
         import importlib
         get_session_env = importlib.import_module("gateway.session_context").get_session_env
         return bool(get_session_env("HERMES_SESSION_PLATFORM", ""))
@@ -93,6 +99,9 @@ def build_parser() -> argparse.ArgumentParser:
     setup = subparsers.add_parser("setup", help="Install and integrate HermesPeek")
     setup.add_argument("--allowed-root", action="append", required=True, type=Path)
     setup.add_argument("--external-url", required=True)
+    setup.add_argument("--telegram-bot-username")
+    setup.add_argument("--telegram-mini-app-short-name")
+    setup.add_argument("--telegram-mini-app-mode", choices=("compact",), default="compact")
     setup.add_argument(
         "--telegram-env",
         type=Path,
@@ -178,10 +187,14 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     allowed_roots=args.allowed_root,
                     external_url=args.external_url,
                     bot_token=read_bot_token(token_file),
+                    telegram_bot_username=args.telegram_bot_username,
+                    telegram_mini_app_short_name=args.telegram_mini_app_short_name,
+                    telegram_mini_app_mode=args.telegram_mini_app_mode,
                     activate=not args.no_activate,
                     telegram=TelegramLifecycle(telegram_lifecycle_transport()),
                     configure_telegram_menu=args.configure_telegram_menu,
                     defer_gateway_restart=_running_inside_gateway_session(),
+                    runner=lifecycle_runner,
                 )
             else:
                 if args.dry_run and not args.purge:

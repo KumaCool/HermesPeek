@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-from .lifecycle import HermesTarget, InstallPaths, LifecycleError, read_bot_token
+from .lifecycle import HermesTarget, InstallPaths, LifecycleError, _plugin_state, read_bot_token
 from .telegram_lifecycle import TelegramLifecycle, UrllibTelegramTransport
 from .service_backend import HealthProbe, PortProbe, Runner, SystemdUserBackend, _health_probe, _port_probe
 
@@ -92,8 +92,8 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
     target = HermesTarget.from_paths(paths)
     backend = SystemdUserBackend(runner, port_probe=port_probe, health_probe=health_probe)
     service = backend.inspect()
-    plugin_state = _command_json(runner, target.command("plugins", "status", "hermes-peek"))
-    gateway = _command_json(runner, target.command("gateway", "status"))
+    plugin_state = _plugin_state(paths, runner)
+    gateway_result = runner(target.command("gateway", "status"))
     drifted: list[str] = []
     if manifest:
         if manifest.get("target", {}).get("identity") not in (None, target.identity):
@@ -112,7 +112,7 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
         "transaction": {"id": manifest.get("transaction_id") if manifest else None, "state": "committed" if manifest else None},
         "service": service,
         "plugin": {"installed": paths.plugin_dir.is_dir(), "enabled": bool(plugin_state.get("enabled")), "loaded": bool(plugin_state.get("loaded"))},
-        "gateway": {"active": bool(gateway.get("active"))},
+        "gateway": {"active": gateway_result.returncode == 0},
         "telegram": telegram_probe() if telegram_probe else _telegram_probe(paths),
         "https": https_probe(external) if https_probe else _https_probe(external),
         "drift": {"detected": bool(drifted), "categories": sorted(set(drifted))},

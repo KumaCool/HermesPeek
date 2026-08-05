@@ -55,8 +55,9 @@ class StatefulRunner(RecordingRunner):
             return subprocess.CompletedProcess(command, 0 if self.service_active else 3, "active\n" if self.service_active else "inactive\n", "")
         if "is-enabled" in command:
             return subprocess.CompletedProcess(command, 0 if self.service_enabled else 1, "enabled\n" if self.service_enabled else "disabled\n", "")
-        if "plugins status hermes-peek" in joined:
-            return subprocess.CompletedProcess(command, 0, json.dumps({"enabled": self.plugin_enabled}), "")
+        if "plugins list --json" in joined:
+            plugins = [{"name": "hermes-peek", "status": "enabled"}] if self.plugin_enabled else []
+            return subprocess.CompletedProcess(command, 0, json.dumps(plugins), "")
         if "gateway status" in joined:
             return subprocess.CompletedProcess(command, 0, json.dumps({"active": self.gateway_active}), "")
         if command[-3:] == ("enable", "--now", "hermes-peek.service"):
@@ -66,6 +67,8 @@ class StatefulRunner(RecordingRunner):
         elif "plugins enable" in joined:
             self.plugin_enabled = True
         elif "plugins disable" in joined:
+            self.plugin_enabled = False
+        elif "plugins remove" in joined:
             self.plugin_enabled = False
         elif "gateway restart" in joined and self.fail_gateway_restart:
             self.fail_gateway_restart = False
@@ -133,6 +136,10 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert (target.plugin_dir / "plugin.yaml").exists()
     assert (target.plugin_dir / "handler.py").exists()
     assert target.unit_file.exists() and target.env_file.exists() and target.manifest_file.exists()
+    config = json.loads(target.config_file.read_text(encoding="utf-8"))
+    assert config["telegram_mini_app_mode"] == "compact"
+    unit = target.unit_file.read_text(encoding="utf-8")
+    assert "PrivateDevices=true" not in unit and "ProtectKernelModules=true" not in unit
     assert stat.S_IMODE(target.env_file.stat().st_mode) == 0o600
     assert stat.S_IMODE(target.manifest_file.stat().st_mode) == 0o600
     assert token in target.env_file.read_text(encoding="utf-8")
@@ -541,7 +548,7 @@ def test_uninstall_verifies_service_stopped_and_plugin_unloaded_before_removal(t
     runner.plugin_enabled = True
     uninstall(paths=target, runner=runner, service_backend=backend)
     assert backend.stopped_verified is True
-    status_commands = [c for c in runner.commands if "plugins status hermes-peek" in " ".join(c)]
+    status_commands = [c for c in runner.commands if "plugins list --json" in " ".join(c)]
     assert status_commands and not target.plugin_dir.exists()
 
 

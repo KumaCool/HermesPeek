@@ -151,11 +151,9 @@ Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
-PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=read-only
 ProtectKernelTunables=true
-ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
@@ -178,21 +176,31 @@ def _run(runner: CommandRunner, command: Sequence[str], *, optional: bool = Fals
         raise LifecycleError(f"{command[0]} failed: {detail}")
 
 
+def _plugin_state(paths: InstallPaths, runner: CommandRunner) -> dict[str, bool]:
+    """Read Hermes plugin state using the supported machine-readable list API."""
+    result = runner(HermesTarget.from_paths(paths).command("plugins", "list", "--json"))
+    if result.returncode:
+        return {"installed": False, "enabled": False, "loaded": False}
+    try:
+        entries = json.loads(result.stdout or "[]")
+    except (TypeError, ValueError):
+        return {"installed": False, "enabled": False, "loaded": False}
+    if not isinstance(entries, list):
+        return {"installed": False, "enabled": False, "loaded": False}
+    entry = next((item for item in entries if isinstance(item, dict) and item.get("name") == "hermes-peek"), None)
+    enabled = bool(entry and str(entry.get("status", "")).lower() == "enabled")
+    return {"installed": entry is not None, "enabled": enabled, "loaded": enabled}
+
+
 def _probe_runtime(paths: InstallPaths, runner: CommandRunner) -> dict[str, bool]:
     target = HermesTarget.from_paths(paths)
     active = runner(("systemctl", "--user", "is-active", "hermes-peek.service")).returncode == 0
     enabled = runner(("systemctl", "--user", "is-enabled", "hermes-peek.service")).returncode == 0
-    plugin = runner(target.command("plugins", "status", "hermes-peek"))
     gateway = runner(target.command("gateway", "status"))
-    def flag(result: subprocess.CompletedProcess[str], name: str) -> bool:
-        if result.returncode:
-            return False
-        try:
-            return bool(json.loads(result.stdout or "{}").get(name))
-        except (TypeError, ValueError):
-            return False
+    plugin = _plugin_state(paths, runner)
     return {"service_active": active, "service_enabled": enabled,
-            "plugin_enabled": flag(plugin, "enabled"), "gateway_active": flag(gateway, "active")}
+            "plugin_installed": plugin["installed"], "plugin_enabled": plugin["enabled"],
+            "gateway_active": gateway.returncode == 0}
 
 
 def _restore_files(resources: Sequence[Path], existed: dict[str, bool], backup: Path) -> None:
@@ -215,17 +223,29 @@ def _restore_runtime(paths: InstallPaths, runner: CommandRunner, before: dict[st
     commands: list[tuple[str, ...]] = []
     if before.get("plugin_enabled"):
         commands.append(target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
-    else:
+    elif before.get("plugin_installed"):
         commands.append(target.command("plugins", "disable", "hermes-peek"))
-    if before.get("service_enabled") or before.get("service_active"):
+    else:
+        commands.append(target.command("plugins", "remove", "hermes-peek"))
+    if before.get("service_enabled") and before.get("service_active"):
         commands.append(("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
+    elif before.get("service_enabled"):
+        commands.append(("systemctl", "--user", "enable", "hermes-peek.service"))
+        commands.append(("systemctl", "--user", "stop", "hermes-peek.service"))
+    elif before.get("service_active"):
+        commands.append(("systemctl", "--user", "disable", "hermes-peek.service"))
+        commands.append(("systemctl", "--user", "start", "hermes-peek.service"))
     else:
         commands.append(("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
     if before.get("gateway_active"):
         commands.append(target.command("gateway", "restart"))
     for command in commands:
         result = runner(command)
-        if result.returncode:
+        missing_plugin = command[-2:] == ("remove", "hermes-peek") and any(
+            marker in (result.stderr or result.stdout or "").lower()
+            for marker in ("not installed", "not found", "does not exist")
+        )
+        if result.returncode and not missing_plugin:
             errors.append(" ".join(command[:4]))
     return errors
 
@@ -238,6 +258,9 @@ def _install_apply(
     allowed_roots: Sequence[Path],
     external_url: str,
     bot_token: str,
+    telegram_bot_username: str | None = None,
+    telegram_mini_app_short_name: str | None = None,
+    telegram_mini_app_mode: str = "compact",
     activate: bool = True,
     runner: CommandRunner = _default_runner,
     service_backend: Any | None = None,
@@ -279,6 +302,11 @@ def _install_apply(
         "external_base_url": external_url.rstrip("/") + "/",
         "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
     }
+    if telegram_bot_username:
+        config["telegram_bot_username"] = telegram_bot_username.removeprefix("@")
+    if telegram_mini_app_short_name:
+        config["telegram_mini_app_short_name"] = telegram_mini_app_short_name
+    config["telegram_mini_app_mode"] = telegram_mini_app_mode
     _atomic_write(paths.config_file, json.dumps(config, indent=2, sort_keys=True) + "\n", 0o644)
     _atomic_write(paths.unit_file, _render_unit(paths, executable), 0o644)
     owned_plugin_files = _PLUGIN_FILES + (_PLUGIN_CONFIG_POINTER,)
@@ -463,12 +491,8 @@ def rollback_transaction(paths: InstallPaths, transaction_id: str, *, runner: Co
 
 
 def _verify_plugin_unloaded(paths: InstallPaths, runner: CommandRunner) -> None:
-    result = runner(HermesTarget.from_paths(paths).command("plugins", "status", "hermes-peek"))
-    try:
-        state = json.loads(result.stdout or "{}") if result.returncode == 0 else {}
-    except (TypeError, ValueError):
-        state = {}
-    if result.returncode or state.get("enabled") or state.get("loaded"):
+    state = _plugin_state(paths, runner)
+    if state["enabled"] or state["loaded"]:
         raise LifecycleError("plugin remained enabled or loaded after Gateway restart")
 
 
