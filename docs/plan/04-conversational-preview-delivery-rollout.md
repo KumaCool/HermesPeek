@@ -2,7 +2,7 @@
 
 > 本计划执行 [`../07-conversational-preview-delivery.md`](../07-conversational-preview-delivery.md)。方案与计划已经项目负责人批准；后续按 TASK 9.1–9.6 实施。更新真实 Profile 或重启 Gateway 仍需另行明确授权。
 
-**计划状态：** `REVIEW_APPROVED / READY_TO_IMPLEMENT`
+**计划状态：** `TASK 9.1–9.6 OFFLINE_ACCEPTED / TASK 9.7 BLOCKED_PENDING_APPROVAL`
 
 ## 1. 阶段目标
 
@@ -45,12 +45,12 @@ Skill 是自然语言入口和行为契约；Plugin Tool 是严格原位路由�
 | TASK | 名称 | 状态 | 交付物 | 核心验收依据 |
 |---|---|---|---|---|
 | TASK 9.0 | Skill-first 方案与计划 | `DONE` | 方案、阶段计划、总计划索引 | 文档一致、链接与敏感检查通过；负责人评审批准 |
-| TASK 9.1 | 仓库内 Preview Skill | `TODO` | `SKILL.md`、reference、触发检查 | 正向/near-miss 边界、唯一/歧义文件、成功/失败语义 |
-| TASK 9.2 | Plugin Tool RED 契约测试 | `TODO` | schema、路由、Secret、脱敏失败测试 | 当前实现稳定 RED；测试零真实副作用 |
-| TASK 9.3 | Session Context 与 Secret 安全层 | `TODO` | context adapter、pointer schema、secret loader | 同 chat/topic、无回退、权限和 Profile 隔离 |
-| TASK 9.4 | 单消息 Preview Tool | `TODO` | Tool handler、注册、MockTransport 集成 | 一次调用/一次发送、owner、脱敏、失败不伪成功 |
-| TASK 9.5 | Skill + Plugin 生命周期分发 | `TODO` | setup/upgrade/rollback/uninstall、打包和文档 | 临时 Profile 闭环、owned-resource drift、wheel/sdist |
-| TASK 9.6 | 全量离线与新会话验收 | `TODO` | 全量测试、构建、安装烟测、敏感扫描 | 新 Profile 可发现 Skill/Tool，完整回归通过 |
+| TASK 9.1 | 仓库内 Preview Skill | `DONE` | `SKILL.md`、reference、触发检查 | 正向/near-miss 边界、唯一/歧义文件、成功/失败语义 |
+| TASK 9.2 | Plugin Tool RED 契约测试 | `DONE` | schema、路由、Secret、脱敏失败测试 | 当前实现稳定 RED；测试零真实副作用 |
+| TASK 9.3 | Session Context 与 Secret 安全层 | `DONE` | context adapter、pointer schema、secret loader | 同 chat/topic、无回退、权限和 Profile 隔离 |
+| TASK 9.4 | 单消息 Preview Tool | `DONE` | Tool handler、注册、MockTransport 集成 | 一次调用/一次发送、owner、脱敏、失败不伪成功 |
+| TASK 9.5 | Skill + Plugin 生命周期分发 | `DONE` | setup/upgrade/rollback/uninstall、打包和文档 | 临时 Profile 闭环、owned-resource drift、wheel/sdist |
+| TASK 9.6 | 全量离线与新会话验收 | `OFFLINE_ACCEPTED` | 全量测试、构建、安装烟测、敏感扫描 | 新 Profile 可发现 Skill/Tool，完整回归通过 |
 | TASK 9.7 | 真实 Telegram 单消息验收 | `BLOCKED_PENDING_APPROVAL` | 当前 Profile 与私聊/Topic 现场证据 | 需另行批准部署与 Gateway 外部重启 |
 
 ## 5. TASK 细化
@@ -99,7 +99,7 @@ docs: plan project-distributed preview skill
 
 ### TASK 9.1：仓库内 Preview Skill
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 方案第 3–5、8、9.1 节。
 
@@ -156,7 +156,7 @@ feat: add HermesPeek preview skill
 
 ### TASK 9.2：Plugin Tool RED 契约测试
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 方案第 6、7、9.2 节。
 
@@ -201,7 +201,7 @@ test: define preview delivery tool contract
 
 ### TASK 9.3：Session Context 与 Secret 安全层
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 方案第 6.2、6.3、10 节；生命周期 Profile/Secret 所有权约束。
 
@@ -240,7 +240,7 @@ feat: load preview delivery context safely
 
 ### TASK 9.4：单消息 Preview Tool
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 方案第 3、6、7 节。
 
@@ -281,7 +281,7 @@ feat: add preview delivery tool
 
 ### TASK 9.5：Skill + Plugin 生命周期分发
 
-**状态：** `TODO`
+**状态：** `DONE`
 
 **方案来源：** 方案第 4、8、10 节；阶段 8 transaction/owned-resource 机制。
 
@@ -339,7 +339,7 @@ feat: distribute preview skill with HermesPeek
 
 ### TASK 9.6：全量离线与新会话验收
 
-**状态：** `TODO`
+**状态：** `OFFLINE_ACCEPTED`
 
 **方案来源：** 方案第 8、9 节；项目统一质量门禁。
 
@@ -371,6 +371,8 @@ git diff --check
 6. 检查 Markdown 本地链接；
 7. 检查 staged diff 中密码、Token、私钥、个人 chat/user/thread ID 和机器专属路径 0 命中；
 8. 确认 Git 工作区只含阶段预期文件。
+
+**离线验收记录（2026-08-05）：** 新增打包与 fresh-process 发现测试；全量测试、compileall、wheel/sdist 构建、临时 venv 安装、临时 `HERMES_HOME` setup、Skill/Tool 新进程发现、MockTransport 单消息调用、包内容、Markdown 本地链接、diff 与敏感信息检查均通过。该记录仅代表离线与临时 Profile 证据；TASK 9.7 真实 Telegram 验收仍阻塞，离线验收不得冒充真实 Telegram 结果。
 
 **提交：**
 
