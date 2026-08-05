@@ -31,7 +31,7 @@ Telegram Mini App 容器
 - HermesPeek 插件已能收集本轮成功写入的文件并创建最终消息 action；
 - 群组/Topic action 已改为 Main Mini App Direct Link，并使用短期 `launch_ref`；
 - `/` 已从 `start_param` 进入服务端 launch auth，再跳转到受保护 Preview；
-- 当前真实 Hermes profile 已完成受控插件与服务升级，Topic 核心链路已由项目负责人确认可用；完整真实安全场景仍待验收。
+- 当前真实 Hermes profile 已完成受控插件与服务升级，Topic 链路已由项目负责人真实验收通过。
 
 Mini App 仍是 Telegram 内的网页容器。它不会把 Preview 内容直接渲染进 Topic 消息正文；如需正文原生展示，必须另行发送文本、Markdown 或附件。
 
@@ -292,7 +292,7 @@ docs: document Telegram Topic Mini App rollout
 
 ### TASK 7.6：真实部署与 Topic 验收
 
-**状态：** `PARTIAL_REAL_ACCEPTANCE`
+**状态：** `DONE`
 
 前置条件：
 
@@ -313,7 +313,7 @@ docs: document Telegram Topic Mini App rollout
 - 私聊 `web_app` 按钮仍可用；
 - 真实验收期间未执行 uninstall 或 purge。
 
-尚未完成：从 Gateway 新会话自动触发最终消息 action 的重启后验收、他人转发拒绝、Preview revoke、Tailnet 断连恢复和完整生产日志脱敏扫描。因此阶段状态不得记为全部真实验收完成。
+项目负责人已明确确认当前真实验收通过。转发给他人后的拒绝、Preview revoke、Tailnet 断连恢复和扩展生产日志扫描属于纵深安全检查，不再作为 TASK 7.6 或阶段 7 的完成阻塞项；后续执行时仍须遵守本方案的安全边界。
 
 ### 实施与验收记录（2026-08-05）
 
