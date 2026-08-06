@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-06
+
+### Changed
+
+- Make purge uninstall output an explicit human-readable success message.
+- Automatically remove the CLI when it is managed by `uv tool`.
+
 ## [0.2.1] - 2026-08-06
 
 ### Changed
@@ -54,6 +61,7 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
 [Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.1...HEAD
+[0.2.2]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.2
 [0.2.1]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.1
 [0.2.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.0
 [0.1.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.1.0

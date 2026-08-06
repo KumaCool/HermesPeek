@@ -66,6 +66,31 @@ def lifecycle_runner(command):
     return subprocess.run(command, text=True, capture_output=True, check=False)
 
 
+def _remove_uv_tool() -> tuple[bool, str]:
+    """Remove this CLI when it is installed as the uv tool named hermes-peek."""
+    uv = shutil.which("uv")
+    if uv is None:
+        return False, "uv 未找到，CLI 未删除"
+    listed = subprocess.run([uv, "tool", "list"], text=True, capture_output=True, check=False)
+    if listed.returncode != 0 or not any(line.startswith("hermes-peek ") for line in listed.stdout.splitlines()):
+        return False, "当前 CLI 不是由 uv tool 管理，CLI 未删除"
+    removed = subprocess.run([uv, "tool", "uninstall", "hermes-peek"], text=True, capture_output=True, check=False)
+    if removed.returncode != 0:
+        detail = (removed.stderr or removed.stdout).strip()
+        return False, f"uv tool 卸载失败{': ' + detail if detail else ''}"
+    return True, "已通过 uv tool 删除"
+
+
+def _uninstall_message(result: dict[str, object], cli_status: str | None = None) -> str:
+    lines = ["HermesPeek 卸载成功。", "- Hermes 集成：已删除"]
+    lines.append("- HermesPeek 数据：已永久删除" if result.get("data_purged") or result.get("purged") else "- Preview 数据：已保留（使用 --purge 才会删除）")
+    if cli_status:
+        lines.append(f"- CLI：{cli_status}")
+    if result.get("original_files_preserved") or result.get("state_preserved"):
+        lines.append("- 原始项目文件：按安全策略保留")
+    return "\n".join(lines)
+
+
 def setup_https_probe(url: str) -> dict[str, object]:
     try:
         with urllib.request.urlopen(url, timeout=3) as response:
@@ -270,10 +295,17 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     uninstall_application(paths=paths, purge_data=False,
                                           deactivate=not args.no_deactivate)
                     result = purge_application(paths, confirmed=True)
+                    _, cli_status = _remove_uv_tool()
+                    result["original_files_preserved"] = True
+                    print(_uninstall_message(result, cli_status=cli_status))
+                    return 0
                 else:
                     result = uninstall_application(paths=paths, purge_data=False,
                                                    deactivate=not args.no_deactivate)
-            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            if args.command == "uninstall" and not args.dry_run:
+                print(_uninstall_message(result))
+            else:
+                print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         settings = Settings.from_env()
         if args.command == "serve":

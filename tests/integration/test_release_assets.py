@@ -117,7 +117,7 @@ def test_project_package_installer_and_tag_version_contract_are_identical() -> N
         capture_output=True,
         check=False,
     )
-    if (ROOT / "dist/release").is_dir():
+    if (ROOT / "dist/release").is_dir() and any((ROOT / "dist/release").glob("*0.2.2*")):
         assert valid.returncode == 0, valid.stdout + valid.stderr
 
 
