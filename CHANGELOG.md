@@ -6,6 +6,15 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-06
+
+### Changed
+
+- Made the `hermes-peek-preview` Skill trigger on multilingual file-preview intent rather than Chinese-only example phrases, with aligned English and Chinese positive and near-miss examples.
+- Changed the stable installer entry to the repository's `main/install.sh`; fixed-version installs use the corresponding repository tag.
+- Reduced GitHub Release assets to the wheel, source distribution, and `SHA256SUMS`; the repository/tag remains the single source for `install.sh`.
+- Sourced the FastAPI application version from the package version to prevent version drift.
+
 ## [0.2.0] - 2026-08-06
 
 ### Added
@@ -44,6 +53,7 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.1
 [0.2.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.0
 [0.1.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.1.0

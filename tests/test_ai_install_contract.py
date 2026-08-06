@@ -34,7 +34,7 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_with_fixed_releas
         assert "```text" in text
         assert all(link in text for link in required_links)
         assert RELEASE_INSTALLER_URL not in text
-        assert "releases/download/v0.2.0/install.sh" in text
+        assert "raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh" in text
         assert_terms(
             text,
             (
@@ -47,7 +47,7 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_with_fixed_releas
                 ("install.sh",),
                 ("hermes-peek setup",),
                 ("release asset", "release 资产"),
-                ("v0.2.0 release",),
+                ("v0.2.1 release",),
             ),
         )
 
@@ -59,7 +59,7 @@ def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:
             text,
             (
                 ("operator quickstart", "普通用户快速开始"),
-                ("releases/download/v0.2.0/install.sh",),
+                ("raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh",),
                 ("sha256sums",),
                 ("hermes-peek setup",),
                 ("status --json",),
@@ -94,7 +94,7 @@ def test_repository_agent_guide_enforces_discovery_secret_confirmation_and_compl
             ("telegram menu",),
             ("network",),
             ("separate confirmation",),
-            ("release installer",),
+            ("repository/tag `install.sh`",),
             ("hermes-peek setup",),
             ("do not copy internal",),
             ("installation complete",),

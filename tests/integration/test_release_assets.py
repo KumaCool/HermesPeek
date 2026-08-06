@@ -43,13 +43,11 @@ def test_release_builder_emits_version_aligned_complete_assets(tmp_path: Path) -
     expected = {
         f"hermes_peek-{version}-py3-none-any.whl",
         f"hermes_peek-{version}.tar.gz",
-        "install.sh",
         "SHA256SUMS",
     }
 
     assert {path.name for path in output.iterdir()} == expected
-    assert (output / "install.sh").stat().st_mode & 0o111
-    assert f'INSTALLER_VERSION="{version}"' in (output / "install.sh").read_text(encoding="utf-8")
+
 
 
 def test_checksum_manifest_round_trips_every_release_payload(tmp_path: Path) -> None:
@@ -97,10 +95,10 @@ def test_local_release_verifier_accepts_built_assets_and_rejects_tampering(tmp_p
     assert "checksum" in (invalid.stdout + invalid.stderr).lower()
 
 
-def test_installer_uses_the_exact_wheel_name_produced_by_builder(tmp_path: Path) -> None:
+def test_repository_installer_uses_the_exact_wheel_name_produced_by_builder(tmp_path: Path) -> None:
     output = build_assets(tmp_path)
     wheel = next(output.glob("*.whl"))
-    installer = (output / "install.sh").read_text(encoding="utf-8")
+    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     assert f'ASSET="{wheel.name}"' in installer
 

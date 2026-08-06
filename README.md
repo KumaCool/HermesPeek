@@ -77,18 +77,18 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-HermesPeek v0.2.0 publishes a verified Linux Release payload set (`wheel`, `sdist`, `install.sh`, and `SHA256SUMS`). The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
+HermesPeek v0.2.1 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
 ## Operator quickstart
 
-> The installer is pinned to v0.2.0. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`.
+> The `main` installer tracks the current stable Release, v0.2.1. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.1`.
 
 ### 1. Install and run the setup wizard
 
 ```bash
-curl -fsSL https://github.com/KumaCool/HermesPeek/releases/download/v0.2.0/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
 `setup` discovers Hermes profiles and asks for an approved preview workspace, a Telegram-reachable HTTPS origin, the bot username, and a local Secret file. It shows a redacted plan before confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
@@ -170,8 +170,8 @@ Before acting:
    Secret in chat. Read Secrets only from a restricted local file or through
    secure local input (not chat); never expose them in chat, command arguments,
    plans, or logs.
-4. Inspect the v0.2.0 Release, confirm that it contains install.sh, the matching
-   wheel, sdist, and SHA256SUMS, then use the fixed Release installer and
+4. Inspect the v0.2.1 Release, confirm that it contains the matching wheel,
+   sdist, and SHA256SUMS, then use the repository/tag installer and
    hermes-peek setup. Do not copy internal plugin/Skill files or invent another
    installation flow.
 5. Verify and report three completion levels separately: (a) installation

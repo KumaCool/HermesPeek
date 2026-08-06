@@ -59,9 +59,6 @@ def main() -> int:
             if not asset.is_file():
                 raise SystemExit(f"missing expected build asset: {asset.name}")
             shutil.copy2(asset, output / asset.name)
-        installer = output / "install.sh"
-        shutil.copy2(ROOT / "install.sh", installer)
-        installer.chmod(0o755)
         payloads = sorted(path for path in output.iterdir() if path.name != "SHA256SUMS")
         manifest = "".join(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in payloads)
         (output / "SHA256SUMS").write_text(manifest, encoding="utf-8")

@@ -29,7 +29,6 @@ def main() -> int:
     expected = {
         f"hermes_peek-{version}-py3-none-any.whl",
         f"hermes_peek-{version}.tar.gz",
-        "install.sh",
         "SHA256SUMS",
     }
     present = {path.name for path in assets.iterdir()} if assets.is_dir() else set()
@@ -49,12 +48,10 @@ def main() -> int:
     for name, digest in entries.items():
         if hashlib.sha256((assets / name).read_bytes()).hexdigest() != digest:
             fail(f"checksum mismatch for {name}")
-    installer = (assets / "install.sh").read_text(encoding="utf-8")
     wheel_name = f"hermes_peek-{version}-py3-none-any.whl"
+    installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     if f'INSTALLER_VERSION="{version}"' not in installer or f'ASSET="{wheel_name}"' not in installer:
-        fail("installer version or wheel filename mismatch")
-    if not (assets / "install.sh").stat().st_mode & 0o111:
-        fail("installer is not executable")
+        fail("repository installer version or wheel filename mismatch")
     with zipfile.ZipFile(assets / wheel_name) as archive:
         names = set(archive.namelist())
         required = {"hermes_peek/hermes_plugin/plugin.yaml", "hermes_peek/hermes_plugin/preview_tool.py"}

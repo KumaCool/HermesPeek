@@ -76,7 +76,7 @@ venv="$UV_TOOL_DIR/venv"
 mkdir -p "$UV_TOOL_BIN_DIR"
 cat > "$UV_TOOL_BIN_DIR/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.0\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.1\n'; exit 0; fi
 printf 'hermes-peek %s\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
 EOF
 chmod +x "$UV_TOOL_BIN_DIR/hermes-peek"
@@ -86,7 +86,7 @@ chmod +x "$UV_TOOL_BIN_DIR/hermes-peek"
     env["HERMES_PEEK_PYTHON"] = sys.executable
 
     # The release installer consumes real local payload bytes; external lifecycle transports stay fake.
-    result = run(["sh", str(assets / "install.sh"), "--non-interactive"], env=env)
+    result = run(["sh", str(ROOT / "install.sh"), "--non-interactive"], env=env)
     commands = log.read_text(encoding="utf-8")
     if wheel.name not in commands or "hermes-peek setup" not in commands:
         raise SystemExit("offline installer did not consume the built wheel and canonical setup entrypoint")

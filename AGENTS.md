@@ -17,8 +17,8 @@ These rules apply to any Agent installing, upgrading, verifying, rolling back, o
 
 ## Installation path
 
-- Prefer a published, fixed Release installer and the public `hermes-peek setup` lifecycle. Do not copy internal Plugin, Skill, unit, or implementation files and do not invent a parallel installer.
-- A release installer is available only when the inspected Release contains the installer, matching package asset, and checksum assets. Until then, state that the release entry is unavailable; use the checked-out repository and `uv run hermes-peek setup` only as a repository development rehearsal. Never present a guessed download or curl command as working.
+- Prefer the repository/tag `install.sh` and the public `hermes-peek setup` lifecycle. The `main` script tracks the current stable Release; a version tag pins the installer source. Do not copy internal Plugin, Skill, unit, or implementation files and do not invent a parallel installer.
+- An installer entry is available only when its target Release contains the matching package and checksum assets. Until then, state that the entry is unavailable; use the checked-out repository and `uv run hermes-peek setup` only as a repository development rehearsal. Never present a guessed download or curl command as working.
 - Start with a read-only/redacted setup plan. Use setup, upgrade, rollback, and uninstall through their supported lifecycle commands rather than manual replacement.
 
 ## Completion contract

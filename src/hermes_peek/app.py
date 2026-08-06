@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from hermes_peek.auth import TelegramAuthError, verify_telegram_init_data
+from hermes_peek import __version__
 
 from hermes_peek.config import Settings
 from hermes_peek.models import FileEntry, PreviewRecord
@@ -45,7 +46,7 @@ def create_app(
             str(settings.external_base_url) if settings.external_base_url is not None else None
         ),
     )
-    application = FastAPI(title="HermesPeek", version="0.2.0")
+    application = FastAPI(title="HermesPeek", version=__version__)
     application.mount(
         "/static",
         StaticFiles(directory=Path(__file__).with_name("static")),

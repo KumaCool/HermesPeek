@@ -77,18 +77,18 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-HermesPeek v0.2.0 已发布并验证完整 Linux Release 资产（`wheel`、`sdist`、`install.sh` 和 `SHA256SUMS`）。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
+HermesPeek v0.2.1 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
 ## 普通用户快速开始
 
-> 安装器固定为 v0.2.0，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。
+> `main` 安装器跟随当前稳定版 v0.2.1，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.1`。
 
 ### 1. 安装并启动向导
 
 ```bash
-curl -fsSL https://github.com/KumaCool/HermesPeek/releases/download/v0.2.0/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
 `setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
@@ -166,8 +166,8 @@ Purge 不会删除允许根目录中的原始项目文件。更完整的保留�
 3. Secret 不要发送进聊天。不要在聊天中发送，也不要要求我发送 Telegram Bot Token、
    API Key、密码或其他 Secret。Secret 只能从本机受限权限文件或本机安全输入读取，
    绝不能出现在聊天、命令参数、计划或日志中。
-4. 检查 v0.2.0 Release 确实包含 install.sh、匹配的 wheel、sdist 和
-   SHA256SUMS，然后使用固定 Release 安装器和 hermes-peek setup；不要复制内部
+4. 检查 v0.2.1 Release 确实包含匹配的 wheel、sdist 和 SHA256SUMS，然后使用
+   仓库/tag 安装器和 hermes-peek setup；不要复制内部
    Plugin/Skill 文件或发明另一套安装流程。
 5. 分别验证并报告三个完成层级：(a) 安装完成：CLI/profile/service 检查通过；
    (b) Hermes 加载完成：目标 profile、Gateway、新会话、Skill 和 Tool 已现场
