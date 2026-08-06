@@ -112,7 +112,10 @@ def run_setup_wizard(
     origin = validate_https_origin(input_fn("External HTTPS origin: ").strip())
     health = https_probe(f"{origin}/healthz")
     if not health.get("reachable"):
-        raise LifecycleError("external HTTPS origin is not reachable at /healthz")
+        output_fn(
+            "Preflight note: external /healthz is not reachable yet; "
+            "setup will verify it after the local service starts."
+        )
     plan = setup_plan(paths, allowed_roots=list(roots), external_url=origin, activate=activate)
     output_fn("Setup plan (secrets are never displayed):")
     output_fn(__import__("json").dumps(plan, ensure_ascii=False, indent=2, sort_keys=True))

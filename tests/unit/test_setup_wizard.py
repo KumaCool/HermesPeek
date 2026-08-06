@@ -119,7 +119,7 @@ def test_wizard_checks_https_shows_redacted_plan_and_requires_confirmation(tmp_p
     assert not paths.config_dir.exists()
 
 
-def test_wizard_rejects_unreachable_https_before_plan(tmp_path: Path):
+def test_wizard_defers_unreachable_https_until_after_service_start(tmp_path: Path):
     from hermes_peek.lifecycle import InstallPaths
     from hermes_peek.setup_wizard import run_setup_wizard
 
@@ -128,17 +128,18 @@ def test_wizard_rejects_unreachable_https_before_plan(tmp_path: Path):
     (hermes_home / ".env").write_text("TELEGRAM_BOT_TOKEN=123456789:" + "T" * 35)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    answers = iter((str(workspace), "https://preview.example.test"))
+    answers = iter((str(workspace), "https://preview.example.test", "no"))
     output: list[str] = []
 
-    with pytest.raises(LifecycleError, match="not reachable"):
+    with pytest.raises(LifecycleError, match="cancelled"):
         run_setup_wizard(
             InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd"),
             input_fn=lambda _: next(answers),
             output_fn=output.append,
             https_probe=lambda _: {"reachable": False, "status": None},
         )
-    assert output == []
+    assert any("verify it after the local service starts" in line for line in output)
+    assert any("Setup plan" in line for line in output)
 
 
 def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path: Path, monkeypatch, capsys):
@@ -170,9 +171,60 @@ def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path:
     assert captured["allowed_roots"] == (workspace.resolve(),)
     assert captured["external_url"] == "https://preview.example.test"
     assert captured["bot_token"] == token
+    assert captured["final_verify"] is None
     assert "Setup plan" in output
     assert "restart_gateway" not in output
     assert token not in output
+
+
+def test_interactive_cli_verifies_external_health_after_activated_install(
+    tmp_path: Path, monkeypatch, capsys
+):
+    import hermes_peek.cli as cli
+
+    home = tmp_path / "home"
+    hermes_home = home / ".hermes"
+    hermes_home.mkdir(parents=True)
+    token = "123456789:" + "W" * 35
+    (hermes_home / ".env").write_text(f"TELEGRAM_BOT_TOKEN={token}\n")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("launcher")
+    answers = iter((str(workspace), "https://preview.example.test", "yes"))
+    probes: list[str] = []
+
+    monkeypatch.setattr(cli.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    monkeypatch.setattr(cli.shutil, "which", lambda _: str(executable))
+    monkeypatch.setattr(
+        cli,
+        "setup_https_probe",
+        lambda url: probes.append(url) or {"reachable": len(probes) > 1, "status": 200},
+    )
+
+    def install(**kwargs):
+        kwargs["final_verify"]()
+        return {"installed": True}
+
+    monkeypatch.setattr(cli, "install_application", install)
+
+    assert main(["setup"]) == 0
+    assert probes == [
+        "https://preview.example.test/healthz",
+        "https://preview.example.test/healthz",
+    ]
+    assert "verify it after the local service starts" in capsys.readouterr().out
+
+
+def test_external_health_failure_after_startup_is_a_lifecycle_error(monkeypatch):
+    import hermes_peek.cli as cli
+
+    monkeypatch.setattr(cli, "setup_https_probe", lambda _: {"reachable": False, "status": None})
+
+    with pytest.raises(LifecycleError, match="after service startup"):
+        cli.verify_external_https_health("https://preview.example.test")
 
 
 def test_external_bot_token_file_permissions_are_not_modified(tmp_path: Path):

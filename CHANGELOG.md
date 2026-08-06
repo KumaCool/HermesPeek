@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-08-07
+
+### Fixed
+
+- Defer external `/healthz` enforcement until after the local preview service starts.
+- Roll back setup if the configured HTTPS origin still cannot reach the running service.
+
 ## [0.2.5] - 2026-08-07
 
 ### Fixed
@@ -82,7 +89,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.6
 [0.2.5]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.5
 [0.2.4]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.4
 [0.2.3]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.3

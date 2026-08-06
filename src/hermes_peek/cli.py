@@ -100,6 +100,11 @@ def setup_https_probe(url: str) -> dict[str, object]:
         return {"reachable": False, "status": None}
 
 
+def verify_external_https_health(origin: str) -> None:
+    if not setup_https_probe(origin.rstrip("/") + "/healthz").get("reachable"):
+        raise LifecycleError("external HTTPS origin is not reachable at /healthz after service startup")
+
+
 def _running_inside_gateway_session() -> bool:
     """Avoid restarting the Gateway from a turn currently served by it."""
     try:
@@ -279,6 +284,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     telegram=TelegramLifecycle(telegram_lifecycle_transport()),
                     configure_telegram_menu=args.configure_telegram_menu,
                     defer_gateway_restart=_running_inside_gateway_session(),
+                    final_verify=(
+                        lambda: verify_external_https_health(args.external_url)
+                    ) if not args.no_activate else None,
                     runner=lifecycle_runner,
                 )
                 result["telegram_onboarding_checklist"] = _telegram_onboarding_checklist()
