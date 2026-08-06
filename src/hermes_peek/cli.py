@@ -105,6 +105,16 @@ def verify_external_https_health(origin: str) -> None:
         raise LifecycleError("external HTTPS origin is not reachable at /healthz after service startup")
 
 
+def resolve_current_executable() -> Path:
+    discovered = shutil.which("hermes-peek")
+    if discovered is not None:
+        return Path(discovered).resolve(strict=True)
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.is_file() and os.access(invoked, os.X_OK):
+        return invoked.resolve(strict=True)
+    raise LifecycleError("hermes-peek executable could not be resolved")
+
+
 def _running_inside_gateway_session() -> bool:
     """Avoid restarting the Gateway from a turn currently served by it."""
     try:
@@ -267,13 +277,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
                     return 0
                 token_file = args.telegram_env or paths.hermes_home / ".env"
-                executable_name = shutil.which("hermes-peek")
-                if executable_name is None:
-                    raise LifecycleError("hermes-peek executable was not found on PATH")
+                executable_path = resolve_current_executable()
                 result = install_application(
                     paths=paths,
                     integration_dir=Path(__file__).with_name("hermes_plugin"),
-                    executable=Path(executable_name),
+                    executable=executable_path,
                     allowed_roots=tuple(args.allowed_root),
                     external_url=args.external_url,
                     bot_token=read_bot_token(token_file),

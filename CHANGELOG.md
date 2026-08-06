@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-08-07
+
+### Fixed
+
+- Make the freshly installed CLI discoverable during setup even when its uv tool bin directory is not in the login-shell `PATH`.
+- Resolve the active CLI executable safely when setup is launched by absolute path.
+
 ## [0.2.6] - 2026-08-07
 
 ### Fixed
@@ -89,7 +96,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.7
 [0.2.6]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.6
 [0.2.5]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.5
 [0.2.4]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.4

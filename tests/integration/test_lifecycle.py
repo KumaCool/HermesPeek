@@ -462,6 +462,29 @@ def test_setup_defers_gateway_restart_for_current_gateway_session(tmp_path: Path
     assert not any("gateway restart" in " ".join(command) for command in runner.commands)
 
 
+def test_activated_setup_restarts_gateway_after_service_and_plugin_are_enabled(
+    tmp_path: Path,
+) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = StatefulRunner()
+
+    result = install(
+        paths=target, integration_dir=PLUGIN, executable=executable,
+        allowed_roots=(allowed,), external_url="https://preview.example.test",
+        bot_token="123456789:" + "G" * 35, runner=runner,
+        service_backend=FakeServiceBackend(runner),
+    )
+
+    commands = [" ".join(command) for command in runner.commands]
+    service_index = next(i for i, command in enumerate(commands) if "enable --now hermes-peek.service" in command)
+    plugin_index = next(i for i, command in enumerate(commands) if "plugins enable" in command)
+    gateway_index = next(i for i, command in enumerate(commands) if "gateway restart" in command)
+    assert service_index < plugin_index < gateway_index
+    assert result["activation_pending_gateway_restart"] is False
+
+
 def test_installed_plugin_resolves_shared_config_without_gateway_environment(tmp_path: Path, monkeypatch) -> None:
     import importlib.util
     import sys

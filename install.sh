@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-INSTALLER_VERSION="0.2.6"
+INSTALLER_VERSION="0.2.7"
 RELEASE_CHANNEL="${HERMES_PEEK_CHANNEL:-release}"
 NON_INTERACTIVE=false
 DRY_RUN=false
@@ -79,7 +79,7 @@ if ! "$UV_COMMAND" --version >/dev/null 2>&1; then
     exit 1
 fi
 
-ASSET="hermes_peek-0.2.6-py3-none-any.whl"
+ASSET="hermes_peek-0.2.7-py3-none-any.whl"
 RELEASE_BASE_URL="${HERMES_PEEK_RELEASE_BASE_URL:-https://github.com/KumaCool/HermesPeek/releases/download/v${INSTALLER_VERSION}}"
 CURL_COMMAND="${HERMES_PEEK_CURL:-curl}"
 INSTALL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/hermes-peek"
@@ -116,6 +116,11 @@ if [ "$INSTALLED_VERSION" != "hermes-peek $INSTALLER_VERSION" ]; then
     printf 'error: installed HermesPeek version verification failed (expected %s)\n' "$INSTALLER_VERSION" >&2
     exit 1
 fi
+# The setup process installs a systemd unit containing the current CLI path.
+# Keep the freshly installed uv tool discoverable even when its bin directory
+# has not yet been added to the user's login-shell PATH.
+PATH="$INSTALL_BIN:$PATH"
+export PATH
 if [ "$NON_INTERACTIVE" = true ]; then
     printf 'Non-interactive mode selected; setup still validates required configuration without inventing values.\n'
 fi

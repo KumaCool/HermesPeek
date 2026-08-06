@@ -227,6 +227,20 @@ def test_external_health_failure_after_startup_is_a_lifecycle_error(monkeypatch)
         cli.verify_external_https_health("https://preview.example.test")
 
 
+def test_current_executable_falls_back_to_absolute_invocation_when_path_is_missing(
+    tmp_path: Path, monkeypatch
+):
+    import hermes_peek.cli as cli
+
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
+    monkeypatch.setattr(cli.shutil, "which", lambda _: None)
+    monkeypatch.setattr(cli.sys, "argv", [str(executable), "setup"])
+
+    assert cli.resolve_current_executable() == executable.resolve()
+
+
 def test_external_bot_token_file_permissions_are_not_modified(tmp_path: Path):
     from hermes_peek.setup_wizard import validate_secret_file
 
