@@ -69,14 +69,14 @@ def main() -> int:
 set -eu
 if [ "${1:-}" = "--version" ]; then exit 0; fi
 printf '%s\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
-wheel=${5}
+wheel=${6}
 venv="$UV_TOOL_DIR/venv"
 "$HERMES_PEEK_PYTHON" -m venv "$venv"
 "$venv/bin/python" -m pip install --no-index --no-deps "$wheel" >/dev/null
 mkdir -p "$UV_TOOL_BIN_DIR"
 cat > "$UV_TOOL_BIN_DIR/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.1\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.4\n'; exit 0; fi
 printf 'hermes-peek %s\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
 EOF
 chmod +x "$UV_TOOL_BIN_DIR/hermes-peek"

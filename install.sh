@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-INSTALLER_VERSION="0.2.3"
+INSTALLER_VERSION="0.2.4"
 RELEASE_CHANNEL="${HERMES_PEEK_CHANNEL:-release}"
 NON_INTERACTIVE=false
 DRY_RUN=false
@@ -79,7 +79,7 @@ if ! "$UV_COMMAND" --version >/dev/null 2>&1; then
     exit 1
 fi
 
-ASSET="hermes_peek-0.2.3-py3-none-any.whl"
+ASSET="hermes_peek-0.2.4-py3-none-any.whl"
 RELEASE_BASE_URL="${HERMES_PEEK_RELEASE_BASE_URL:-https://github.com/KumaCool/HermesPeek/releases/download/v${INSTALLER_VERSION}}"
 CURL_COMMAND="${HERMES_PEEK_CURL:-curl}"
 INSTALL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/hermes-peek"
@@ -110,7 +110,12 @@ if ! (cd "$WORK_DIR" && sha256sum -c SHA256SUMS --ignore-missing >/dev/null 2>&1
     exit 1
 fi
 
-"$UV_COMMAND" tool install --python "$PYTHON_COMMAND" "$WORK_DIR/$ASSET"
+"$UV_COMMAND" tool install --force --python "$PYTHON_COMMAND" "$WORK_DIR/$ASSET"
+INSTALLED_VERSION=$($PEEK_COMMAND --version 2>/dev/null || true)
+if [ "$INSTALLED_VERSION" != "hermes-peek $INSTALLER_VERSION" ]; then
+    printf 'error: installed HermesPeek version verification failed (expected %s)\n' "$INSTALLER_VERSION" >&2
+    exit 1
+fi
 if [ "$NON_INTERACTIVE" = true ]; then
     printf 'Non-interactive mode selected; setup still validates required configuration without inventing values.\n'
 fi

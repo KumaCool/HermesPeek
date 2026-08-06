@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hermes-peek"
-version = "0.2.3"
+version = "0.2.4"
 description = "Preview files created by Hermes directly inside Telegram."
 readme = "README.md"
 license = { file = "LICENSE" }

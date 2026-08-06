@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-07
+
+### Fixed
+
+- Force the installer to replace an existing HermesPeek tool environment during upgrades.
+- Add a working `hermes-peek --version` command and verify the installed version before setup starts.
+
 ## [0.2.3] - 2026-08-07
 
 ### Fixed
@@ -68,7 +75,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.4
 [0.2.3]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.3
 [0.2.2]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.2
 [0.2.1]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.1

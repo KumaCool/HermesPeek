@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "install.sh"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 ASSET = f"hermes_peek-{VERSION}-py3-none-any.whl"
 
 
@@ -38,10 +38,14 @@ def fake_uv(tmp_path: Path) -> Path:
 set -eu
 if [ "${1:-}" = "--version" ]; then exit 0; fi
 printf 'UV_TOOL_DIR=%s UV_TOOL_BIN_DIR=%s %s\\n' "$UV_TOOL_DIR" "$UV_TOOL_BIN_DIR" "$*" >> "$HERMES_PEEK_TEST_LOG"
+case " $* " in
+  *" --force "*) ;;
+  *) printf 'missing --force\\n' >&2; exit 91 ;;
+esac
 mkdir -p "$HERMES_PEEK_INSTALL_BIN"
 cat > "$HERMES_PEEK_INSTALL_BIN/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.3\\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.4\\n'; exit 0; fi
 printf 'hermes-peek %s\\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
 EOF
 chmod +x "$HERMES_PEEK_INSTALL_BIN/hermes-peek"
@@ -96,6 +100,16 @@ def test_version_and_dry_run_are_read_only(tmp_path: Path) -> None:
     assert not (tmp_path / "home").exists()
 
 
+def test_cli_reports_package_version(capsys) -> None:
+    from hermes_peek import __version__
+    from hermes_peek.cli import build_parser
+
+    with pytest.raises(SystemExit) as result:
+        build_parser().parse_args(["--version"])
+    assert result.value.code == 0
+    assert capsys.readouterr().out.strip() == f"hermes-peek {__version__}"
+
+
 @pytest.mark.parametrize(
     ("environment", "message"),
     [
@@ -142,7 +156,7 @@ def test_verified_release_with_non_interactive_flag_calls_setup_without_promptin
     log = (tmp_path / "commands.log").read_text().splitlines()
     assert f"UV_TOOL_DIR={tmp_path / 'data' / 'hermes-peek'}" in log[0]
     assert f"UV_TOOL_BIN_DIR={tmp_path / 'data' / 'hermes-peek' / 'bin'}" in log[0]
-    assert "tool install --python " in log[0]
+    assert "tool install --force --python " in log[0]
     assert log[-1] == "hermes-peek setup"
     assert "sudo" not in "\n".join(log)
 

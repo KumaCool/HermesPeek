@@ -14,6 +14,7 @@ from typing import Sequence
 import uvicorn
 from pydantic import ValidationError
 
+from hermes_peek import __version__
 from hermes_peek.app import create_app
 
 from hermes_peek.config import Settings
@@ -117,6 +118,7 @@ def _running_inside_gateway_session() -> bool:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hermes-peek")
+    parser.add_argument("--version", action="version", version=f"hermes-peek {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     publish = subparsers.add_parser("publish", help="Publish files as a preview")
