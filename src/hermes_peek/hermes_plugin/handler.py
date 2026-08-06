@@ -6,11 +6,18 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from hermes_peek.config import Settings
-from hermes_peek.paths import PathPolicy
-from hermes_peek.registry import LaunchRegistry, PreviewRegistry
-from hermes_peek.service import PreviewService
-from hermes_peek.telegram import TelegramClient, build_mini_app_direct_link
+try:
+    from .hermes_peek.config import Settings
+    from .hermes_peek.paths import PathPolicy
+    from .hermes_peek.registry import LaunchRegistry, PreviewRegistry
+    from .hermes_peek.service import PreviewService
+    from .hermes_peek.telegram import TelegramClient, build_mini_app_direct_link
+except ImportError:  # source-package compatibility; installed Plugin uses bundled imports above
+    from hermes_peek.config import Settings
+    from hermes_peek.paths import PathPolicy
+    from hermes_peek.registry import LaunchRegistry, PreviewRegistry
+    from hermes_peek.service import PreviewService
+    from hermes_peek.telegram import TelegramClient, build_mini_app_direct_link
 
 
 def telegram_transport():

@@ -52,10 +52,25 @@ def test_doctor_matrix_has_named_checks_and_actionable_suggestions(tmp_path):
     paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
     report=doctor(paths,MatrixRunner(),port_probe=lambda h,p:{"listening":False,"address":None,"pid":None},
                   health_probe=lambda u:{"ok":False,"status":None},https_probe=lambda u:{"reachable":False,"status":None},
-                  telegram_probe=lambda:{"verified":False,"main_mini_app_requires_botfather":True})
+                  telegram_probe=lambda:{"verified":False,"main_mini_app_requires_botfather":True},
+                  plugin_runtime_probe=lambda:{"available":False,"error":"ImportError"})
     names={check["name"] for check in report["checks"]}
-    assert {"manifest","service_health","plugin_loaded","gateway","telegram","https","config_drift"} <= names
+    assert {"manifest","service_health","plugin_loaded","plugin_runtime","gateway","telegram","https","config_drift"} <= names
     assert report["suggestions"] and all(isinstance(item,str) for item in report["suggestions"])
+
+
+def test_installed_plugin_runtime_probe_uses_bundled_package_without_sys_path_injection(tmp_path):
+    import shutil
+    from hermes_peek.lifecycle_ux import _plugin_runtime_probe
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    source=Path(__file__).resolve().parents[2]/"src"/"hermes_peek"
+    paths.plugin_dir.mkdir(parents=True)
+    for name in ("__init__.py","collector.py","handler.py","preview_tool.py"):
+        shutil.copy2(source/"hermes_plugin"/name,paths.plugin_dir/name)
+    runtime=paths.plugin_dir/"hermes_peek"; runtime.mkdir()
+    for name in ("__init__.py","config.py","models.py","paths.py","registry.py","service.py","telegram.py"):
+        shutil.copy2(source/name,runtime/name)
+    assert _plugin_runtime_probe(paths) == {"available":True,"error":None}
 
 
 def test_doctor_layers_telegram_onboarding_evidence_without_claiming_botfather_acceptance(tmp_path):
@@ -155,7 +170,7 @@ def test_setup_cli_constructs_telegram_lifecycle_and_inspects_bot(tmp_path, monk
     assert captured["runner"] is cli.lifecycle_runner
 
 
-def test_setup_outputs_owner_onboarding_checklist_without_claiming_menu_registers_main_app(tmp_path, monkeypatch, capsys):
+def test_setup_suppresses_owner_onboarding_checklist_from_normal_output(tmp_path, monkeypatch, capsys):
     import hermes_peek.cli as cli
     paths = InstallPaths(tmp_path/"hermes", tmp_path/"config", tmp_path/"state", tmp_path/"systemd")
     allowed = tmp_path/"workspace"; allowed.mkdir(); executable = tmp_path/"hermes-peek"; executable.write_text("x")
@@ -166,12 +181,10 @@ def test_setup_outputs_owner_onboarding_checklist_without_claiming_menu_register
     monkeypatch.setattr(cli, "install_application", lambda **kw: {"installed": True})
     assert main(["setup", "--allowed-root", str(allowed), "--external-url", "https://preview.example.test",
                  "--telegram-env", str(env), "--telegram-bot-username", "peek_bot", "--no-activate"]) == 0
-    result=json.loads(capsys.readouterr().out)
-    checklist=result["telegram_onboarding_checklist"]
-    assert {item["scope"] for item in checklist} == {"botfather", "private_chat", "group", "forum_topic"}
-    botfather=next(item for item in checklist if item["scope"] == "botfather")
-    assert botfather["status"] == "pending_owner_action"
-    assert botfather["menu_button_is_not_main_mini_app_registration"] is True
+    output = capsys.readouterr().out
+    assert output.strip() == f"HermesPeek {cli.__version__} installed successfully"
+    assert "telegram_onboarding_checklist" not in output
+    assert "botfather" not in output
 
 
 def test_gateway_session_detection_uses_systemd_cgroup(monkeypatch):

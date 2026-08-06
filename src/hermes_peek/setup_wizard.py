@@ -5,7 +5,6 @@ from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
 
 from .lifecycle import InstallPaths, LifecycleError
-from .lifecycle_ux import setup_plan
 
 _SECRET_DIRECTORY_NAMES = {".ssh", ".gnupg", ".aws", ".config"}
 
@@ -116,9 +115,4 @@ def run_setup_wizard(
             "Preflight note: external /healthz is not reachable yet; "
             "setup will verify it after the local service starts."
         )
-    plan = setup_plan(paths, allowed_roots=list(roots), external_url=origin, activate=activate)
-    output_fn("Setup plan (secrets are never displayed):")
-    output_fn(__import__("json").dumps(plan, ensure_ascii=False, indent=2, sort_keys=True))
-    if input_fn("Apply this plan? [yes/no]: ").strip().lower() not in {"y", "yes"}:
-        raise LifecycleError("setup cancelled; no changes were made")
     return {"paths": paths, "allowed_roots": roots, "external_url": origin}

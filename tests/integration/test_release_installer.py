@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "install.sh"
-VERSION = "0.2.7"
+VERSION = "0.2.8"
 ASSET = f"hermes_peek-{VERSION}-py3-none-any.whl"
 
 
@@ -45,12 +45,13 @@ esac
 mkdir -p "$HERMES_PEEK_INSTALL_BIN"
 cat > "$HERMES_PEEK_INSTALL_BIN/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.7\\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.8\\n'; exit 0; fi
 if [ "${1:-}" = "setup" ] && [ "$(command -v hermes-peek || true)" != "$0" ]; then
   printf 'installed CLI was not added to PATH before setup\\n' >&2
   exit 92
 fi
 printf 'hermes-peek %s\\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
+if [ "${1:-}" = "setup" ]; then printf 'HermesPeek 0.2.8 installed successfully\\n'; fi
 EOF
 chmod +x "$HERMES_PEEK_INSTALL_BIN/hermes-peek"
 """,
@@ -163,6 +164,12 @@ def test_verified_release_with_non_interactive_flag_calls_setup_without_promptin
     assert "tool install --force --python " in log[0]
     assert log[-1] == "hermes-peek setup"
     assert "sudo" not in "\n".join(log)
+    assert result.stdout.count(f"HermesPeek {VERSION} installed successfully") == 1
+    assert result.stdout.index("Checking installation requirements...") < result.stdout.index(
+        f"Downloading HermesPeek {VERSION}..."
+    )
+    assert result.stdout.index("Downloading HermesPeek") < result.stdout.index("Verifying package...")
+    assert result.stdout.index("Verifying package...") < result.stdout.index("Installing HermesPeek CLI...")
 
 
 def test_setup_arguments_are_forwarded_without_prompting(tmp_path: Path) -> None:

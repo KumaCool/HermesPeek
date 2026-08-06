@@ -44,7 +44,6 @@ def test_fresh_process_discovers_installed_skill_and_registered_tool(tmp_path: P
     script = """
 import importlib.util, json, pathlib, sys
 home=pathlib.Path(sys.argv[1]); package=home/'plugins'/'hermes-peek'
-sys.path.insert(0, str(package))
 spec=importlib.util.spec_from_file_location('fresh_preview_plugin', package/'__init__.py', submodule_search_locations=[str(package)])
 module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spec.loader.exec_module(module)
 class Context:

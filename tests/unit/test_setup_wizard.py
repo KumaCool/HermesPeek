@@ -88,7 +88,7 @@ def test_setup_inputs_reject_unsafe_roots_and_non_origin_urls(tmp_path: Path):
             validate_https_origin(invalid)
 
 
-def test_wizard_checks_https_shows_redacted_plan_and_requires_confirmation(tmp_path: Path):
+def test_wizard_checks_https_and_continues_without_plan_or_confirmation(tmp_path: Path):
     from hermes_peek.lifecycle import InstallPaths
     from hermes_peek.setup_wizard import run_setup_wizard
 
@@ -99,22 +99,23 @@ def test_wizard_checks_https_shows_redacted_plan_and_requires_confirmation(tmp_p
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     paths = InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd")
-    answers = iter((str(workspace), "https://preview.example.test", "no"))
+    answers = iter((str(workspace), "https://preview.example.test"))
     output: list[str] = []
     probes: list[str] = []
 
-    with pytest.raises(LifecycleError, match="cancelled"):
-        run_setup_wizard(
-            paths,
-            input_fn=lambda _: next(answers),
-            output_fn=output.append,
-            https_probe=lambda url: probes.append(url) or {"reachable": True, "status": 200},
-        )
+    result = run_setup_wizard(
+        paths,
+        input_fn=lambda _: next(answers),
+        output_fn=output.append,
+        https_probe=lambda url: probes.append(url) or {"reachable": True, "status": 200},
+    )
 
     rendered = "\n".join(output)
     assert probes == ["https://preview.example.test/healthz"]
-    assert "Setup plan" in rendered
-    assert "TELEGRAM_BOT_TOKEN" in rendered
+    assert result["allowed_roots"] == (workspace.resolve(),)
+    assert result["external_url"] == "https://preview.example.test"
+    assert "Setup plan" not in rendered
+    assert "Apply this plan" not in rendered
     assert token not in rendered
     assert not paths.config_dir.exists()
 
@@ -128,21 +129,20 @@ def test_wizard_defers_unreachable_https_until_after_service_start(tmp_path: Pat
     (hermes_home / ".env").write_text("TELEGRAM_BOT_TOKEN=123456789:" + "T" * 35)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    answers = iter((str(workspace), "https://preview.example.test", "no"))
+    answers = iter((str(workspace), "https://preview.example.test"))
     output: list[str] = []
 
-    with pytest.raises(LifecycleError, match="cancelled"):
-        run_setup_wizard(
-            InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd"),
-            input_fn=lambda _: next(answers),
-            output_fn=output.append,
-            https_probe=lambda _: {"reachable": False, "status": None},
-        )
+    run_setup_wizard(
+        InstallPaths(hermes_home, tmp_path / "config", tmp_path / "state", tmp_path / "systemd"),
+        input_fn=lambda _: next(answers),
+        output_fn=output.append,
+        https_probe=lambda _: {"reachable": False, "status": None},
+    )
     assert any("verify it after the local service starts" in line for line in output)
-    assert any("Setup plan" in line for line in output)
+    assert all("Setup plan" not in line for line in output)
 
 
-def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path: Path, monkeypatch, capsys):
+def test_interactive_cli_discovers_profile_and_executes_without_confirmation(tmp_path: Path, monkeypatch, capsys):
     import hermes_peek.cli as cli
 
     home = tmp_path / "home"
@@ -155,7 +155,7 @@ def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path:
     workspace.mkdir()
     executable = tmp_path / "hermes-peek"
     executable.write_text("launcher")
-    answers = iter((str(workspace), "https://preview.example.test", "yes"))
+    answers = iter((str(workspace), "https://preview.example.test"))
     captured = {}
 
     monkeypatch.setattr(cli.Path, "home", classmethod(lambda cls: home))
@@ -172,8 +172,11 @@ def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path:
     assert captured["external_url"] == "https://preview.example.test"
     assert captured["bot_token"] == token
     assert captured["final_verify"] is None
-    assert "Setup plan" in output
-    assert "restart_gateway" not in output
+    assert callable(captured["progress"])
+    assert "Setup plan" not in output
+    assert "Apply this plan" not in output
+    assert "HermesPeek " in output and " installed successfully" in output
+    assert "transaction_id" not in output
     assert token not in output
 
 
@@ -191,7 +194,7 @@ def test_interactive_cli_verifies_external_health_after_activated_install(
     workspace.mkdir()
     executable = tmp_path / "hermes-peek"
     executable.write_text("launcher")
-    answers = iter((str(workspace), "https://preview.example.test", "yes"))
+    answers = iter((str(workspace), "https://preview.example.test"))
     probes: list[str] = []
 
     monkeypatch.setattr(cli.Path, "home", classmethod(lambda cls: home))
@@ -205,9 +208,13 @@ def test_interactive_cli_verifies_external_health_after_activated_install(
     )
 
     def install(**kwargs):
+        kwargs["progress"]("validating_setup")
+        kwargs["progress"]("starting_service")
+        kwargs["progress"]("verifying_installation")
         kwargs["final_verify"]()
         return {"installed": True}
 
+    monkeypatch.setattr(cli, "_plugin_runtime_probe", lambda paths: {"available": True, "error": None})
     monkeypatch.setattr(cli, "install_application", install)
 
     assert main(["setup"]) == 0
@@ -216,6 +223,40 @@ def test_interactive_cli_verifies_external_health_after_activated_install(
         "https://preview.example.test/healthz",
     ]
     assert "verify it after the local service starts" in capsys.readouterr().out
+
+
+def test_setup_prints_only_critical_pending_action_after_success(tmp_path: Path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+
+    paths = cli.InstallPaths(tmp_path / "hermes", tmp_path / "config", tmp_path / "state", tmp_path / "systemd")
+    allowed = tmp_path / "workspace"
+    allowed.mkdir()
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("launcher")
+    token_file = tmp_path / "telegram.env"
+    token_file.write_text("TELEGRAM_BOT_TOKEN=123456789:" + "Z" * 35)
+    monkeypatch.setattr(cli.InstallPaths, "for_user", classmethod(lambda cls, **kwargs: paths))
+    monkeypatch.setattr(cli, "resolve_current_executable", lambda: executable)
+    monkeypatch.setattr(
+        cli,
+        "install_application",
+        lambda **kwargs: {
+            "installed": True,
+            "activation_pending_gateway_restart": True,
+            "transaction_id": "hidden",
+        },
+    )
+
+    assert cli.main([
+        "setup", "--allowed-root", str(allowed),
+        "--external-url", "https://preview.example.test",
+        "--telegram-env", str(token_file),
+    ]) == 0
+    output = capsys.readouterr().out
+    assert output.count("installed successfully") == 1
+    assert "Gateway restart required: hermes gateway restart" in output
+    assert "transaction_id" not in output
+    assert "telegram_onboarding_checklist" not in output
 
 
 def test_external_health_failure_after_startup_is_a_lifecycle_error(monkeypatch):

@@ -91,7 +91,7 @@ The complete onboarding and security contract is in [`docs/08-one-click-ai-teleg
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-The installer uses POSIX `sh`, so it can be started from Fish, Bash, Zsh, or another shell. With no setup arguments it reopens the terminal for an interactive wizard. `setup` discovers Hermes profiles and asks for an approved preview workspace, a Telegram-reachable HTTPS origin, the bot username, and a local Secret file. It shows a redacted plan before confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
+The installer uses POSIX `sh`, so it can be started from Fish, Bash, Zsh, or another shell. With no setup arguments it reopens the terminal for an interactive wizard. `setup` discovers Hermes profiles and asks for an approved preview workspace and a Telegram-reachable HTTPS origin. After validation it proceeds directly, prints each installation phase, and finishes with one concise success line. It does not show internal setup/result JSON or ask for a redundant yes/no confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
 
 For a non-interactive installation, pass setup arguments after `sh -s --`. They are forwarded to the same `hermes-peek setup` lifecycle and no prompt is opened:
 
@@ -105,7 +105,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
   --plan
 ```
 
-Remove `--plan` only after reviewing the redacted plan. The installer does not invent missing setup values.
+`--plan` is an explicit read-only JSON interface for auditing and automation. Remove it to execute setup; the installer does not invent missing setup values.
 
 For a non-interactive environment, first provide all values and print a read-only plan:
 

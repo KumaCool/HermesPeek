@@ -6,9 +6,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urljoin
 
-from hermes_peek.models import FileEntry, PreviewRecord, PublicPreview
-from hermes_peek.paths import InspectedFile, PathPolicy
-from hermes_peek.registry import PreviewRegistry
+try:
+    from .models import FileEntry, PreviewRecord, PublicPreview
+    from .paths import InspectedFile, PathPolicy
+    from .registry import PreviewRegistry
+except ImportError:  # pragma: no cover - direct script compatibility
+    from hermes_peek.models import FileEntry, PreviewRecord, PublicPreview
+    from hermes_peek.paths import InspectedFile, PathPolicy
+    from hermes_peek.registry import PreviewRegistry
 
 
 class PublishError(ValueError):

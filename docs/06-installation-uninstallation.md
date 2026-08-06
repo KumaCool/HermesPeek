@@ -30,6 +30,8 @@ hermes-peek rollback [TRANSACTION_ID]
 
 默认卸载必须非破坏性：解除 Hermes 集成、停止服务并移除安装器自有文件，同时保留 Preview Registry、collector spool、日志和备份。永久删除必须显式使用 `--purge`，支持删除计划、确认和恢复说明。
 
+默认交互式 `setup` 在必要输入验证通过后直接执行，按真实事务阶段刷新进度，并以 `HermesPeek <version> installed successfully` 结束；内部 plan/result JSON 不面向普通用户。显式 `setup --plan` 仍是无副作用的机器可读审计接口。Purge 的破坏性确认规则不受此 UX 调整影响。
+
 ### 1.2 非目标
 
 生命周期工具不得：

@@ -96,6 +96,15 @@ def telegram_transport():
     return None
 
 
+def runtime_dependencies_available() -> bool:
+    """Import the bundled runtime exactly as the Gateway tool will use it."""
+    from .hermes_peek.paths import PathPolicy  # noqa: F401
+    from .hermes_peek.registry import LaunchRegistry, PreviewRegistry  # noqa: F401
+    from .hermes_peek.service import PreviewService  # noqa: F401
+    from .hermes_peek.telegram import TelegramClient, build_mini_app_direct_link  # noqa: F401
+    return True
+
+
 def _failure(code: str, message: str) -> dict:
     return {"success": False, "sent": False, "error_code": code, "error": message}
 
@@ -104,10 +113,10 @@ def send_preview(*, files, entry, title) -> dict:
     """Publish and send one request-scoped Preview without leaking inputs."""
     from datetime import timedelta
 
-    from hermes_peek.paths import PathPolicy
-    from hermes_peek.registry import LaunchRegistry, PreviewRegistry
-    from hermes_peek.service import PreviewService
-    from hermes_peek.telegram import TelegramClient, build_mini_app_direct_link
+    from .hermes_peek.paths import PathPolicy
+    from .hermes_peek.registry import LaunchRegistry, PreviewRegistry
+    from .hermes_peek.service import PreviewService
+    from .hermes_peek.telegram import TelegramClient, build_mini_app_direct_link
 
     try:
         if (

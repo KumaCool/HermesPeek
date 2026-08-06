@@ -19,7 +19,7 @@ These rules apply to any Agent installing, upgrading, verifying, rolling back, o
 
 - Prefer the repository/tag `install.sh` and the public `hermes-peek setup` lifecycle. The `main` script tracks the current stable Release; a version tag pins the installer source. Do not copy internal Plugin, Skill, unit, or implementation files and do not invent a parallel installer.
 - An installer entry is available only when its target Release contains the matching package and checksum assets. Until then, state that the entry is unavailable; use the checked-out repository and `uv run hermes-peek setup` only as a repository development rehearsal. Never present a guessed download or curl command as working.
-- Start with a read-only/redacted setup plan. Use setup, upgrade, rollback, and uninstall through their supported lifecycle commands rather than manual replacement.
+- For AI-assisted work, start with a read-only/redacted setup plan and obtain the approvals above. The ordinary interactive CLI intentionally proceeds after validated inputs without rendering that plan or asking a second yes/no question. Use setup, upgrade, rollback, and uninstall through their supported lifecycle commands rather than manual replacement.
 
 ## Completion contract
 

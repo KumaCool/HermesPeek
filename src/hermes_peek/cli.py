@@ -36,6 +36,7 @@ from hermes_peek.registry import (
 )
 from hermes_peek.service import PreviewService, PublishError
 from hermes_peek.lifecycle_ux import (
+    _plugin_runtime_probe,
     doctor as lifecycle_doctor,
     setup_plan as lifecycle_setup_plan,
     status as lifecycle_status,
@@ -103,6 +104,11 @@ def setup_https_probe(url: str) -> dict[str, object]:
 def verify_external_https_health(origin: str) -> None:
     if not setup_https_probe(origin.rstrip("/") + "/healthz").get("reachable"):
         raise LifecycleError("external HTTPS origin is not reachable at /healthz after service startup")
+
+
+def verify_installed_plugin_runtime(paths: InstallPaths) -> None:
+    if not _plugin_runtime_probe(paths).get("available"):
+        raise LifecycleError("installed Hermes Plugin cannot import its bundled runtime")
 
 
 def resolve_current_executable() -> Path:
@@ -199,21 +205,20 @@ def _port(value: str) -> int:
     return port
 
 
-def _telegram_onboarding_checklist() -> list[dict[str, object]]:
-    return [
-        {
-            "scope": "botfather",
-            "status": "pending_owner_action",
-            "action": "Configure and open the Main Mini App for this bot in BotFather.",
-            "menu_button_is_not_main_mini_app_registration": True,
-        },
-        {"scope": "private_chat", "status": "pending_client_acceptance",
-         "action": "Start a new private session, request one preview, and open it."},
-        {"scope": "group", "status": "pending_client_acceptance",
-         "action": "Mention the bot (or choose owner-approved Privacy Mode/admin settings) and verify the preview stays in the group."},
-        {"scope": "forum_topic", "status": "pending_client_acceptance",
-         "action": "Request and open one preview in the original chat and topic thread."},
-    ]
+_SETUP_PROGRESS_MESSAGES = {
+    "validating_setup": "Validating setup...",
+    "installing_integration": "Installing HermesPeek integration...",
+    "starting_service": "Starting HermesPeek service...",
+    "enabling_plugin": "Enabling HermesPeek in Hermes...",
+    "restarting_gateway": "Restarting Hermes Gateway...",
+    "verifying_installation": "Verifying installation...",
+}
+
+
+def _report_setup_progress(phase: str) -> None:
+    message = _SETUP_PROGRESS_MESSAGES.get(phase)
+    if message:
+        print(message, flush=True)
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -292,12 +297,13 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     telegram=TelegramLifecycle(telegram_lifecycle_transport()),
                     configure_telegram_menu=args.configure_telegram_menu,
                     defer_gateway_restart=_running_inside_gateway_session(),
-                    final_verify=(
-                        lambda: verify_external_https_health(args.external_url)
-                    ) if not args.no_activate else None,
+                    final_verify=(lambda: (
+                        verify_installed_plugin_runtime(paths),
+                        verify_external_https_health(args.external_url),
+                    )) if not args.no_activate else None,
                     runner=lifecycle_runner,
+                    progress=_report_setup_progress,
                 )
-                result["telegram_onboarding_checklist"] = _telegram_onboarding_checklist()
             else:
                 if args.dry_run and not args.purge:
                     raise LifecycleError("--dry-run requires --purge")
@@ -322,6 +328,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                                                    deactivate=not args.no_deactivate)
             if args.command == "uninstall" and not args.dry_run:
                 print(_uninstall_message(result))
+            elif args.command == "setup":
+                print(f"HermesPeek {__version__} installed successfully", flush=True)
+                if result.get("activation_pending_gateway_restart"):
+                    print("Gateway restart required: hermes gateway restart", flush=True)
             else:
                 print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0

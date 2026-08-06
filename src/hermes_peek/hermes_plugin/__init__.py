@@ -2,16 +2,9 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import threading
 from pathlib import Path
 from typing import Any
-
-# Hermes loads user plugins as standalone modules. Make the bundled runtime
-# package importable for absolute imports used by the plugin's helper modules.
-_PLUGIN_DIR = str(Path(__file__).resolve().parent.parent)
-if _PLUGIN_DIR not in sys.path:
-    sys.path.insert(0, _PLUGIN_DIR)
 
 from .collector import collect_tool_result
 
@@ -120,7 +113,8 @@ def register(ctx) -> None:
     ctx.register_hook("post_tool_call", _post_tool_call)
     ctx.register_hook("transform_llm_output", _suppress_confirmation_after_preview)
     ctx.register_hook("final_message_actions", _final_message_actions)
-    from .preview_tool import send_preview
+    from .preview_tool import runtime_dependencies_available, send_preview
+    runtime_dependencies_available()
     ctx.register_tool(
         name="hermes_peek_send_preview",
         toolset="hermes-peek",

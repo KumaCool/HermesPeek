@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-INSTALLER_VERSION="0.2.7"
+INSTALLER_VERSION="0.2.8"
 RELEASE_CHANNEL="${HERMES_PEEK_CHANNEL:-release}"
 NON_INTERACTIVE=false
 DRY_RUN=false
@@ -48,6 +48,7 @@ if [ "$DRY_RUN" = true ]; then
     exit 0
 fi
 
+printf 'Checking installation requirements...\n'
 UNAME_COMMAND="${HERMES_PEEK_UNAME:-}"
 if [ -z "$UNAME_COMMAND" ]; then
     UNAME_COMMAND=$(uname -s)
@@ -79,7 +80,7 @@ if ! "$UV_COMMAND" --version >/dev/null 2>&1; then
     exit 1
 fi
 
-ASSET="hermes_peek-0.2.7-py3-none-any.whl"
+ASSET="hermes_peek-0.2.8-py3-none-any.whl"
 RELEASE_BASE_URL="${HERMES_PEEK_RELEASE_BASE_URL:-https://github.com/KumaCool/HermesPeek/releases/download/v${INSTALLER_VERSION}}"
 CURL_COMMAND="${HERMES_PEEK_CURL:-curl}"
 INSTALL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/hermes-peek"
@@ -96,6 +97,7 @@ fi
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hermes-peek-install.XXXXXX")
 trap 'rm -rf "$WORK_DIR"' EXIT HUP INT TERM
 
+printf 'Downloading HermesPeek %s...\n' "$INSTALLER_VERSION"
 if ! "$CURL_COMMAND" -fsSL "$RELEASE_BASE_URL/$ASSET" -o "$WORK_DIR/$ASSET"; then
     printf 'error: failed to download fixed release asset; nothing was installed\n' >&2
     exit 1
@@ -104,12 +106,14 @@ if ! "$CURL_COMMAND" -fsSL "$RELEASE_BASE_URL/SHA256SUMS" -o "$WORK_DIR/SHA256SU
     printf 'error: failed to download SHA256SUMS; nothing was installed\n' >&2
     exit 1
 fi
+printf 'Verifying package...\n'
 if ! (cd "$WORK_DIR" && sha256sum -c SHA256SUMS --ignore-missing >/dev/null 2>&1) || \
    ! grep -F "  $ASSET" "$WORK_DIR/SHA256SUMS" >/dev/null 2>&1; then
     printf 'error: release checksum verification failed; nothing was installed\n' >&2
     exit 1
 fi
 
+printf 'Installing HermesPeek CLI...\n'
 "$UV_COMMAND" tool install --force --python "$PYTHON_COMMAND" "$WORK_DIR/$ASSET"
 INSTALLED_VERSION=$($PEEK_COMMAND --version 2>/dev/null || true)
 if [ "$INSTALLED_VERSION" != "hermes-peek $INSTALLER_VERSION" ]; then
@@ -137,4 +141,3 @@ else
     # setup wizard so the documented one-command install remains interactive.
     "$PEEK_COMMAND" setup </dev/tty
 fi
-printf 'HermesPeek %s installed successfully\n' "$INSTALLER_VERSION"

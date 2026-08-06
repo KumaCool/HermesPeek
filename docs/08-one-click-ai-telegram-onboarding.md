@@ -92,8 +92,8 @@ hermes-peek setup
 4. 要求填写 Telegram 客户端可访问的 HTTPS Origin；
 5. 在线检查 `/healthz`、TLS 和 Telegram Bot 身份；
 6. 分层报告 Main Mini App 状态：Bot 身份是否验证、是否有可信配置证据、URL 匹配是否仍未验证，以及是否仍需 Telegram 客户端现场打开；不得根据 `getMe` 成功或能够构造 Direct Link 推断 BotFather 已配置完成；
-7. 先显示变更计划和重启影响，再要求确认；
-8. 执行事务化 setup；
+7. 普通 CLI 在必要输入通过验证后直接执行事务化 setup，并持续显示当前安装阶段；显式 `--plan` 仍提供只读、脱敏的机器可读计划；
+8. 默认流程不输出内部 plan/result JSON，也不增加重复的 yes/no 确认；
 9. 若 Gateway 重启必须由外部操作者完成，输出准确命令，不伪装为已激活；
 10. 运行 `status`、`doctor` 和新会话发现检查。
 
@@ -257,7 +257,7 @@ uv run hermes-peek setup \
   --plan
 ```
 
-审核脱敏计划后，去掉 `--plan` 执行。仅当 BotFather 已配置并验证命名 Mini App 时，才额外传 `--telegram-mini-app-short-name <short-name>`。Bot Token 默认从目标 Hermes home 的 `.env` 读取，也可通过 `--telegram-env` 指向权限受限的 Secret 文件；不要把 Token 作为 CLI 参数。
+`--plan` 供显式审计或自动化使用；去掉它即执行 setup。普通交互向导不会自动展示 JSON 或再次询问 yes/no。仅当 BotFather 已配置并验证命名 Mini App 时，才额外传 `--telegram-mini-app-short-name <short-name>`。Bot Token 默认从目标 Hermes home 的 `.env` 读取，也可通过 `--telegram-env` 指向权限受限的 Secret 文件；不要把 Token 作为 CLI 参数。
 
 ### 4.7 激活与验收
 

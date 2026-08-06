@@ -21,6 +21,7 @@ class LifecycleError(RuntimeError):
 
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
+ProgressReporter = Callable[[str], None]
 _PLUGIN_FILES = (
     "plugin.yaml", "__init__.py", "collector.py", "handler.py", "preview_tool.py",
     "hermes_peek/__init__.py", "hermes_peek/config.py", "hermes_peek/models.py",
@@ -275,8 +276,11 @@ def _install_apply(
     service_backend: Any | None = None,
     transaction_id: str = "pending",
     defer_gateway_restart: bool = False,
+    progress: ProgressReporter | None = None,
 ) -> dict[str, object]:
+    report = progress or (lambda _phase: None)
     target = HermesTarget.from_paths(paths)
+    report("validating_setup")
     roots = _validate_setup(allowed_roots, external_url, bot_token)
     executable = executable.expanduser().resolve(strict=True)
     source = integration_dir.expanduser().resolve(strict=True)
@@ -300,6 +304,7 @@ def _install_apply(
         backend.preflight()
 
 
+    report("installing_integration")
     paths.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(paths.state_dir, 0o700)
     paths.plugin_dir.mkdir(parents=True, exist_ok=True)
@@ -358,11 +363,14 @@ def _install_apply(
     _atomic_write(paths.manifest_file, json.dumps(manifest, indent=2, sort_keys=True) + "\n", 0o600)
 
     if activate:
+        report("starting_service")
         _run(runner, ("systemctl", "--user", "daemon-reload"))
         _run(runner, ("systemctl", "--user", "enable", "--now", "hermes-peek.service"))
         backend.verify_running()
+        report("enabling_plugin")
         _run(runner, target.command("plugins", "enable", "--no-allow-tool-override", "hermes-peek"))
         if not defer_gateway_restart:
+            report("restarting_gateway")
             _run(runner, target.command("gateway", "restart"))
     return {"installed": True, "activated": activate, "state_preserved": True,
             "activation_pending_gateway_restart": bool(activate and defer_gateway_restart)}
@@ -410,6 +418,7 @@ def _install_transaction(**kwargs) -> dict[str, object]:
                               "before": before, "rollback_errors": [], "telegram_changes": []}
     _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
     telegram = kwargs.pop("telegram", None)
+    progress = kwargs.get("progress") or (lambda _phase: None)
     try:
         configure_menu = kwargs.pop("configure_telegram_menu", False)
         expected_bot_id = kwargs.pop("expected_bot_id", None)
@@ -422,6 +431,7 @@ def _install_transaction(**kwargs) -> dict[str, object]:
                 _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
         result = _install_apply(**kwargs)
         if final_verify is not None:
+            progress("verifying_installation")
             final_verify()
     except Exception as exc:
         for change in reversed(record["telegram_changes"]):
@@ -441,6 +451,7 @@ def _install_transaction(**kwargs) -> dict[str, object]:
                              ("incomplete: " + ", ".join(errors) if errors else "completed")) from exc
     record["state"] = "committed"
     _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+    progress("committed")
     result["transaction_id"] = transaction_id
     return result
 
@@ -473,7 +484,11 @@ def install(**kwargs) -> dict[str, object]:
                     and owned_by_path.get(str(paths.plugin_dir / name), {}).get("sha256") == digest
                     for name, digest in hashes.items()
                 )
-                and {path.relative_to(paths.plugin_dir).as_posix() for path in paths.plugin_dir.rglob("*") if path.is_file()} == set(hashes)
+                and {
+                    path.relative_to(paths.plugin_dir).as_posix()
+                    for path in paths.plugin_dir.rglob("*")
+                    if path.is_file() and "__pycache__" not in path.relative_to(paths.plugin_dir).parts
+                } == set(hashes)
             )
         except (OSError, ValueError, TypeError):
             valid_manifest = False
@@ -585,6 +600,13 @@ def _uninstall_transaction(
             if child.is_dir() and not child.is_symlink() and child.name == "hermes_peek":
                 # Runtime package files are tracked with slash-separated manifest keys.
                 for nested in list(child.rglob("*")):
+                    if nested.is_dir() and not nested.is_symlink() and nested.name == "__pycache__":
+                        if any(item.is_symlink() or item.is_dir() for item in nested.iterdir()):
+                            raise LifecycleError("plugin runtime bytecode cache contains an unsafe resource")
+                        shutil.rmtree(nested)
+                        continue
+                    if not nested.exists():
+                        continue
                     if nested.is_symlink() or not nested.is_file():
                         raise LifecycleError("plugin runtime package contains an unsafe resource")
                     relative = nested.relative_to(paths.plugin_dir).as_posix()

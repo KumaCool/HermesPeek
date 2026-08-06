@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import urllib.error
 import urllib.request
 import stat
+import subprocess
+import ssl
+import socket
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,6 +20,34 @@ from .service_backend import HealthProbe, PortProbe, Runner, SystemdUserBackend,
 
 Probe = Callable[[], dict[str, Any]]
 HttpsProbe = Callable[[str], dict[str, Any]]
+
+
+def _plugin_runtime_probe(paths: InstallPaths) -> dict[str, Any]:
+    """Load the installed Plugin in isolation and import its bundled Tool runtime."""
+    entry = paths.plugin_dir / "__init__.py"
+    if not entry.is_file() or entry.is_symlink():
+        return {"available": False, "error": "plugin_not_installed"}
+    module_name = f"_hermes_peek_probe_{hashlib.sha256(str(paths.plugin_dir).encode()).hexdigest()[:12]}"
+    try:
+        spec = importlib.util.spec_from_file_location(
+            module_name, entry, submodule_search_locations=[str(paths.plugin_dir)]
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("plugin loader unavailable")
+        module = importlib.util.module_from_spec(spec)
+        import sys
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            preview_tool = __import__(f"{module_name}.preview_tool", fromlist=["runtime_dependencies_available"])
+            available = bool(preview_tool.runtime_dependencies_available())
+        finally:
+            for name in tuple(sys.modules):
+                if name == module_name or name.startswith(module_name + "."):
+                    sys.modules.pop(name, None)
+        return {"available": available, "error": None if available else "runtime_unavailable"}
+    except Exception as exc:
+        return {"available": False, "error": type(exc).__name__}
 
 
 def setup_plan(paths: InstallPaths, *, allowed_roots: list[Path], external_url: str,
@@ -71,12 +104,41 @@ def _https_probe(url: str) -> dict[str, Any]:
         with urllib.request.urlopen(request, timeout=3) as response:
             return {"reachable": 200 <= response.status < 500, "status": response.status, "configured": True}
     except (OSError, urllib.error.URLError):
-        return {"reachable": False, "status": None, "configured": True}
+        # Some hosts use systemd-resolved split DNS (notably Tailscale MagicDNS)
+        # while a locally managed /etc/resolv.conf bypasses NSS. Resolve through
+        # resolvectl and keep TLS hostname verification intact as a safe fallback.
+        parsed = urllib.parse.urlsplit(url)
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return {"reachable": False, "status": None, "configured": True}
+        try:
+            resolved = subprocess.run(
+                ("resolvectl", "query", "--legend=no", hostname),
+                capture_output=True, text=True, timeout=3, check=False,
+            )
+            address = next(
+                part for part in resolved.stdout.split()
+                if part.count(".") == 3 and all(piece.isdigit() for piece in part.split("."))
+            )
+            import http.client
+            context = ssl.create_default_context()
+            class ResolvedHTTPSConnection(http.client.HTTPSConnection):
+                def connect(self) -> None:
+                    raw = socket.create_connection((address, parsed.port or 443), self.timeout)
+                    self.sock = context.wrap_socket(raw, server_hostname=hostname)
+            connection = ResolvedHTTPSConnection(hostname, parsed.port or 443, timeout=3)
+            connection.request("HEAD", (parsed.path.rstrip("/") or "") + "/healthz", headers={"Host": hostname})
+            response = connection.getresponse()
+            status_code = response.status
+            connection.close()
+            return {"reachable": 200 <= status_code < 500, "status": status_code, "configured": True}
+        except (OSError, StopIteration, subprocess.SubprocessError):
+            return {"reachable": False, "status": None, "configured": True}
 
 
 def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port_probe,
            health_probe: HealthProbe = _health_probe, https_probe: HttpsProbe | None = None,
-           telegram_probe: Probe | None = None) -> dict[str, Any]:
+           telegram_probe: Probe | None = None, plugin_runtime_probe: Probe | None = None) -> dict[str, Any]:
     manifest = None
     if paths.manifest_file.is_file():
         try:
@@ -95,6 +157,7 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
     backend = SystemdUserBackend(runner, port_probe=port_probe, health_probe=health_probe)
     service = backend.inspect()
     plugin_state = _plugin_state(paths, runner)
+    plugin_runtime = plugin_runtime_probe() if plugin_runtime_probe else _plugin_runtime_probe(paths)
     gateway_result = runner(target.command("gateway", "status"))
     drifted: list[str] = []
     if manifest:
@@ -113,7 +176,8 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
         "manifest": {"present": manifest is not None, "schema_version": manifest.get("schema_version") if manifest else None},
         "transaction": {"id": manifest.get("transaction_id") if manifest else None, "state": "committed" if manifest else None},
         "service": service,
-        "plugin": {"installed": paths.plugin_dir.is_dir(), "enabled": bool(plugin_state.get("enabled")), "loaded": bool(plugin_state.get("loaded"))},
+        "plugin": {"installed": paths.plugin_dir.is_dir(), "enabled": bool(plugin_state.get("enabled")),
+                   "loaded": bool(plugin_state.get("loaded")), "runtime": plugin_runtime},
         "gateway": {"active": gateway_result.returncode == 0},
         "telegram": telegram_probe() if telegram_probe else _telegram_probe(paths),
         "https": https_probe(external) if https_probe else _https_probe(external),
@@ -134,6 +198,8 @@ def doctor(paths: InstallPaths, runner: Runner, **probes: Any) -> dict[str, Any]
         {"name": "manifest", "ok": report["manifest"]["present"], "suggestion": "run setup to create a committed manifest"},
         {"name": "service_health", "ok": bool(report["service"]["health"].get("ok")), "suggestion": "inspect service logs and restart the managed service"},
         {"name": "plugin_loaded", "ok": report["plugin"]["loaded"], "suggestion": "enable the plugin for the selected Hermes target"},
+        {"name": "plugin_runtime", "ok": bool(report["plugin"]["runtime"].get("available")),
+         "suggestion": "repair setup so the installed Plugin can import its bundled runtime"},
         {"name": "gateway", "ok": report["gateway"]["active"], "suggestion": "inspect the selected Gateway status"},
         {"name": "telegram", "ok": bool(report["telegram"].get("verified")), "suggestion": "verify the Bot token and BotFather prerequisites"},
         {"name": "https", "ok": bool(report["https"].get("reachable")), "suggestion": "verify the configured external HTTPS origin"},

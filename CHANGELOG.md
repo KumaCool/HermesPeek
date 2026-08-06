@@ -6,6 +6,21 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-08-07
+
+### Changed
+
+- Keep ordinary setup output human-readable: validate and apply directly, hide transaction JSON, and print the installed version once on success.
+- Reserve `setup --plan` for an explicit read-only, redacted dry run.
+
+### Fixed
+
+- Package the Hermes Plugin as a self-contained runtime so Gateway Tool execution does not depend on installing HermesPeek into the Gateway virtual environment.
+- Verify the installed Plugin runtime during setup, status, and doctor instead of treating file presence and loaded state as Tool readiness.
+- Ignore runtime-generated `__pycache__` entries during installer-owned Plugin integrity checks.
+- Probe split-DNS HTTPS origins through `systemd-resolved` while preserving TLS hostname verification.
+- Use package-relative imports throughout the bundled Preview runtime, including registry and service modules.
+
 ## [0.2.7] - 2026-08-07
 
 ### Fixed
@@ -96,7 +111,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.8
 [0.2.7]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.7
 [0.2.6]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.6
 [0.2.5]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.5

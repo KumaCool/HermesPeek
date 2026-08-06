@@ -119,6 +119,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     executable.write_text("launcher", encoding="utf-8")
     token = "123456789:" + "A" * 35
     runner = RecordingRunner()
+    progress: list[str] = []
 
     result = install(
         paths=target,
@@ -129,6 +130,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         bot_token=token,
         runner=runner,
         service_backend=FakeServiceBackend(runner),
+        progress=progress.append,
     )
 
     assert result["installed"] is True and result["activated"] is True
@@ -153,6 +155,14 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         ("systemctl", "--user", "enable", "--now", "hermes-peek.service"),
         ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "enable", "--no-allow-tool-override", "hermes-peek"),
         ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "gateway", "restart"),
+    ]
+    assert progress == [
+        "validating_setup",
+        "installing_integration",
+        "starting_service",
+        "enabling_plugin",
+        "restarting_gateway",
+        "committed",
     ]
 
     marker = target.state_dir / "keep.json"

@@ -91,7 +91,7 @@ HermesPeek v0.2.1 已发布并验证 Linux Release 资产（`wheel`、`sdist` �
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，安装器会重新打开当前终端启动交互向导。`setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
+安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，安装器会重新打开当前终端启动交互向导。`setup` 会发现 Hermes profile，并询问允许预览的工作目录和 Telegram 客户端可访问的 HTTPS Origin。验证通过后会直接执行，并持续显示安装阶段，最后只输出一行简洁的成功信息；默认不会显示内部 setup/result JSON，也不会再询问无意义的 yes/no。不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
 
 无人交互安装时，可在 `sh -s --` 后传入 setup 参数。参数会转交给同一个 `hermes-peek setup` 生命周期，不会启动询问：
 
@@ -105,7 +105,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
   --plan
 ```
 
-确认脱敏计划后再删除 `--plan`。安装器不会猜测缺失的 setup 参数。
+`--plan` 是供审计和自动化使用的显式只读 JSON 接口。删除它才会执行 setup；安装器不会猜测缺失参数。
 
 无交互环境可先显式生成只读计划：
 

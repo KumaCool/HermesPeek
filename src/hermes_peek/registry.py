@@ -10,7 +10,10 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hermes_peek.models import PreviewRecord
+try:
+    from .models import PreviewRecord
+except ImportError:  # pragma: no cover - direct script compatibility
+    from hermes_peek.models import PreviewRecord
 
 
 class LaunchRefNotFoundError(LookupError):
