@@ -8,6 +8,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "skills" / "hermes-peek-preview" / "SKILL.md"
+PACKAGED_SKILL = ROOT / "src" / "hermes_peek" / "skills" / "hermes-peek-preview" / "SKILL.md"
 REFERENCE = ROOT / "skills" / "hermes-peek-preview" / "references" / "delivery-contract.md"
 
 
@@ -22,17 +23,45 @@ def test_preview_skill_has_valid_frontmatter_and_reference() -> None:
     assert match
     metadata = yaml.safe_load(match.group(1))
     assert metadata["name"] == "hermes-peek-preview"
+    assert metadata["version"] == "1.1.0"
     assert metadata["description"]
     assert match.group(2).strip()
     assert REFERENCE.is_file()
 
 
-def test_preview_skill_defines_trigger_and_near_miss_boundaries() -> None:
+def test_preview_skill_defines_bilingual_intent_and_near_miss_boundaries() -> None:
     text = _content()
-    for phrase in ("发我看下", "给我看文档", "预览文件", "上下文唯一", "给我看下"):
+    for phrase in (
+        "intent, not by one language or an exact keyword",
+        "send me the README",
+        "show me the document",
+        "preview this file",
+        "open the report",
+        "let me see it",
+        "发我看下",
+        "给我看文档",
+        "预览文件",
+        "给我看下",
+        "Equivalent requests in any other language",
+    ):
         assert phrase in text
-    for phrase in ("修改", "总结", "解释", "在哪里", "复制到聊天"):
+    for phrase in (
+        "edit the README",
+        "summarize the README",
+        "explain this document",
+        "where is the README?",
+        "paste the contents here",
+        "修改",
+        "总结",
+        "解释",
+        "在哪里",
+        "复制到聊天",
+    ):
         assert phrase in text
+
+
+def test_repository_and_packaged_skills_are_identical() -> None:
+    assert PACKAGED_SKILL.read_bytes() == SKILL.read_bytes()
 
 
 def test_preview_skill_defines_file_resolution_without_guessing() -> None:
@@ -45,7 +74,7 @@ def test_preview_skill_defines_file_resolution_without_guessing() -> None:
 
 def test_preview_skill_defines_single_tool_and_completion_semantics() -> None:
     text = _content()
-    assert "只调用一次 `hermes_peek_send_preview`" in text
+    assert "Call `hermes_peek_send_preview` exactly once（只调用一次）" in text
     assert "成功" in text and "`NO_REPLY`" in text
     assert "失败" in text and "简短" in text
     assert "不要自动改用 `terminal`" in text
