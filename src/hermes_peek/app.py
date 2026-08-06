@@ -45,7 +45,7 @@ def create_app(
             str(settings.external_base_url) if settings.external_base_url is not None else None
         ),
     )
-    application = FastAPI(title="HermesPeek", version="0.1.0")
+    application = FastAPI(title="HermesPeek", version="0.2.0")
     application.mount(
         "/static",
         StaticFiles(directory=Path(__file__).with_name("static")),

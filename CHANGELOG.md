@@ -6,6 +6,23 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-06
+
+### Added
+
+- Interactive, plan-first setup with profile discovery, HTTPS and Secret-file checks, and explicit activation control.
+- Verified Linux one-command installer for systems with a systemd user manager.
+- Reproducible Release assets (`wheel`, `sdist`, `install.sh`, and `SHA256SUMS`) with tag-only publication and offline fresh-home acceptance.
+- AI-assisted installation contract and repository Agent guidance that keep Secrets out of chat and gate side effects.
+- Structured Telegram onboarding diagnostics covering Bot identity, webhook state, allowed-user evidence, HTTPS health, and Mini App link readiness.
+- Complete English and Simplified Chinese operator quickstarts for installation, Telegram configuration, verification, upgrade, rollback, uninstall, and purge.
+
+### Security
+
+- Telegram diagnostics distinguish verified evidence from inferred or pending BotFather and client acceptance state.
+- Installer verifies fixed-version assets with SHA-256 before installation and refuses unsupported service backends before writing.
+- Setup and AI workflows require redacted plans and separate confirmation for profile, service, Gateway, Telegram, and network side effects.
+
 ## [0.1.0] - 2026-08-05
 
 ### Added
@@ -27,5 +44,6 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.0
 [0.1.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.1.0
