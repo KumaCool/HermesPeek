@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-07
+
+### Fixed
+
+- Treat the Hermes root as the real `default` profile and ignore its auxiliary `profiles/default` state directory.
+- Report missing profile credentials separately from unsafe credential path types.
+
 ## [0.2.4] - 2026-08-07
 
 ### Fixed
@@ -75,7 +82,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.5
 [0.2.4]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.4
 [0.2.3]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.3
 [0.2.2]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.2

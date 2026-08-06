@@ -25,6 +25,7 @@ def test_profile_discovery_selects_single_profile_and_requires_explicit_choice(t
     default = tmp_path / ".hermes"
     profile = default / "profiles" / "work"
     profile.mkdir(parents=True)
+    (profile / "config.yaml").write_text("model: fixture\n")
 
     assert discover_hermes_profiles(default) == (profile.resolve(),)
     assert select_hermes_profile((profile,), input_fn=lambda _: pytest.fail("must not prompt")) == profile.resolve()
@@ -32,6 +33,30 @@ def test_profile_discovery_selects_single_profile_and_requires_explicit_choice(t
     default.mkdir(exist_ok=True)
     with pytest.raises(LifecycleError, match="explicit profile selection"):
         select_hermes_profile((default, profile), input_fn=lambda _: "")
+
+
+def test_profile_discovery_uses_root_as_default_and_ignores_default_state_directory(tmp_path: Path):
+    from hermes_peek.setup_wizard import discover_hermes_profiles, select_hermes_profile
+
+    root = tmp_path / ".hermes"
+    root.mkdir()
+    (root / ".env").write_text("TELEGRAM_BOT_TOKEN=fixture")
+    pseudo_default = root / "profiles" / "default"
+    pseudo_default.mkdir(parents=True)
+    (pseudo_default / "pairing").mkdir()
+    heavy = root / "profiles" / "heavy"
+    heavy.mkdir()
+    (heavy / "config.yaml").write_text("model: fixture\n")
+    prompts: list[str] = []
+
+    profiles = discover_hermes_profiles(root)
+
+    assert profiles == (root.resolve(), heavy.resolve())
+    assert select_hermes_profile(
+        profiles, input_fn=lambda prompt: prompts.append(prompt) or "1"
+    ) == root.resolve()
+    assert "1. default" in prompts[0]
+    assert "profiles/default" not in prompts[0]
 
 
 def test_setup_inputs_reject_unsafe_roots_and_non_origin_urls(tmp_path: Path):
@@ -171,3 +196,10 @@ def test_bot_token_file_must_be_regular_and_not_a_symlink(tmp_path: Path):
 
     with pytest.raises(LifecycleError, match="regular, non-symlink"):
         validate_secret_file(link)
+
+
+def test_missing_bot_token_file_reports_selected_profile_error(tmp_path: Path):
+    from hermes_peek.setup_wizard import validate_secret_file
+
+    with pytest.raises(LifecycleError, match="not found for the selected Hermes profile"):
+        validate_secret_file(tmp_path / "missing.env")

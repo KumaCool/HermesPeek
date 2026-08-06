@@ -53,7 +53,11 @@ def validate_https_origin(value: str) -> str:
 def validate_secret_file(path: Path) -> Path:
     path = path.expanduser()
     try:
-        if not path.is_file() or path.is_symlink():
+        if path.is_symlink():
+            raise LifecycleError("Telegram credential path must be a regular, non-symlink file")
+        if not path.exists():
+            raise LifecycleError("Telegram credential file was not found for the selected Hermes profile")
+        if not path.is_file():
             raise LifecycleError("Telegram credential path must be a regular, non-symlink file")
     except OSError as exc:
         raise LifecycleError("cannot inspect Telegram credential file") from exc
@@ -70,7 +74,10 @@ def discover_hermes_profiles(default_home: Path) -> tuple[Path, ...]:
         candidates.extend(
             path.resolve()
             for path in profiles_dir.iterdir()
-            if path.is_dir() and not path.is_symlink()
+            if path.name != "default"
+            and path.is_dir()
+            and not path.is_symlink()
+            and any((path / marker).exists() for marker in profile_markers)
         )
     return tuple(sorted(set(candidates), key=str))
 
@@ -82,7 +89,10 @@ def select_hermes_profile(
         raise LifecycleError("no Hermes profiles were found")
     if len(profiles) == 1:
         return profiles[0].resolve()
-    choices = "\n".join(f"  {index}. {path.name}" for index, path in enumerate(profiles, 1))
+    choices = "\n".join(
+        f"  {index}. {'default' if path.name == '.hermes' else path.name}"
+        for index, path in enumerate(profiles, 1)
+    )
     answer = input_fn(f"Select Hermes profile:\n{choices}\nProfile number: ").strip()
     if not answer.isdigit() or not 1 <= int(answer) <= len(profiles):
         raise LifecycleError("multiple Hermes profiles require explicit profile selection")

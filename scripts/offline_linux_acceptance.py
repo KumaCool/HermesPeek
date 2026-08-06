@@ -76,7 +76,7 @@ venv="$UV_TOOL_DIR/venv"
 mkdir -p "$UV_TOOL_BIN_DIR"
 cat > "$UV_TOOL_BIN_DIR/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.4\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.5\n'; exit 0; fi
 printf 'hermes-peek %s\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
 EOF
 chmod +x "$UV_TOOL_BIN_DIR/hermes-peek"
