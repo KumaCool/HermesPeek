@@ -91,7 +91,21 @@ HermesPeek v0.2.1 已发布并验证 Linux Release 资产（`wheel`、`sdist` �
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-`setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
+安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，安装器会重新打开当前终端启动交互向导。`setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
+
+无人交互安装时，可在 `sh -s --` 后传入 setup 参数。参数会转交给同一个 `hermes-peek setup` 生命周期，不会启动询问：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh -s -- \
+  --hermes-home "$HERMES_HOME" \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test \
+  --telegram-bot-username <bot-username> \
+  --telegram-env /path/to/restricted/secrets.env \
+  --plan
+```
+
+确认脱敏计划后再删除 `--plan`。安装器不会猜测缺失的 setup 参数。
 
 无交互环境可先显式生成只读计划：
 

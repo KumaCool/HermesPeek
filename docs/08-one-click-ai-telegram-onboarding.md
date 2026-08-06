@@ -35,6 +35,21 @@ curl -fsSL https://github.com/KumaCool/HermesPeek/releases/latest/download/insta
 
 安装器必须在执行 setup 前显示解析后的 HermesPeek 版本，并只下载同一 GitHub Release 的校验文件和安装资产。需要严格固定版本时，用户把 `latest` 替换为明确的 `download/vX.Y.Z`。
 
+安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，它必须重新打开当前终端并启动交互式 `hermes-peek setup`；不能把 `curl` 管道作为 setup 向导的输入。
+
+无人交互安装通过 `sh -s --` 传入 setup 参数，参数直接转交给同一个生命周期，不启动询问：
+
+```bash
+curl -fsSL https://github.com/KumaCool/HermesPeek/releases/latest/download/install.sh | sh -s -- \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.com \
+  --telegram-bot-username <bot-username> \
+  --telegram-env /path/to/restricted/secrets.env \
+  --plan
+```
+
+缺少必要参数时应直接失败，不得猜测配置。安装器脚本本身保持 POSIX `sh` 语法，不依赖 Bash 或 Fish 专有语法。
+
 更适合安全审查的等价方式：
 
 ```bash
