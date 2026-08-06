@@ -77,21 +77,18 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-The repository can reproducibly build and offline-verify the Linux release payload set (`wheel`, `sdist`, `install.sh`, and `SHA256SUMS`). These assets are **not published merely because the local/CI gate passes**: use the remote one-command URL only after the inspected GitHub Release contains all matching assets. Until an approved version tag and Release are published, clone the repository, install its locked environment, and use `uv run hermes-peek setup` for a repository development rehearsal. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND` for the one-command lifecycle.
+HermesPeek v0.2.0 publishes a verified Linux Release payload set (`wheel`, `sdist`, `install.sh`, and `SHA256SUMS`). The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
 ## Operator quickstart
 
-> No public Release currently contains both `install.sh` and `SHA256SUMS`, so there is no valid remote one-command install yet. The following is the currently working Linux + systemd user repository flow. It will be replaced with the verified one-command entry after publication.
+> The installer is pinned to v0.2.0. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`.
 
 ### 1. Install and run the setup wizard
 
 ```bash
-git clone https://github.com/KumaCool/HermesPeek.git
-cd HermesPeek
-uv sync --locked
-uv run hermes-peek setup
+curl -fsSL https://github.com/KumaCool/HermesPeek/releases/download/v0.2.0/install.sh | sh
 ```
 
 `setup` discovers Hermes profiles and asks for an approved preview workspace, a Telegram-reachable HTTPS origin, the bot username, and a local Secret file. It shows a redacted plan before confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
@@ -173,13 +170,10 @@ Before acting:
    Secret in chat. Read Secrets only from a restricted local file or through
    secure local input (not chat); never expose them in chat, command arguments,
    plans, or logs.
-4. Prefer the project's release installer and hermes-peek setup; do not copy
-   internal plugin/Skill files or invent another installation flow. A release
-   installer entry is usable only after the inspected Release actually contains
-   install.sh, its package asset, and checksums. Until then, label the work a
-   repository development rehearsal and use the checked-out repository's
-   locked environment plus uv run hermes-peek setup—do not provide a fake curl
-   command.
+4. Inspect the v0.2.0 Release, confirm that it contains install.sh, the matching
+   wheel, sdist, and SHA256SUMS, then use the fixed Release installer and
+   hermes-peek setup. Do not copy internal plugin/Skill files or invent another
+   installation flow.
 5. Verify and report three completion levels separately: (a) installation
    complete: CLI/profile/service checks pass; (b) Hermes loading complete: the
    intended profile, Gateway, new session, Skill, and Tool are live; and (c)

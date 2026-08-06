@@ -77,21 +77,18 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-仓库现已可重复构建并离线验证 Linux Release 资产集合（`wheel`、`sdist`、`install.sh` 和 `SHA256SUMS`）。本地或 CI 门禁通过**不等于资产已经发布**：只有现场检查 GitHub Release 确实包含全部匹配资产后，远程一键安装 URL 才可使用。在获批版本 tag 和 Release 发布前，仍应克隆仓库并以锁定环境和 `uv run hermes-peek setup` 做仓库开发演练。macOS、Windows 和没有 systemd user manager 的 Linux 一键生命周期保持 `PENDING_BACKEND`。
+HermesPeek v0.2.0 已发布并验证完整 Linux Release 资产（`wheel`、`sdist`、`install.sh` 和 `SHA256SUMS`）。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
 ## 普通用户快速开始
 
-> 当前还没有包含 `install.sh` 和 `SHA256SUMS` 的公开 Release，因此现在不能使用远程一键安装命令。以下是当前真实可用的 Linux + systemd user 仓库安装流程；Release 发布后，本节会替换为已校验的一键命令。
+> 安装器固定为 v0.2.0，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。
 
 ### 1. 安装并启动向导
 
 ```bash
-git clone https://github.com/KumaCool/HermesPeek.git
-cd HermesPeek
-uv sync --locked
-uv run hermes-peek setup
+curl -fsSL https://github.com/KumaCool/HermesPeek/releases/download/v0.2.0/install.sh | sh
 ```
 
 `setup` 会发现 Hermes profile，并询问允许预览的工作目录、Telegram 客户端可访问的 HTTPS Origin、Bot username 和本机 Secret 文件。确认前只显示脱敏计划；不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
@@ -169,11 +166,9 @@ Purge 不会删除允许根目录中的原始项目文件。更完整的保留�
 3. Secret 不要发送进聊天。不要在聊天中发送，也不要要求我发送 Telegram Bot Token、
    API Key、密码或其他 Secret。Secret 只能从本机受限权限文件或本机安全输入读取，
    绝不能出现在聊天、命令参数、计划或日志中。
-4. 优先使用项目的 Release 安装器和 hermes-peek setup；不要复制内部 Plugin/
-   Skill 文件或发明另一套安装流程。只有检查到 Release 确实包含 install.sh、
-   包资产和 checksum 后，Release 安装入口才可使用。在此之前，明确标记为
-   “当前仓库开发演练”，在已检出的仓库中使用锁定环境和 uv run hermes-peek setup，
-   不要给出无效 curl 命令。
+4. 检查 v0.2.0 Release 确实包含 install.sh、匹配的 wheel、sdist 和
+   SHA256SUMS，然后使用固定 Release 安装器和 hermes-peek setup；不要复制内部
+   Plugin/Skill 文件或发明另一套安装流程。
 5. 分别验证并报告三个完成层级：(a) 安装完成：CLI/profile/service 检查通过；
    (b) Hermes 加载完成：目标 profile、Gateway、新会话、Skill 和 Tool 已现场
    加载；(c) Telegram 现场验收完成：在新会话中真实 Preview 成功发回原私聊、

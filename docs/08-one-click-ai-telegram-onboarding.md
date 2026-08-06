@@ -1,8 +1,8 @@
 # 08 一键安装、AI 辅助安装与 Telegram 接入方案
 
-> **文档状态：** 待项目负责人评审。
+> **文档状态：** 已评审并实施；v0.2.0 Linux Release 已发布，TASK 10.6 真实 Telegram 现场验收待独立授权。
 >
-> **真实性声明：** 当前仓库已有 `hermes-peek setup` 向导、Linux 安装器、可重复的 Release 资产构建/校验和 fake transport 离线验收。远程一键入口只有在获批 tag 对应的 GitHub Release 实际包含匹配的 wheel、sdist、`install.sh` 与 `SHA256SUMS` 后才可用；TASK 10.6 的真实 Gateway、BotFather、HTTPS 与 Telegram 验收仍未执行。
+> **真实性声明：** v0.2.0 GitHub Release 已现场确认包含匹配的 wheel、sdist、`install.sh` 与 `SHA256SUMS`，公开资产下载后校验通过。TASK 10.6 的真实 Gateway、BotFather、HTTPS 与 Telegram 验收仍未执行。
 
 ## 1. 问题
 

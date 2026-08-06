@@ -680,7 +680,7 @@ uv run mypy src/hermes_peek
 
 ## 7. 阶段 10：一键安装、AI 辅助安装与 Telegram 接入
 
-**状态：** `PENDING_REVIEW / NOT_STARTED`
+**状态：** `RELEASE_PUBLISHED / TASK_10.6_BLOCKED_PENDING_APPROVAL`
 
 阶段 10 把当前面向开发者的显式参数安装升级为普通用户闭环：带 Release 校验的一键安装入口、无参数交互式 setup、可复制给 AI Agent 的安全安装契约，以及覆盖 Hermes Bot、allowed users、群组隐私、HTTPS、BotFather Main Mini App、Gateway 新会话和真实 Preview 的 Telegram 配置流程。
 

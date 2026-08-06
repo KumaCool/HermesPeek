@@ -4,7 +4,7 @@
 >
 > **评审状态：** `REVIEW_APPROVED`。项目负责人于 2026-08-06 明确要求“落地方案”，授权 TASK 10.1–10.5 按本计划连续实施；TASK 10.6 的真实环境、Gateway 重启、BotFather 与 Telegram 现场验收仍需独立授权。
 
-**计划状态：** `APPROVED / IMPLEMENTING`
+**计划状态：** `RELEASE_PUBLISHED / TASK_10.6_BLOCKED_PENDING_APPROVAL`
 
 ## 1. 阶段目标
 
@@ -47,7 +47,7 @@
 | TASK 10.2 | 固定 Release Linux 一键安装脚本 | `DONE` | `install.sh`、哈希验证、平台门禁 | 11 项隔离安装器测试和全量 192 tests 通过 |
 | TASK 10.3 | AI 安装契约与仓库 Agent 指引 | `DONE` | README 提示词、`AGENTS.md`、静态契约测试、验证清单 | Agent 先计划、Secret 不进聊天、副作用有确认；目标和全量门禁通过 |
 | TASK 10.4 | Telegram onboarding 与诊断 | `DONE` | Bot/Main Mini App 检查和结构化 doctor | getMe、allowed users 指引、HTTPS、可选 short name、菜单边界 |
-| TASK 10.5 | Linux 打包、发布与离线验收 | `DONE_LOCAL_NOT_PUBLISHED` | Release 资产、checksum、Linux CI | Linux fresh-profile fake transport 闭环；macOS/Windows 明确标记待 backend |
+| TASK 10.5 | Linux 打包、发布与离线验收 | `DONE_PUBLISHED_V0.2.0` | Release 资产、checksum、Linux CI | Linux fresh-profile fake transport 闭环；公开四项资产下载校验通过 |
 | TASK 10.6 | 真实端到端安装验收 | `BLOCKED_PENDING_APPROVAL` | 新环境安装及私聊/群组/Topic 证据 | 真实 Gateway、BotFather、HTTPS 和 Telegram 现场结果 |
 
 ## 5. TASK 细化
@@ -213,7 +213,7 @@ feat: diagnose Telegram onboarding readiness
 
 ### TASK 10.5：Linux 打包、发布与离线验收
 
-**状态：** `DONE_LOCAL_NOT_PUBLISHED`（2026-08-06）
+**状态：** `DONE_PUBLISHED_V0.2.0`（2026-08-06）
 
 **方案来源：** 方案 §6、§7。
 
@@ -235,7 +235,7 @@ feat: diagnose Telegram onboarding readiness
 - README 中不再以开发安装作为普通用户第一入口。
 - macOS、Windows 与不受支持的 Linux backend 在 README 和 installer 中保持 `UNSUPPORTED/PENDING_BACKEND`，不声明可用。
 
-**验收结果：** `scripts/build_release_assets.py` 生成名称一致的 wheel、sdist、installer 与 checksum；本地 verifier 检查完整资产集合、版本/tag 契约、wheel/sdist 内容和 checksum roundtrip；Linux workflow 对 main/PR/手工运行只上传 CI artifact，仅明确 `v*` tag 才进入 GitHub Release 上传步骤。离线验收使用 fresh HOME/profile 及 fake systemd、Hermes、setup/Telegram transport，未接触真实 profile、service、Gateway、BotFather、Telegram 或网络。远端 tag、push 和 GitHub Release 尚未执行。
+**验收结果：** `scripts/build_release_assets.py` 生成名称一致的 wheel、sdist、installer 与 checksum；本地 verifier 检查完整资产集合、版本/tag 契约、wheel/sdist 内容和 checksum roundtrip；Linux workflow 对 main/PR/手工运行只上传 CI artifact，仅明确 `v*` tag 才进入 GitHub Release 上传步骤。离线验收使用 fresh HOME/profile 及 fake systemd、Hermes、setup/Telegram transport，未接触真实 profile、service、Gateway、BotFather、Telegram 或网络。v0.2.0 tag 已发布，GitHub Actions 构建和发布 job 成功，四项公开资产已实际下载并复核 checksum 与内容。
 
 **提交：**
 

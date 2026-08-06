@@ -21,7 +21,7 @@ def assert_terms(text: str, groups: tuple[tuple[str, ...], ...]) -> None:
         assert any(term.lower() in lowered for term in alternatives), alternatives
 
 
-def test_bilingual_readmes_publish_copyable_ai_install_prompts_without_a_fake_release_command() -> None:
+def test_bilingual_readmes_publish_copyable_ai_install_prompts_with_fixed_release_command() -> None:
     required_links = (
         "docs/08-one-click-ai-telegram-onboarding.md",
         "docs/06-installation-uninstallation.md",
@@ -34,6 +34,7 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_without_a_fake_re
         assert "```text" in text
         assert all(link in text for link in required_links)
         assert RELEASE_INSTALLER_URL not in text
+        assert "releases/download/v0.2.0/install.sh" in text
         assert_terms(
             text,
             (
@@ -46,7 +47,7 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_without_a_fake_re
                 ("install.sh",),
                 ("hermes-peek setup",),
                 ("release asset", "release 资产"),
-                ("repository development rehearsal", "当前仓库开发演练"),
+                ("v0.2.0 release",),
             ),
         )
 
@@ -58,9 +59,9 @@ def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:
             text,
             (
                 ("operator quickstart", "普通用户快速开始"),
-                ("git clone https://github.com/KumaCool/HermesPeek.git",),
-                ("uv sync --locked",),
-                ("uv run hermes-peek setup",),
+                ("releases/download/v0.2.0/install.sh",),
+                ("sha256sums",),
+                ("hermes-peek setup",),
                 ("status --json",),
                 ("doctor --json",),
                 ("botfather",),
