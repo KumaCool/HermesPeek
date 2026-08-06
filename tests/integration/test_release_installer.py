@@ -92,7 +92,7 @@ def test_version_and_dry_run_are_read_only(tmp_path: Path) -> None:
     assert dry_run.returncode == 0
     assert "channel=release" in dry_run.stdout
     assert f"version={VERSION}" in dry_run.stdout
-    assert "setup --non-interactive" in dry_run.stdout
+    assert "setup <provided arguments>" in dry_run.stdout
     assert not (tmp_path / "home").exists()
 
 
@@ -132,7 +132,7 @@ def test_missing_prerequisite_has_actionable_error_before_download(
     assert not (tmp_path / "data").exists()
 
 
-def test_verified_release_installs_in_isolated_user_directory_and_calls_setup(tmp_path: Path) -> None:
+def test_verified_release_with_non_interactive_flag_calls_setup_without_prompting(tmp_path: Path) -> None:
     release = release_assets(tmp_path)
     environment = installer_environment(tmp_path, release)
 
@@ -145,6 +145,32 @@ def test_verified_release_installs_in_isolated_user_directory_and_calls_setup(tm
     assert "tool install --python " in log[0]
     assert log[-1] == "hermes-peek setup"
     assert "sudo" not in "\n".join(log)
+
+
+def test_setup_arguments_are_forwarded_without_prompting(tmp_path: Path) -> None:
+    release = release_assets(tmp_path)
+    environment = installer_environment(tmp_path, release)
+
+    result = run_installer(
+        tmp_path,
+        "--",
+        "--allowed-root",
+        "/tmp/workspace",
+        "--external-url",
+        "https://preview.example.test",
+        env=environment,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "commands.log").read_text().splitlines()[-1] == (
+        "hermes-peek setup --allowed-root /tmp/workspace --external-url https://preview.example.test"
+    )
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash", "dash"])
+def test_installer_is_accepted_by_common_posix_shells(tmp_path: Path, shell: str) -> None:
+    result = subprocess.run([shell, "-n", str(INSTALLER)], text=True, capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr
 
 
 def test_checksum_failure_executes_neither_install_nor_setup(tmp_path: Path) -> None:
@@ -174,13 +200,29 @@ def test_download_failure_leaves_no_partial_install(tmp_path: Path) -> None:
 def test_same_version_is_idempotent_without_network_or_setup(tmp_path: Path) -> None:
     release = release_assets(tmp_path)
     environment = installer_environment(tmp_path, release)
-    first = run_installer(tmp_path, env=environment)
+    first = run_installer(
+        tmp_path,
+        "--",
+        "--allowed-root",
+        "/tmp/workspace",
+        "--external-url",
+        "https://preview.example.test",
+        env=environment,
+    )
     before = (tmp_path / "commands.log").read_text()
     for asset in release.iterdir():
         asset.unlink()
     release.rmdir()
 
-    second = run_installer(tmp_path, env=environment)
+    second = run_installer(
+        tmp_path,
+        "--",
+        "--allowed-root",
+        "/tmp/workspace",
+        "--external-url",
+        "https://preview.example.test",
+        env=environment,
+    )
 
     assert first.returncode == 0
     assert second.returncode == 0, second.stderr
@@ -188,11 +230,11 @@ def test_same_version_is_idempotent_without_network_or_setup(tmp_path: Path) -> 
     assert (tmp_path / "commands.log").read_text() == before
 
 
-def test_interactive_install_calls_the_same_setup_entrypoint(tmp_path: Path) -> None:
+def test_interactive_install_requires_a_terminal(tmp_path: Path) -> None:
     release = release_assets(tmp_path)
     environment = installer_environment(tmp_path, release)
 
     result = run_installer(tmp_path, env=environment)
 
-    assert result.returncode == 0, result.stderr
-    assert (tmp_path / "commands.log").read_text().splitlines()[-1] == "hermes-peek setup"
+    assert result.returncode != 0
+    assert "interactive setup requires a terminal" in result.stderr

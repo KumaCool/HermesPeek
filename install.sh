@@ -5,30 +5,43 @@ INSTALLER_VERSION="0.2.1"
 RELEASE_CHANNEL="${HERMES_PEEK_CHANNEL:-release}"
 NON_INTERACTIVE=false
 DRY_RUN=false
+SETUP_ARGUMENTS=false
 
 usage() {
     cat <<EOF
-Usage: install.sh [--version] [--non-interactive] [--dry-run]
+Usage: install.sh [--version] [--dry-run] [hermes-peek setup options]
+
+Without setup options, the installer opens an interactive setup wizard.
+Setup options are passed through to hermes-peek setup; use -- to separate them.
 EOF
 }
 
-for argument in "$@"; do
-    case "$argument" in
+while [ "$#" -gt 0 ]; do
+    case "$1" in
         --version)
             printf 'HermesPeek installer %s\n' "$INSTALLER_VERSION"
             exit 0
             ;;
-        --non-interactive) NON_INTERACTIVE=true ;;
-        --dry-run) DRY_RUN=true ;;
+        --non-interactive) NON_INTERACTIVE=true; shift ;;
+        --dry-run) DRY_RUN=true; shift ;;
         --help|-h) usage; exit 0 ;;
-        *) printf 'error: unknown option: %s\n' "$argument" >&2; usage >&2; exit 2 ;;
+        --)
+            SETUP_ARGUMENTS=true
+            shift
+            break
+            ;;
+        --allowed-root|--external-url|--telegram-bot-username|--telegram-mini-app-short-name|--telegram-mini-app-mode|--telegram-env|--configure-telegram-menu|--hermes-home|--no-activate|--plan)
+            SETUP_ARGUMENTS=true
+            break
+            ;;
+        *) printf 'error: unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
 done
 
 if [ "$DRY_RUN" = true ]; then
     printf 'HermesPeek install plan: channel=%s version=%s\n' "$RELEASE_CHANNEL" "$INSTALLER_VERSION"
-    if [ "$NON_INTERACTIVE" = true ]; then
-        printf 'After verified package installation: hermes-peek setup --non-interactive\n'
+    if [ "$NON_INTERACTIVE" = true ] || [ "$SETUP_ARGUMENTS" = true ]; then
+        printf 'After verified package installation: hermes-peek setup <provided arguments>\n'
     else
         printf 'After verified package installation: hermes-peek setup\n'
     fi
@@ -101,5 +114,17 @@ fi
 if [ "$NON_INTERACTIVE" = true ]; then
     printf 'Non-interactive mode selected; setup still validates required configuration without inventing values.\n'
 fi
-"$PEEK_COMMAND" setup
+if [ "$NON_INTERACTIVE" = true ] || [ "$SETUP_ARGUMENTS" = true ]; then
+    # Explicit arguments select non-interactive setup. Keep stdin away from the
+    # curl pipe so an incomplete parameter set fails instead of prompting.
+    "$PEEK_COMMAND" setup "$@" </dev/null
+else
+    if ! (exec </dev/tty) 2>/dev/null; then
+        printf 'error: interactive setup requires a terminal; provide setup arguments instead\n' >&2
+        exit 1
+    fi
+    # curl | sh feeds this script's stdin. Re-open the user's terminal for the
+    # setup wizard so the documented one-command install remains interactive.
+    "$PEEK_COMMAND" setup </dev/tty
+fi
 printf 'HermesPeek %s installed successfully\n' "$INSTALLER_VERSION"
