@@ -2,7 +2,7 @@
 
 > **文档状态：** 已评审并实施；v0.2.1 Linux Release 已发布，TASK 10.6 真实 Telegram 现场验收待独立授权。
 >
-> **真实性声明：** v0.2.1 使用仓库/tag `install.sh` 作为唯一安装器来源；GitHub Release 发布匹配的 wheel、sdist 与 `SHA256SUMS`。公开资产下载和安装器指向将在发布后现场复核。TASK 10.6 的真实 Gateway、BotFather、HTTPS 与 Telegram 验收仍未执行。
+> **真实性声明：** v0.2.1 使用仓库/tag `install.sh` 作为唯一安装器来源；GitHub Release 已现场确认发布匹配的 wheel、sdist 与 `SHA256SUMS`。三项公开资产已实际下载并通过 checksum 与内容复核，`main` 和 `v0.2.1` 安装器也已确认固定指向 v0.2.1 wheel。TASK 10.6 的真实 Gateway、BotFather、HTTPS 与 Telegram 验收仍未执行。
 
 ## 1. 问题
 
