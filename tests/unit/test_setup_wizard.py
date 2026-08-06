@@ -150,15 +150,24 @@ def test_interactive_cli_discovers_profile_and_executes_only_after_yes(tmp_path:
     assert token not in output
 
 
-def test_bot_token_file_must_not_be_accessible_to_group_or_others(tmp_path: Path):
+def test_external_bot_token_file_permissions_are_not_modified(tmp_path: Path):
     from hermes_peek.setup_wizard import validate_secret_file
 
     secret = tmp_path / "telegram.env"
     secret.write_text("TELEGRAM_BOT_TOKEN=123456789:" + "V" * 35)
     secret.chmod(0o644)
 
-    with pytest.raises(LifecycleError, match="permissions"):
-        validate_secret_file(secret)
-
-    secret.chmod(0o600)
     assert validate_secret_file(secret) == secret
+    assert secret.stat().st_mode & 0o777 == 0o644
+
+
+def test_bot_token_file_must_be_regular_and_not_a_symlink(tmp_path: Path):
+    from hermes_peek.setup_wizard import validate_secret_file
+
+    secret = tmp_path / "telegram.env"
+    secret.write_text("TELEGRAM_BOT_TOKEN=123456789:" + "V" * 35)
+    link = tmp_path / "telegram-link.env"
+    link.symlink_to(secret)
+
+    with pytest.raises(LifecycleError, match="regular, non-symlink"):
+        validate_secret_file(link)

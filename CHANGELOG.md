@@ -6,6 +6,14 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-07
+
+### Fixed
+
+- Removed the requirement for users to change permissions on the selected Hermes profile's Telegram credential file.
+- HermesPeek now leaves external Hermes credential files unchanged while keeping its own credential copy restricted to owner-only access (`0600`).
+- Symlinks and non-regular credential paths remain rejected.
+
 ## [0.2.2] - 2026-08-06
 
 ### Changed
@@ -60,7 +68,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.3
 [0.2.2]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.2
 [0.2.1]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.1
 [0.2.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.0

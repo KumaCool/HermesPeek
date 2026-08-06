@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "install.sh"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 ASSET = f"hermes_peek-{VERSION}-py3-none-any.whl"
 
 
@@ -41,7 +41,7 @@ printf 'UV_TOOL_DIR=%s UV_TOOL_BIN_DIR=%s %s\\n' "$UV_TOOL_DIR" "$UV_TOOL_BIN_DI
 mkdir -p "$HERMES_PEEK_INSTALL_BIN"
 cat > "$HERMES_PEEK_INSTALL_BIN/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.2\\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.3\\n'; exit 0; fi
 printf 'hermes-peek %s\\n' "$*" >> "$HERMES_PEEK_TEST_LOG"
 EOF
 chmod +x "$HERMES_PEEK_INSTALL_BIN/hermes-peek"

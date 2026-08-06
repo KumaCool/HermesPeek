@@ -53,10 +53,10 @@ def validate_https_origin(value: str) -> str:
 def validate_secret_file(path: Path) -> Path:
     path = path.expanduser()
     try:
-        if not path.is_file() or path.is_symlink() or path.stat().st_mode & 0o077:
-            raise LifecycleError("Telegram credential file permissions must deny group and other access")
+        if not path.is_file() or path.is_symlink():
+            raise LifecycleError("Telegram credential path must be a regular, non-symlink file")
     except OSError as exc:
-        raise LifecycleError("cannot inspect Telegram credential file permissions") from exc
+        raise LifecycleError("cannot inspect Telegram credential file") from exc
     return path
 
 
