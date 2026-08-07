@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -42,22 +42,23 @@ def test_cli_publish_inspect_revoke_real_subprocess_round_trip(tmp_path: Path) -
         "123",
     )
     assert published.returncode == 0, published.stderr
-    payload = json.loads(published.stdout)
-    preview_id = payload["preview_id"]
-    assert payload["url"] == f"https://preview.example.test/p/{preview_id}"
+    preview_match = re.search(r"Preview id: (\S+)", published.stdout)
+    assert preview_match is not None
+    preview_id = preview_match.group(1)
+    assert f"Url: https://preview.example.test/p/{preview_id}" in published.stdout
     assert str(tmp_path) not in published.stdout
     assert not published.stderr
 
     inspected = run_cli(project, environment, "inspect", preview_id)
     assert inspected.returncode == 0, inspected.stderr
-    inspected_payload = json.loads(inspected.stdout)
-    assert inspected_payload["title"] == "CLI Example"
+    assert "Title: CLI Example" in inspected.stdout
     assert "absolute_path" not in inspected.stdout
     assert str(tmp_path) not in inspected.stdout
 
     revoked = run_cli(project, environment, "revoke", preview_id)
     assert revoked.returncode == 0, revoked.stderr
-    assert json.loads(revoked.stdout)["revoked_at"] is not None
+    assert "Preview revoked" in revoked.stdout
+    assert "Revoked at:" in revoked.stdout
 
 
 def test_cli_errors_are_concise_and_do_not_traceback(tmp_path: Path) -> None:

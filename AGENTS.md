@@ -29,7 +29,7 @@ Every released version must have a dated, non-empty `CHANGELOG.md` section using
 
 Report these levels independently; a lower level never proves a higher one:
 
-1. **Installation complete** — the intended CLI version, target profile resources, service state, `hermes-peek status --json`, and `hermes-peek doctor` have been checked on the target host.
+1. **Installation complete** — the intended CLI version, target profile resources, service state, `hermes-peek status`, and `hermes-peek doctor` have been checked on the target host.
 2. **Hermes loading complete** — the intended real Hermes profile has the Skill and Plugin Tool enabled, the Gateway state has been checked, any required operator-authorized Gateway restart has occurred externally, and a new Hermes session discovers the capability.
 3. **Telegram acceptance complete** — a real new-session request calls `hermes_peek_send_preview`, sends exactly one Preview to the original private chat, group, or Topic, and the authorized user opens it successfully. Offline tests, fake transports, `getMe`, a constructed URL, or menu configuration do not satisfy this level.
 
@@ -40,7 +40,7 @@ Report these levels independently; a lower level never proves a higher one:
 - [ ] The user approved a redacted plan and every applicable side effect; separately gated changes have their own confirmations.
 - [ ] Secrets came only from a restricted local file or secure local input and were absent from arguments and output.
 - [ ] The supported installer/setup lifecycle was used; no internal files were copied.
-- [ ] `hermes-peek status --json` and `hermes-peek doctor` were run and reported without overclaiming.
+- [ ] `hermes-peek status` and `hermes-peek doctor` were run and reported without overclaiming.
 - [ ] Hermes loading was checked in the target profile and a new session, or marked pending.
 - [ ] Real Telegram acceptance was performed in the original route, or marked pending.
 - [ ] Remaining BotFather, HTTPS/network, Gateway, rollback, and owner actions are explicit and redacted.

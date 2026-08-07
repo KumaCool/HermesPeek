@@ -95,7 +95,7 @@ hermes-peek uninstall
 ```
 
 ```bash
-hermes-peek status --json
+hermes-peek status
 hermes-peek doctor
 hermes-peek service restart
 hermes-peek rollback <TRANSACTION_ID>

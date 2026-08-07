@@ -186,7 +186,7 @@ docs: add AI-assisted installation contract
 
 **交付物：**
 
-- `doctor --json` 或等价结构化检查：Bot Token 可读、`getMe`、Webhook 状态、HTTPS、Bot username、可构造的 Main Mini App Direct Link，以及可选的命名 Mini App short name；状态必须区分身份已验证、可靠配置证据、URL 匹配未验证和 Telegram 客户端现场打开待验收；
+- `doctor` 易读文本检查：Bot Token 可读、`getMe`、Webhook 状态、HTTPS、Bot username、可构造的 Main Mini App Direct Link，以及可选的命名 Mini App short name；状态必须区分身份已验证、可靠配置证据、URL 匹配未验证和 Telegram 客户端现场打开待验收；
 - setup 完成后的 BotFather 待办清单；
 - 私聊菜单修改继续保持显式 opt-in 和可回滚；
 - 文档中的私聊/群组/Topic 验收命令。
@@ -201,7 +201,7 @@ docs: add AI-assisted installation contract
 6. Telegram API 错误完全脱敏；
 7. rollback 不覆盖用户在安装后做的新菜单修改。
 
-**验收结果：** `doctor --json` 已提供只读分层 Telegram onboarding 证据；所有 Bot API
+**验收结果：** `doctor` 已提供只读、易读的分层 Telegram onboarding 证据；所有 Bot API
 测试均使用 fake transport；目标测试 37 项与全量 199 项通过。未执行真实 Telegram、
 BotFather、Gateway/service/profile 或网络写入，Telegram 客户端验收保持 pending。
 

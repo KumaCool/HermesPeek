@@ -117,9 +117,8 @@ def test_doctor_blocks_missing_allowed_users_with_official_hermes_configuration_
 def test_cli_exposes_status_doctor_and_service_commands():
     from hermes_peek.cli import build_parser
     parser=build_parser()
-    assert parser.parse_args(["status", "--json"]).command == "status"
+    assert parser.parse_args(["status"]).command == "status"
     assert parser.parse_args(["doctor"]).command == "doctor"
-    assert parser.parse_args(["doctor", "--json"]).json is True
     assert parser.parse_args(["service", "restart"]).action == "restart"
     purge = parser.parse_args(["uninstall", "--purge", "--dry-run"])
     assert purge.purge is True and purge.dry_run is True and purge.yes is False
@@ -235,20 +234,21 @@ def test_setup_plan_is_read_only_redacted_and_lists_actions(tmp_path, monkeypatc
     monkeypatch.setattr(cli.InstallPaths,"for_user",classmethod(lambda cls,**kw:paths))
     calls=[]; monkeypatch.setattr(cli,"lifecycle_runner",lambda command:(calls.append(tuple(command)) or subprocess.CompletedProcess(command,1,"","")))
     assert main(["setup","--allowed-root",str(allowed),"--external-url","https://preview.example.test","--telegram-env",str(token_file),"--plan"]) == 0
-    report=json.loads(capsys.readouterr().out)
-    assert report["dry_run"] is True and report["actions"] and report["rollback_points"]
-    assert token not in json.dumps(report)
+    report=capsys.readouterr().out
+    assert "HermesPeek setup plan (no changes made)" in report
+    assert "Actions:" in report and "Rollback points:" in report
+    assert token not in report
     assert all(not any(word in command for word in ("enable","restart","start")) for command in calls)
 
 
-def test_status_cli_outputs_stable_json_without_service_side_effects(tmp_path, monkeypatch, capsys):
+def test_status_cli_outputs_human_status_without_service_side_effects(tmp_path, monkeypatch, capsys):
     import hermes_peek.cli as cli
     commands = []
     monkeypatch.setattr(cli, "discover_installed_hermes_home", lambda: None)
     monkeypatch.setattr(cli, "lifecycle_runner", lambda command: (commands.append(tuple(command)) or subprocess.CompletedProcess(command, 1, "", "")))
-    assert main(["status", "--json", "--hermes-home", str(tmp_path / "hermes")]) == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["schema_version"] == 1
+    assert main(["status", "--hermes-home", str(tmp_path / "hermes")]) == 0
+    result = capsys.readouterr().out
+    assert result.startswith("HermesPeek status\n")
     assert all("start" not in command and "restart" not in command for command in commands)
 
 
@@ -259,8 +259,8 @@ def test_uninstall_purge_dry_run_cli_has_zero_side_effects(tmp_path, monkeypatch
     state.mkdir(); marker = state / "registry.json"; marker.write_text("keep")
     monkeypatch.setattr(cli.InstallPaths, "for_user", classmethod(lambda cls, **kw: paths))
     assert main(["uninstall", "--purge", "--dry-run"]) == 0
-    report = json.loads(capsys.readouterr().out)
-    assert report["dry_run"] is True and marker.exists()
+    report = capsys.readouterr().out
+    assert "HermesPeek purge plan (no changes made)" in report and marker.exists()
 
 
 def test_uninstall_purge_requires_yes_in_noninteractive_mode(tmp_path, monkeypatch, capsys):

@@ -122,7 +122,7 @@ https://github.com/KumaCool/HermesPeek
    不要自行复制插件文件或发明另一套安装流程；
 6. Telegram 侧必须说明并检查：Hermes Bot、allowed users、群组隐私、
    Main Mini App、HTTPS URL 和新会话加载；
-7. 安装后现场运行 hermes-peek status --json、hermes-peek doctor、
+7. 安装后现场运行 hermes-peek status、hermes-peek doctor、
    hermes gateway status，并在 Telegram 新会话中做一次真实预览测试；
 8. 严格区分“代码/离线测试通过”“已安装”“Gateway 已加载”
    和“Telegram 真实验收通过”，失败时不要声称完成。
@@ -264,8 +264,8 @@ hermes-peek setup \
 安装后依次验证：
 
 ```bash
-hermes-peek status --json
-hermes-peek doctor --json
+hermes-peek status
+hermes-peek doctor
 hermes gateway status
 ```
 
@@ -281,7 +281,7 @@ hermes gateway restart
 把 README 发我看下
 ```
 
-`doctor --json` 只做只读诊断，并分层报告：Token 文件可读性与权限、`getMe`
+`doctor` 只做只读诊断，并用易读文本分层报告：Token 文件可读性与权限、`getMe`
 身份、Webhook、HTTPS health、Bot username、HermesPeek 配置证据，以及 Main Mini
 App Direct Link 是否可构造。`verified` 身份或可构造链接都**不能**证明 BotFather 已
 注册 Main Mini App；URL 匹配保持 `unverified`，Telegram 客户端打开保持 `pending`，
@@ -334,7 +334,7 @@ README 应把普通用户路径放在开发安装之前：
 | 层级 | 验收证据 |
 |---|---|
 | 安装脚本 | 干净 Linux systemd user 环境的隔离测试；固定 release 与哈希校验；其他平台在写入前准确拒绝 |
-| CLI 安装 | `hermes-peek --version`、`status --json`、`doctor` |
+| CLI 安装 | `hermes-peek --version`、`status`、`doctor` |
 | Hermes 集成 | 目标 profile 中 Skill/Plugin 可发现；新会话暴露 Tool |
 | Service | 进程、监听和 `/healthz` 现场通过 |
 | Telegram Bot | `getMe` 身份与 Hermes Gateway 收发现场通过 |

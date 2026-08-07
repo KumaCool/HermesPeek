@@ -143,8 +143,8 @@ The command prints a URL such as `https://your-device.your-tailnet.ts.net`. Ente
 ### 4. Verify real usability
 
 ```bash
-hermes-peek status --json
-hermes-peek doctor --json
+hermes-peek status
+hermes-peek doctor
 ```
 
 Passing these checks proves installation/configuration readiness only. Final acceptance requires requesting a real Preview from a new Hermes session and opening it in the intended private chat, group, or Topic.
@@ -392,7 +392,7 @@ Before setup, configure the Telegram Bot in Hermes, restrict allowed users, and 
 Check the installation:
 
 ```bash
-hermes-peek status --json
+hermes-peek status
 hermes-peek doctor
 ```
 
@@ -409,7 +409,7 @@ hermes-peek uninstall
 Inspect lifecycle state and diagnostics:
 
 ```bash
-hermes-peek status --json
+hermes-peek status
 hermes-peek doctor
 ```
 

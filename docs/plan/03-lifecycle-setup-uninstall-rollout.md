@@ -272,7 +272,7 @@ uv run pytest tests/integration/test_lifecycle.py -q -rxX
 
 **交付物：**
 
-- `status [--json]`；
+- `status`；
 - `doctor`；
 - `service start|stop|restart|logs`；
 - config drift、health、profile、plugin、Gateway、Telegram 和 HTTPS 检查。

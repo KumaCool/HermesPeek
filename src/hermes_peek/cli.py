@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -12,7 +13,7 @@ import hashlib
 import tempfile
 import threading
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 import uvicorn
 from pydantic import ValidationError
@@ -188,6 +189,15 @@ def _version_key(value: str) -> tuple[int, ...]:
         raise LifecycleError("release version must contain only dot-separated numbers") from exc
 
 
+def _update_subprocess_error(phase: str, result: subprocess.CompletedProcess[str]) -> LifecycleError:
+    """Preserve a bounded, single-line child error without leaking common Bot tokens."""
+    detail = "\n".join(part for part in (result.stderr, result.stdout) if part).strip()
+    detail = re.sub(r"\b\d{6,12}:[A-Za-z0-9_-]{20,}\b", "[REDACTED]", detail)
+    detail = " ".join(detail.split())[:1000]
+    suffix = f": {detail}" if detail else f" (exit code {result.returncode})"
+    return LifecycleError(f"updated integration {phase} failed{suffix}")
+
+
 def _update_cli(
     target: str,
     *,
@@ -287,12 +297,34 @@ def _update_cli(
             temporary_link.symlink_to(installed)
             os.replace(temporary_link, command_link)
             report("reapplying_integration")
-            setup = subprocess.run([str(installed), "setup"], text=True, capture_output=True, check=False)
+            setup = subprocess.run(
+                [str(installed), "setup"],
+                text=True,
+                capture_output=True,
+                stdin=subprocess.DEVNULL,
+                check=False,
+            )
+            if setup.returncode:
+                raise _update_subprocess_error("setup", setup)
             report("verifying_update")
-            status = subprocess.run([str(installed), "status", "--json"], text=True, capture_output=True, check=False)
-            doctor = subprocess.run([str(installed), "doctor", "--json"], text=True, capture_output=True, check=False)
-            if setup.returncode or status.returncode or doctor.returncode:
-                raise LifecycleError("updated integration verification failed")
+            status = subprocess.run(
+                [str(installed), "status"],
+                text=True,
+                capture_output=True,
+                stdin=subprocess.DEVNULL,
+                check=False,
+            )
+            if status.returncode:
+                raise _update_subprocess_error("status verification", status)
+            doctor = subprocess.run(
+                [str(installed), "doctor"],
+                text=True,
+                capture_output=True,
+                stdin=subprocess.DEVNULL,
+                check=False,
+            )
+            if doctor.returncode:
+                raise _update_subprocess_error("doctor verification", doctor)
         except Exception:
             shutil.rmtree(root, ignore_errors=True)
             if backup.exists():
@@ -316,6 +348,124 @@ def _uninstall_message(result: dict[str, object], cli_status: str | None = None)
     if result.get("original_files_preserved") or result.get("state_preserved"):
         lines.append("- 原始项目文件：按安全策略保留")
     return "\n".join(lines)
+
+
+def _human_label(value: str) -> str:
+    return value.replace("_", " ").strip().capitalize()
+
+
+def _human_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if value is None:
+        return "Not available"
+    return str(value)
+
+
+def _human_lines(value: object, *, indent: int = 0) -> list[str]:
+    prefix = "  " * indent
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for key, item in value.items():
+            label = _human_label(str(key))
+            if isinstance(item, (dict, list)):
+                lines.append(f"{prefix}{label}:")
+                lines.extend(_human_lines(item, indent=indent + 1))
+            else:
+                lines.append(f"{prefix}{label}: {_human_value(item)}")
+        return lines
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            if isinstance(item, (dict, list)):
+                lines.append(f"{prefix}-")
+                lines.extend(_human_lines(item, indent=indent + 1))
+            else:
+                lines.append(f"{prefix}- {_human_value(item)}")
+        return lines or [f"{prefix}(none)"]
+    return [f"{prefix}{_human_value(value)}"]
+
+
+def _format_update_result(result: dict[str, object]) -> str:
+    current = result.get("current_version") or result.get("from_version")
+    target = result.get("target_version") or result.get("to_version")
+    if "update_available" in result:
+        if result["update_available"]:
+            lines = [f"HermesPeek update available: {current} → {target}"]
+        else:
+            lines = [f"HermesPeek is up to date ({current})."]
+        changes = result.get("changes")
+        if isinstance(changes, list) and changes:
+            lines.append("Update actions:")
+            lines.extend(f"  - {change}" for change in changes)
+        return "\n".join(lines)
+    return f"HermesPeek updated successfully: {current} → {target}\nIntegration verification: passed"
+
+
+def _mapping(value: object) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _format_status(result: dict[str, object]) -> str:
+    service = _mapping(result.get("service"))
+    plugin = _mapping(result.get("plugin"))
+    gateway = _mapping(result.get("gateway"))
+    https = _mapping(result.get("https"))
+    drift = _mapping(result.get("drift"))
+    manifest = _mapping(result.get("manifest"))
+    health = _mapping(service.get("health"))
+    runtime = _mapping(plugin.get("runtime"))
+    rows = [
+        ("Manifest", bool(manifest.get("present"))),
+        ("Service active", bool(service.get("active"))),
+        ("Service enabled", bool(service.get("enabled"))),
+        ("Service health", bool(health.get("ok"))),
+        ("Plugin installed", bool(plugin.get("installed"))),
+        ("Plugin enabled", bool(plugin.get("enabled"))),
+        ("Plugin loaded", bool(plugin.get("loaded"))),
+        ("Plugin runtime", bool(runtime.get("available"))),
+        ("Hermes Gateway", bool(gateway.get("active"))),
+        ("HTTPS origin", bool(https.get("reachable"))),
+        ("Configuration drift", not bool(drift.get("detected"))),
+    ]
+    return "HermesPeek status\n" + "\n".join(
+        f"  {'✓' if ok else '✗'} {label}" for label, ok in rows
+    )
+
+
+def _format_doctor(result: dict[str, object]) -> str:
+    checks = result.get("checks") if isinstance(result.get("checks"), list) else []
+    lines = ["HermesPeek diagnostics"]
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        ok = bool(check.get("ok"))
+        lines.append(f"  {'✓' if ok else '✗'} {_human_label(str(check.get('name', 'check')))}")
+        if not ok and check.get("suggestion"):
+            lines.append(f"    Suggestion: {check['suggestion']}")
+    lines.append("All checks passed." if checks and all(bool(c.get("ok")) for c in checks if isinstance(c, dict))
+                 else "One or more checks need attention.")
+    return "\n".join(lines)
+
+
+def _print_result(result: dict[str, object], *, kind: str) -> None:
+    if kind == "update":
+        print(_format_update_result(result))
+    elif kind == "status":
+        print(_format_status(result))
+    elif kind == "doctor":
+        print(_format_doctor(result))
+    else:
+        heading = {
+            "publish": "Preview published",
+            "inspect": "Preview details",
+            "revoke": "Preview revoked",
+            "rollback": "Rollback completed",
+            "service": "Service command completed",
+            "setup_plan": "HermesPeek setup plan (no changes made)",
+            "purge_plan": "HermesPeek purge plan (no changes made)",
+        }.get(kind, "HermesPeek result")
+        print("\n".join([heading, *_human_lines(result, indent=1)]))
 
 
 def setup_https_probe(url: str) -> dict[str, object]:
@@ -379,11 +529,14 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--thread-id", type=int)
     publish.add_argument("--chat-type", choices=("private", "group", "supergroup"))
 
+
     inspect = subparsers.add_parser("inspect", help="Inspect public preview metadata")
     inspect.add_argument("preview_id")
 
+
     revoke = subparsers.add_parser("revoke", help="Revoke a preview")
     revoke.add_argument("preview_id")
+
 
     serve = subparsers.add_parser("serve", help="Run the local preview service")
     serve.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1", "::1"))
@@ -405,28 +558,33 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--no-activate", action="store_true")
     setup.add_argument("--plan", action="store_true", help="Print a read-only, redacted setup plan")
 
+
     uninstall = subparsers.add_parser("uninstall", help="Safely remove HermesPeek integration")
     uninstall.add_argument("--hermes-home", type=Path)
     uninstall.add_argument("--purge", "--purge-data", dest="purge", action="store_true")
     uninstall.add_argument("--dry-run", action="store_true")
     uninstall.add_argument("--yes", action="store_true")
     uninstall.add_argument("--no-deactivate", action="store_true")
+
     rollback = subparsers.add_parser("rollback", help="Rollback a committed setup transaction")
     rollback.add_argument("transaction_id")
     rollback.add_argument("--hermes-home", type=Path)
+
     status = subparsers.add_parser("status", help="Show lifecycle status")
-    status.add_argument("--json", action="store_true")
+
     status.add_argument("--hermes-home", type=Path)
     doctor = subparsers.add_parser("doctor", help="Run read-only lifecycle diagnostics")
-    doctor.add_argument("--json", action="store_true")
+
     doctor.add_argument("--hermes-home", type=Path)
     service = subparsers.add_parser("service", help="Manage the local service")
     service.add_argument("action", choices=("start", "stop", "restart", "logs"))
+
     update = subparsers.add_parser("update", aliases=("upgrade",), help="Update a curl-installed HermesPeek CLI")
     update.add_argument("--check", action="store_true", help="Check for an update without changing anything")
     update.add_argument("--plan", action="store_true", help="Print a read-only update plan")
     update.add_argument("--version", dest="target_version", help="Update to a specific release version")
     update.add_argument("--yes", action="store_true", help="Apply without interactive confirmation")
+
     return parser
 
 
@@ -520,7 +678,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             target = args.target_version or _latest_release_version()
             plan = _update_cli(target, apply=False)
             if args.check or args.plan or not plan["update_available"]:
-                print(json.dumps(plan, ensure_ascii=False, sort_keys=True))
+                _print_result(plan, kind="update")
                 return 0
             if not args.yes:
                 if not sys.stdin.isatty():
@@ -534,7 +692,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             except Exception:
                 update_progress.finish(failed=True)
                 raise
-            print(json.dumps(update_result, ensure_ascii=False, sort_keys=True))
+            _print_result(update_result, kind="update")
             return 0
         if args.command in {"status", "doctor", "service"}:
             paths = _paths_for_user(
@@ -555,12 +713,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 output = {"action": args.action, "ok": True}
                 if value is not None:
                     output["output"] = value
-            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            _print_result(output, kind=args.command)
             return 0
         if args.command == "rollback":
             paths = _paths_for_user(_resolve_lifecycle_home(args.hermes_home))
             result = rollback_transaction(paths, args.transaction_id, runner=lifecycle_runner)
-            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            _print_result(result, kind="rollback")
             return 0
         if args.command in {"setup", "uninstall"}:
             selected_home = (
@@ -603,7 +761,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                         external_url=args.external_url,
                         activate=not args.no_activate,
                     )
-                    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+                    _print_result(result, kind="setup_plan")
                     return 0
                 executable_path = resolve_current_executable()
                 setup_progress = _TerminalProgress(_SETUP_PROGRESS_MESSAGES)
@@ -682,7 +840,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 if result.get("activation_pending_gateway_restart"):
                     print("Gateway restart required: hermes gateway restart", flush=True)
             else:
-                print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+                _print_result(result, kind="purge_plan")
             return 0
         settings = Settings.from_env()
         if args.command == "serve":
@@ -752,7 +910,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             output = service.inspect(args.preview_id).model_dump(mode="json")
         else:
             output = service.revoke(args.preview_id).model_dump(mode="json")
-        print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+        _print_result(output, kind=args.command)
         return 0
     except (
         ValueError,

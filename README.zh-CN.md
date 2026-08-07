@@ -143,8 +143,8 @@ tailscale serve status
 ### 4. 检查是否真的可用
 
 ```bash
-hermes-peek status --json
-hermes-peek doctor --json
+hermes-peek status
+hermes-peek doctor
 ```
 
 这两条命令通过只代表安装和配置检查通过。最终仍需在新的 Hermes 会话中发起一次真实 Preview，并确认它能在目标私聊、群组或 Topic 中打开。
@@ -392,7 +392,7 @@ hermes-peek setup \
 检查安装状态：
 
 ```bash
-hermes-peek status --json
+hermes-peek status
 hermes-peek doctor
 ```
 
@@ -409,7 +409,7 @@ hermes-peek uninstall
 检查生命周期状态和诊断信息：
 
 ```bash
-hermes-peek status --json
+hermes-peek status
 hermes-peek doctor
 ```
 

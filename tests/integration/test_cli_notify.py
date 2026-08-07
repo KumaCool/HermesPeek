@@ -40,16 +40,16 @@ def test_publish_notify_sends_mock_message(monkeypatch, tmp_path: Path, capsys) 
         "--chat-type", "supergroup", "--thread-id", "6030",
     ])
 
-    output = json.loads(capsys.readouterr().out)
+    output = capsys.readouterr().out
     assert result == 0
-    assert output["notified"] is True
-    assert output["message_id"] == 9
-    assert output["url"].startswith("https://preview.example.test/p/")
+    assert "Notified: Yes" in output
+    assert "Message id: 9" in output
+    preview_url = next(line.split(": ", 1)[1] for line in output.splitlines() if line.strip().startswith("Url: "))
     sent = captured["payload"]
     assert isinstance(sent, dict)
     assert sent["message_thread_id"] == 6030
-    assert sent["reply_markup"]["inline_keyboard"][0][0]["url"] == output["url"]
-    assert str(tmp_path) not in json.dumps(output)
+    assert sent["reply_markup"]["inline_keyboard"][0][0]["url"] == preview_url
+    assert str(tmp_path) not in output
 
 
 def test_notification_failure_keeps_preview_and_returns_nonzero(monkeypatch, tmp_path: Path, capsys) -> None:

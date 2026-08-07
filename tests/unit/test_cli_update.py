@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import subprocess
 from pathlib import Path
 
 from hermes_peek import cli
@@ -61,6 +62,15 @@ chmod +x "$launcher"
     monkeypatch.setattr(cli, "resolve_current_executable", lambda: installed.resolve())
     monkeypatch.setattr(cli.shutil, "which", lambda name: str(fake_uv) if name == "uv" else None)
     monkeypatch.setattr(cli.urllib.request, "urlretrieve", download)
+    original_run = cli.subprocess.run
+    lifecycle_stdin = []
+
+    def recording_run(command, *args, **kwargs):
+        if len(command) > 1 and command[1] in {"setup", "status", "doctor"}:
+            lifecycle_stdin.append(kwargs.get("stdin"))
+        return original_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(cli.subprocess, "run", recording_run)
 
     result = cli._update_cli("9.9.9", apply=True)
 
@@ -68,3 +78,17 @@ chmod +x "$launcher"
     assert log.read_text(encoding="utf-8").splitlines() == ["setup", "status", "doctor"]
     assert installed.read_text(encoding="utf-8").splitlines()[0] == f"#!{root}/hermes-peek/bin/python"
     assert command_link.resolve() == installed.resolve()
+    assert lifecycle_stdin == [subprocess.DEVNULL, subprocess.DEVNULL, subprocess.DEVNULL]
+
+
+def test_update_subprocess_error_names_phase_redacts_token_and_bounds_detail() -> None:
+    token = "123456789:" + "A" * 35
+    result = subprocess.CompletedProcess(
+        ["hermes-peek", "setup"], 7, "", f"prompt failed for {token}\n" + "x" * 2000
+    )
+
+    message = str(cli._update_subprocess_error("setup", result))
+
+    assert message.startswith("updated integration setup failed: prompt failed for [REDACTED]")
+    assert token not in message
+    assert len(message) <= 1040

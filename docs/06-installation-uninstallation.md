@@ -20,7 +20,7 @@ HermesPeek 最终应由单一 CLI 管理完整生命周期，普通用户不需�
 
 ```text
 hermes-peek setup [--profile NAME] [--plan] [--non-interactive ...]
-hermes-peek status [--profile NAME] [--json]
+hermes-peek status [--profile NAME]
 hermes-peek doctor [--profile NAME]
 hermes-peek service start|stop|restart|logs
 hermes-peek upgrade [--profile NAME]
@@ -180,8 +180,8 @@ Purge 不删除允许根目录中的原始项目文件。默认 `uv tool` 安装
 #### 状态、诊断、服务与回滚
 
 ```bash
-hermes-peek status --json
-hermes-peek doctor --json
+hermes-peek status
+hermes-peek doctor
 hermes-peek service start|stop|restart|logs
 hermes-peek rollback <transaction-id>
 ```
@@ -416,7 +416,7 @@ hermes-peek uninstall --purge
 
 ## 9. Status、Doctor 与服务管理
 
-`status --json` 提供稳定机器可读状态：
+`status` 提供稳定机器可读状态：
 
 - profile/home；
 - manifest 和 transaction 状态；
