@@ -48,12 +48,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - name: Download the exact verified asset set
         uses: actions/download-artifact@v4
         with:
           name: hermes-peek-linux-release-assets
           path: dist/release
-      - uses: actions/checkout@v4
       - name: Extract required version changelog
         run: python scripts/release_notes.py --tag "${GITHUB_REF_NAME}" --output dist/RELEASE_NOTES.md
       - name: Publish assets for an explicitly pushed version tag only
