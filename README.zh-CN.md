@@ -14,6 +14,10 @@ HermesPeek **不会**编辑、执行、上传或删除预览工作区中的文�
   <img src="docs/assets/hermespeek-preview.jpg" alt="HermesPeek 在 Telegram 中的预览效果" width="420">
 </p>
 
+<p align="center">
+  <img src="docs/assets/hermespeek-telegram-delivery.jpg" alt="HermesPeek 在 Telegram 中发送 Open preview 按钮" width="760">
+</p>
+
 ## 工作方式
 
 ```text
