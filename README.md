@@ -11,11 +11,7 @@ HermesPeek does **not** edit, execute, upload, or delete files in the previewed 
 ## Preview
 
 <p align="center">
-  <img src="docs/assets/hermespeek-preview.jpg" alt="HermesPeek preview in Telegram" width="420">
-</p>
-
-<p align="center">
-  <img src="docs/assets/hermespeek-telegram-delivery.jpg" alt="HermesPeek delivering an Open preview button in Telegram" width="760">
+  <img src="docs/assets/hermespeek-feature-preview.jpg" alt="HermesPeek feature preview showing Telegram delivery and the document viewer" width="100%">
 </p>
 
 ## What it does
