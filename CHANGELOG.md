@@ -6,6 +6,18 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-08-07
+
+### Changed
+
+- Reuse the Hermes profile recorded by the committed installation manifest for uninstall, status, doctor, and rollback, so ordinary lifecycle commands no longer require `--hermes-home`.
+- Treat an explicit `--hermes-home` as an advanced target assertion and reject mismatches before any service or filesystem mutation with an actionable message.
+
+### Fixed
+
+- Reinstall verified updates directly into their final `uv tool` path instead of moving a staged environment whose launcher embeds an absolute interpreter path.
+- Recreate and verify curl-install ownership metadata at the final update path before reapplying setup and health checks.
+
 ## [0.2.10] - 2026-08-07
 
 ### Added
@@ -145,7 +157,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.10...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.11
 [0.2.10]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.10
 [0.2.9]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.9
 [0.2.8]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.8
