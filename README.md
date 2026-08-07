@@ -8,6 +8,12 @@ HermesPeek is a small Python service and CLI for sharing the latest contents of 
 
 HermesPeek does **not** edit, execute, upload, or delete files in the previewed workspace.
 
+## Preview
+
+<p align="center">
+  <img src="docs/assets/hermespeek-preview.jpg" alt="HermesPeek preview in Telegram" width="420">
+</p>
+
 ## What it does
 
 ```text

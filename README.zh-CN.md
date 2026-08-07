@@ -8,6 +8,12 @@ HermesPeek 是一个小型 Python 服务和命令行工具，用于在受保护�
 
 HermesPeek **不会**编辑、执行、上传或删除预览工作区中的文件。
 
+## 效果图
+
+<p align="center">
+  <img src="docs/assets/hermespeek-preview.jpg" alt="HermesPeek 在 Telegram 中的预览效果" width="420">
+</p>
+
 ## 工作方式
 
 ```text
