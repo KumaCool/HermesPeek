@@ -18,6 +18,7 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Re-running `hermes-peek setup` now discovers the committed Hermes target and preserves omitted settings, so HTTPS or allowed roots can be changed independently.
 - `hermes-peek uninstall` removes the curl-installed CLI only after integration removal succeeds.
 - Reserve `uv run hermes-peek` for source-development workflows; installed-user documentation uses the bare command.
+- Require every version tag to have a dated, non-empty `CHANGELOG.md` section; CI extracts that exact section as the GitHub Release body and blocks publication when it is missing.
 
 ## [0.2.8] - 2026-08-07
 

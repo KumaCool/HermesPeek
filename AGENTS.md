@@ -21,6 +21,10 @@ These rules apply to any Agent installing, upgrading, verifying, rolling back, o
 - An installer entry is available only when its target Release contains the matching package and checksum assets. Until then, state that the entry is unavailable; use the checked-out repository and `uv run hermes-peek setup` only as a repository development rehearsal. Never present a guessed download or curl command as working.
 - For AI-assisted work, start with a read-only/redacted setup plan and obtain the approvals above. The ordinary interactive CLI intentionally proceeds after validated inputs without rendering that plan or asking a second yes/no question. Use setup, upgrade, rollback, and uninstall through their supported lifecycle commands rather than manual replacement.
 
+## Release changelog contract
+
+Every released version must have a dated, non-empty `CHANGELOG.md` section using Keep a Changelog categories. The tag workflow runs `scripts/release_notes.py`, blocks publication if that section is missing or empty, and uses the extracted section as the GitHub Release body. `generate_release_notes` is intentionally not a substitute for the maintained changelog.
+
 ## Completion contract
 
 Report these levels independently; a lower level never proves a higher one:

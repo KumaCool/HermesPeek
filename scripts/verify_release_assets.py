@@ -9,6 +9,8 @@ import tomllib
 import zipfile
 from pathlib import Path
 
+from release_notes import changelog_section
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,6 +28,10 @@ def main() -> int:
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     if args.tag and args.tag != f"v{version}":
         fail(f"tag {args.tag} does not match project version {version}")
+    try:
+        changelog_section(version)
+    except (OSError, ValueError) as exc:
+        fail(str(exc))
     expected = {
         f"hermes_peek-{version}-py3-none-any.whl",
         f"hermes_peek-{version}.tar.gz",

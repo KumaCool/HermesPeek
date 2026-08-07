@@ -152,7 +152,9 @@ def test_linux_release_workflow_builds_and_verifies_but_publishes_only_tags() ->
     assert "scripts/offline_linux_acceptance.py" in text
     assert "actions/upload-artifact@" in text
     assert "softprops/action-gh-release@" in text
-    assert "generate_release_notes: true" in text
+    assert "body_path: dist/RELEASE_NOTES.md" in text
+    assert "scripts/release_notes.py" in text
+    assert "generate_release_notes: true" not in text
     assert "startsWith(github.ref, 'refs/tags/v')" in text
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["jobs"]["publish-tag"]["permissions"] == {"contents": "write"}
