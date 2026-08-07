@@ -32,7 +32,7 @@ hermes-peek rollback [TRANSACTION_ID]
 
 默认交互式 `setup` 在必要输入验证通过后直接执行，按真实事务阶段刷新进度，并以 `HermesPeek <version> installed successfully` 结束；内部 plan/result JSON 不面向普通用户。显式 `setup --plan` 仍是无副作用的机器可读审计接口。Purge 的破坏性确认规则不受此 UX 调整影响。
 
-### 1.2 当前 v0.2.12 CLI 接口
+### 1.2 当前 v0.2.13 CLI 接口
 
 本节记录当前 Release 已实现的命令。后文标为“目标”的 `--profile` 等接口属于设计方向，不应当作现有语法使用。已安装版本的最终权威来源是：
 
@@ -49,10 +49,10 @@ Linux 且 systemd user manager 正常运行时，使用仓库安装器：
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-固定安装 v0.2.12：
+固定安装 v0.2.13：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/v0.2.12/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/v0.2.13/install.sh | sh
 ```
 
 无人交互安装时，将 `setup` 参数放在 `sh -s --` 后：
@@ -140,7 +140,7 @@ curl -fsS https://your-device.your-tailnet.ts.net/healthz
 hermes-peek update --check
 hermes-peek update --plan
 hermes-peek update
-hermes-peek update --version 0.2.12 --yes
+hermes-peek update --version 0.2.13 --yes
 ```
 
 `upgrade` 是 `update` 的别名。自动更新仅支持仓库 `install.sh` 创建并带有效所有权元数据的 curl 安装。它会校验 Release 资产、原子切换 CLI、重新应用集成，并执行 `status` 和 `doctor`；失败时恢复上一版本。

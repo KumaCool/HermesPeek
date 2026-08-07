@@ -6,6 +6,18 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-08-07
+
+### Changed
+
+- Replace HermesPeek CLI JSON output with concise, user-readable text across preview, lifecycle, service, diagnostics, and update commands; the obsolete `--json` option is no longer accepted.
+- Run post-update `status` and `doctor` verification through their normal text interface while continuing to use exit codes as the success contract.
+
+### Fixed
+
+- Prevent hidden post-update setup and verification subprocesses from waiting for interactive input by disconnecting their standard input.
+- Stop update verification at the failing lifecycle phase and report a bounded, single-line, credential-redacted diagnostic from the underlying command.
+
 ## [0.2.12] - 2026-08-07
 
 ### Added
@@ -168,7 +180,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.12...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.13...HEAD
+[0.2.13]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.13
 [0.2.12]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.12
 [0.2.11]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.11
 [0.2.10]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.10
