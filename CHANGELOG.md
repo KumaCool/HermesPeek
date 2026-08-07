@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.14] - 2026-08-07
+
+### Fixed
+
+- Preserve explicitly supplied setup values when interactive completion is needed, and prompt only for required fields that remain missing.
+- Report incomplete non-interactive setup arguments as an actionable CLI error instead of attempting to read from closed standard input.
+
 ## [0.2.13] - 2026-08-07
 
 ### Changed
@@ -180,7 +187,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.13...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.14...HEAD
+[0.2.14]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.14
 [0.2.13]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.13
 [0.2.12]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.12
 [0.2.11]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.11

@@ -62,6 +62,54 @@ def test_interactive_wizard_prefills_existing_values(tmp_path):
     assert result["external_url"] == "https://preview.example.test"
 
 
+def test_interactive_setup_only_prompts_for_value_missing_from_arguments(tmp_path, monkeypatch):
+    import hermes_peek.cli as cli
+
+    target = paths(tmp_path)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    prompts = []
+    monkeypatch.setattr(cli, "discover_installed_hermes_home", lambda: target.hermes_home)
+    monkeypatch.setattr(cli, "_paths_for_user", lambda home=None: target)
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: prompts.append(prompt) or "https://preview.example.test")
+
+    assert cli.main(["setup", "--allowed-root", str(workspace), "--plan"]) == 0
+    assert prompts == ["External HTTPS origin []: "]
+
+
+def test_interactive_setup_does_not_overwrite_explicit_external_url(tmp_path, monkeypatch):
+    import hermes_peek.cli as cli
+
+    target = paths(tmp_path)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    prompts = []
+    monkeypatch.setattr(cli, "discover_installed_hermes_home", lambda: target.hermes_home)
+    monkeypatch.setattr(cli, "_paths_for_user", lambda home=None: target)
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: prompts.append(prompt) or str(workspace))
+
+    assert cli.main(["setup", "--external-url", "https://preview.example.test", "--plan"]) == 0
+    assert prompts == ["Allowed preview directories (comma-separated) []: "]
+
+
+def test_partial_setup_arguments_fail_clearly_without_tty(tmp_path, monkeypatch, capsys):
+    import hermes_peek.cli as cli
+
+    target = paths(tmp_path)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(cli, "discover_installed_hermes_home", lambda: target.hermes_home)
+    monkeypatch.setattr(cli, "_paths_for_user", lambda home=None: target)
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: False)
+
+    assert cli.main(["setup", "--allowed-root", str(workspace), "--plan"]) == 2
+    error = capsys.readouterr().err
+    assert "setup requires --external-url in non-interactive mode" in error
+    assert "EOFError" not in error
+
+
 def test_update_parser_supports_public_command_and_alias():
     from hermes_peek.cli import build_parser
     parser = build_parser()

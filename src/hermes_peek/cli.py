@@ -733,15 +733,31 @@ def main(arguments: Sequence[str] | None = None) -> int:
             paths = _paths_for_user(selected_home)
             if args.command == "setup":
                 existing = read_existing_setup(paths)
+                allowed_roots_explicit = bool(args.allowed_root)
+                external_url_explicit = bool(args.external_url)
                 if not args.allowed_root:
                     args.allowed_root = list(existing.get("allowed_roots") or ())
                 if not args.external_url:
                     args.external_url = existing.get("external_url")
                 if not args.allowed_root or not args.external_url:
                     if not sys.stdin.isatty():
-                        raise LifecycleError("first setup requires --allowed-root and --external-url")
+                        missing = []
+                        if not args.allowed_root:
+                            missing.append("--allowed-root")
+                        if not args.external_url:
+                            missing.append("--external-url")
+                        if len(missing) == 2:
+                            raise LifecycleError("first setup requires --allowed-root and --external-url")
+                        raise LifecycleError("setup requires " + missing[0] + " in non-interactive mode")
+                    wizard_values = dict(existing)
+                    if allowed_roots_explicit:
+                        wizard_values["allowed_roots"] = tuple(args.allowed_root)
+                    if external_url_explicit:
+                        wizard_values["external_url"] = args.external_url
                     wizard = run_setup_wizard(paths, input_fn=input, https_probe=setup_https_probe,
-                                              activate=not args.no_activate, existing=existing)
+                                              activate=not args.no_activate, existing=wizard_values,
+                                              prompt_allowed_roots=not bool(args.allowed_root),
+                                              prompt_external_url=not bool(args.external_url))
                     args.allowed_root = list(wizard["allowed_roots"])
                     args.external_url = wizard["external_url"]
                 if args.telegram_bot_username is None:
