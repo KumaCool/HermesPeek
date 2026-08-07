@@ -334,7 +334,7 @@ def test_uninstall_purge_runs_default_uninstall_before_delete(tmp_path, monkeypa
     def fake_purge(paths, *, confirmed): calls.append("purge"); return {"purged":True}
     monkeypatch.setattr(cli, "uninstall_application", fake_uninstall)
     monkeypatch.setattr(cli, "purge_application", fake_purge)
-    monkeypatch.setattr(cli, "_remove_uv_tool", lambda: (True, "已通过 uv tool 删除"))
+    monkeypatch.setattr(cli, "_remove_cli_installation", lambda: (True, "已通过 uv tool 删除"))
     assert main(["uninstall", "--purge", "--yes"]) == 0
     assert calls == ["uninstall", "purge"]
     output = capsys.readouterr().out

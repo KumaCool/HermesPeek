@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-08-07
+
+### Fixed
+
+- Persist the username returned by Telegram's verified Bot identity during setup so Preview links work in groups and Topics without requiring a duplicate manual username argument.
+- Reject an explicitly configured Bot username when it does not match the verified Telegram identity, and diagnose missing or unverified group/Topic delivery configuration in status and doctor output.
+
 ## [0.2.14] - 2026-08-07
 
 ### Fixed
@@ -187,7 +194,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.14...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.15...HEAD
+[0.2.15]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.15
 [0.2.14]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.14
 [0.2.13]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.13
 [0.2.12]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.12
