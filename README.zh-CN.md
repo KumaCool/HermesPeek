@@ -77,13 +77,13 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-HermesPeek v0.2.11 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
+HermesPeek v0.2.12 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
 ## 普通用户快速开始
 
-> `main` 安装器跟随当前稳定版 v0.2.11，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.11`。
+> `main` 安装器跟随当前稳定版 v0.2.12，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.12`。
 
 ### 1. 安装并启动向导
 
@@ -121,14 +121,26 @@ hermes-peek setup \
 
 审核后去掉 `--plan` 执行。Secret 文件应为仅当前用户可读，并包含 `TELEGRAM_BOT_TOKEN=...`；不要提交该文件。
 
-### 2. 完成 Hermes 与 Telegram 配置
+### 2. 获取 Telegram 可访问的 HTTPS 地址（Tailscale Serve）
+
+如果没有现成域名，可先安装并登录 [Tailscale](https://tailscale.com/download)，然后把本机 HermesPeek 服务发布到自己的 tailnet：
+
+```bash
+tailscale status
+tailscale serve --bg http://127.0.0.1:8765
+tailscale serve status
+```
+
+命令会显示一个 `https://your-device.your-tailnet.ts.net` 地址。将这个不带路径的地址填入 `External HTTPS origin`；setup 完成后用 `curl -fsS https://your-device.your-tailnet.ts.net/healthz` 验证。Tailscale Serve 不是公网入口：手机或桌面 Telegram 所在设备也必须连接同一 tailnet。HermesPeek 不管理既有 Serve 规则；完整步骤、Funnel 区别和安全卸载说明见[安装、升级、卸载与 Purge：使用 Tailscale Serve 获取 HTTPS Origin](docs/06-installation-uninstallation.md#tailscale-serve-https)。
+
+### 3. 完成 Hermes 与 Telegram 配置
 
 1. 按 [Hermes Telegram 配置文档](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram)启用 Telegram，并把自己的 Telegram user ID 加入允许用户（allowed users）；HermesPeek 不会擅自放宽授权。
 2. 私聊 Preview 不要求 Main Mini App。群组或 Forum Topic 使用 Direct Link 前，Bot owner 必须在 BotFather 中为同一个 Bot 配置 Main Mini App；`setChatMenuButton` 不能替代这一步。
 3. HTTPS Origin 必须能从实际 Telegram 客户端访问。Privacy Mode、BotFather 和网络配置都需要 owner 单独操作或确认。
 4. setup 完成后，根据其待办清单处理 Gateway 激活；然后开启一个新的 Hermes 会话，让新会话重新发现 Skill 和 Tool。
 
-### 3. 检查是否真的可用
+### 4. 检查是否真的可用
 
 ```bash
 hermes-peek status --json
@@ -137,7 +149,7 @@ hermes-peek doctor --json
 
 这两条命令通过只代表安装和配置检查通过。最终仍需在新的 Hermes 会话中发起一次真实 Preview，并确认它能在目标私聊、群组或 Topic 中打开。
 
-### 4. 更新、回滚和卸载
+### 5. 更新、回滚和卸载
 
 检查是否存在新版本、查看更新计划或执行更新：
 
@@ -147,7 +159,7 @@ hermes-peek update --plan
 hermes-peek update
 ```
 
-`upgrade` 是 `update` 的别名。自动更新仅支持通过仓库 `install.sh` 创建的安装；它会下载并校验目标 Release、原子切换 CLI、重新应用已提交的集成，并运行 `status` 和 `doctor`。无人交互执行时使用 `--yes`；固定目标版本时使用 `--version 0.2.11`。
+`upgrade` 是 `update` 的别名。自动更新仅支持通过仓库 `install.sh` 创建的安装；它会下载并校验目标 Release、原子切换 CLI、重新应用已提交的集成，并运行 `status` 和 `doctor`。无人交互执行时使用 `--yes`；固定目标版本时使用 `--version 0.2.12`。
 
 setup 返回的 transaction ID 可用于回滚：
 

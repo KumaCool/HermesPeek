@@ -32,7 +32,7 @@ hermes-peek rollback [TRANSACTION_ID]
 
 默认交互式 `setup` 在必要输入验证通过后直接执行，按真实事务阶段刷新进度，并以 `HermesPeek <version> installed successfully` 结束；内部 plan/result JSON 不面向普通用户。显式 `setup --plan` 仍是无副作用的机器可读审计接口。Purge 的破坏性确认规则不受此 UX 调整影响。
 
-### 1.2 当前 v0.2.11 CLI 接口
+### 1.2 当前 v0.2.12 CLI 接口
 
 本节记录当前 Release 已实现的命令。后文标为“目标”的 `--profile` 等接口属于设计方向，不应当作现有语法使用。已安装版本的最终权威来源是：
 
@@ -49,10 +49,10 @@ Linux 且 systemd user manager 正常运行时，使用仓库安装器：
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-固定安装 v0.2.11：
+固定安装 v0.2.12：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/v0.2.11/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/v0.2.12/install.sh | sh
 ```
 
 无人交互安装时，将 `setup` 参数放在 `sh -s --` 后：
@@ -89,13 +89,58 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
 | `--no-activate` | 不启动服务、不启用 Plugin、不重启 Gateway |
 | `--plan` | 输出只读、脱敏 JSON 计划，不产生副作用 |
 
+<a id="tailscale-serve-https"></a>
+
+#### 使用 Tailscale Serve 获取 HTTPS Origin
+
+如果没有现成的 HTTPS 域名，可以把 HermesPeek 只监听在本机的服务（`127.0.0.1:8765`）通过 [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve) 发布到自己的 tailnet：
+
+```bash
+# 前提：本机已安装并登录 Tailscale，tailnet 已启用 MagicDNS/HTTPS
+tailscale status
+tailscale serve --bg http://127.0.0.1:8765
+tailscale serve status
+```
+
+首次启用 Serve 时，Tailscale 可能要求在浏览器中确认 HTTPS。命令会显示类似下面的 URL：
+
+```text
+https://your-device.your-tailnet.ts.net
+```
+
+把该 URL（不要附加 `/healthz` 或其他路径）填入交互向导的 `External HTTPS origin`，或传给：
+
+```bash
+hermes-peek setup \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://your-device.your-tailnet.ts.net
+```
+
+setup 完成、HermesPeek 服务启动后验证：
+
+```bash
+curl -fsS https://your-device.your-tailnet.ts.net/healthz
+```
+
+重要边界：
+
+- **Tailscale Serve 只在 tailnet 内可达。** 打开 Preview 的手机或桌面 Telegram 客户端所在设备也必须登录并连接同一个 tailnet；否则应使用你自己的反向代理/域名，或在理解公网暴露风险后另行配置 Tailscale Funnel。
+- 不要把 `http://127.0.0.1:8765` 作为 `--external-url`；它只是 Serve 的本地上游，不是 Telegram 使用的 HTTPS Origin。
+- HermesPeek 不会创建、接管或删除现有 Tailscale 规则。以上命令会修改本机 Tailscale Serve 配置，应由设备所有者明确执行。
+- 不再使用时先查看现有规则，再删除；`reset` 会清除本机的**全部** Serve 配置，不应在共享配置的设备上盲目执行：
+
+  ```bash
+  tailscale serve status
+  tailscale serve reset
+  ```
+
 #### 更新
 
 ```bash
 hermes-peek update --check
 hermes-peek update --plan
 hermes-peek update
-hermes-peek update --version 0.2.11 --yes
+hermes-peek update --version 0.2.12 --yes
 ```
 
 `upgrade` 是 `update` 的别名。自动更新仅支持仓库 `install.sh` 创建并带有效所有权元数据的 curl 安装。它会校验 Release 资产、原子切换 CLI、重新应用集成，并执行 `status` 和 `doctor`；失败时恢复上一版本。

@@ -6,6 +6,17 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-08-07
+
+### Added
+
+- Document a Tailscale Serve workflow for obtaining a tailnet-only HTTPS origin backed by the local HermesPeek service, including verification, security boundaries, and removal steps.
+
+### Fixed
+
+- Treat a missing fresh-install systemd unit as successfully restored when rollback verification confirms the service is inactive and disabled, instead of reporting a misleading secondary rollback failure.
+- Preserve the original setup exception type and a bounded, credential-redacted message in both the transaction journal and CLI failure output.
+
 ## [0.2.11] - 2026-08-07
 
 ### Changed
@@ -157,7 +168,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.11...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.12...HEAD
+[0.2.12]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.12
 [0.2.11]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.11
 [0.2.10]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.10
 [0.2.9]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.9

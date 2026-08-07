@@ -255,9 +255,37 @@ def _restore_runtime(paths: InstallPaths, runner: CommandRunner, before: dict[st
             marker in (result.stderr or result.stdout or "").lower()
             for marker in ("not installed", "not found", "does not exist")
         )
-        if result.returncode and not missing_plugin:
+        absent_service_restored = False
+        output = (result.stderr or result.stdout or "").lower()
+        missing_service = any(
+            marker in output
+            for marker in ("not found", "not loaded", "does not exist", "could not be found")
+        )
+        if (
+            result.returncode
+            and missing_service
+            and command[-3:] == ("disable", "--now", "hermes-peek.service")
+        ):
+            # A failed fresh install restores (and therefore removes) its newly
+            # written unit before runtime rollback. systemctl can then report
+            # "unit not found" even though the required pre-install state has
+            # already been restored. Verify that state before reporting error.
+            inactive = runner(("systemctl", "--user", "is-active", "hermes-peek.service")).returncode != 0
+            disabled = runner(("systemctl", "--user", "is-enabled", "hermes-peek.service")).returncode != 0
+            absent_service_restored = inactive and disabled
+        if result.returncode and not missing_plugin and not absent_service_restored:
             errors.append(" ".join(command[:4]))
     return errors
+
+
+def _safe_failure(exc: Exception, *, secrets: Sequence[str] = ()) -> dict[str, str]:
+    """Return a bounded, single-line failure summary safe for journal/output."""
+    message = str(exc)
+    for secret in secrets:
+        if secret:
+            message = message.replace(secret, "[REDACTED]")
+    message = " ".join(message.split())[:1000] or "no error detail available"
+    return {"type": type(exc).__name__, "message": message}
 
 
 def _install_apply(
@@ -434,6 +462,7 @@ def _install_transaction(**kwargs) -> dict[str, object]:
             progress("verifying_installation")
             final_verify()
     except Exception as exc:
+        failure = _safe_failure(exc, secrets=(str(kwargs.get("bot_token") or ""),))
         for change in reversed(record["telegram_changes"]):
             try:
                 if telegram is not None:
@@ -443,12 +472,18 @@ def _install_transaction(**kwargs) -> dict[str, object]:
         _restore_files(resources, existed, backup)
         errors = _restore_runtime(paths, kwargs["runner"], before) if before else []
         errors = record["rollback_errors"] + errors
-        record.update(state="rollback_incomplete" if errors else "rolled_back", rollback_errors=errors)
+        record.update(
+            state="rollback_incomplete" if errors else "rolled_back",
+            rollback_errors=errors,
+            failure=failure,
+        )
         _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
         if not errors:
             shutil.rmtree(backup, ignore_errors=True)
-        raise LifecycleError(f"setup transaction {transaction_id} failed; rollback " +
-                             ("incomplete: " + ", ".join(errors) if errors else "completed")) from exc
+        raise LifecycleError(
+            f"setup transaction {transaction_id} failed: {failure['type']}: {failure['message']}; rollback " +
+            ("incomplete: " + ", ".join(errors) if errors else "completed")
+        ) from exc
     record["state"] = "committed"
     _atomic_write(journal, json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
     progress("committed")

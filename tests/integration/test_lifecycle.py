@@ -76,6 +76,18 @@ class StatefulRunner(RecordingRunner):
         return subprocess.CompletedProcess(command, 0, "", "")
 
 
+class MissingFreshUnitRollbackRunner(StatefulRunner):
+    """Model systemd after a failed fresh install's unit was restored away."""
+
+    def __call__(self, command):
+        normalized = tuple(command)
+        if normalized[-3:] == ("disable", "--now", "hermes-peek.service"):
+            self.commands.append(normalized)
+            self.service_active = self.service_enabled = False
+            return subprocess.CompletedProcess(command, 5, "", "Unit hermes-peek.service not found")
+        return super().__call__(command)
+
+
 class FakeServiceBackend:
     def __init__(self, runner): self.runner = runner; self.stopped_verified = False
     def preflight(self): return None
@@ -406,6 +418,44 @@ def test_setup_failure_restores_service_plugin_and_gateway_state(tmp_path: Path)
     journal = json.loads(next((target.state_dir / "journal").glob("*.json")).read_text())
     assert journal["state"] == "rolled_back" and journal["rollback_errors"] == []
     assert journal["before"]["gateway_active"] is True
+
+
+def test_fresh_setup_failure_accepts_missing_unit_when_service_state_is_restored(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    runner = MissingFreshUnitRollbackRunner(fail_gateway_restart=True)
+
+    with pytest.raises(LifecycleError, match=r"simulated gateway failure; rollback completed"):
+        install(paths=target, integration_dir=PLUGIN, executable=executable,
+                allowed_roots=(allowed,), external_url="https://preview.example.test",
+                bot_token="123456789:" + "R" * 35, runner=runner,
+                service_backend=FakeServiceBackend(runner))
+
+    journal = json.loads(next((target.state_dir / "journal").glob("*.json")).read_text())
+    assert journal["state"] == "rolled_back"
+    assert journal["rollback_errors"] == []
+    assert journal["failure"] == {"type": "LifecycleError", "message": "env failed: simulated gateway failure"}
+    assert not target.unit_file.exists()
+
+
+def test_setup_failure_redacts_bot_token_from_error_and_journal(tmp_path: Path) -> None:
+    target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher")
+    token = "123456789:" + "Z" * 35
+
+    def fail_verify():
+        raise RuntimeError(f"probe accidentally repeated {token}")
+
+    with pytest.raises(LifecycleError) as raised:
+        install(paths=target, integration_dir=PLUGIN, executable=executable,
+                allowed_roots=(allowed,), external_url="https://preview.example.test",
+                bot_token=token, activate=False, final_verify=fail_verify)
+
+    journal_text = next((target.state_dir / "journal").glob("*.json")).read_text()
+    assert token not in str(raised.value)
+    assert token not in journal_text
+    assert "[REDACTED]" in str(raised.value)
+    assert json.loads(journal_text)["failure"]["type"] == "RuntimeError"
 
 
 def test_committed_transaction_can_be_rolled_back_by_id(tmp_path: Path) -> None:

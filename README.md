@@ -77,13 +77,13 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-HermesPeek v0.2.11 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
+HermesPeek v0.2.12 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
 ## Operator quickstart
 
-> The `main` installer tracks the current stable Release, v0.2.11. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.11`.
+> The `main` installer tracks the current stable Release, v0.2.12. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.12`.
 
 ### 1. Install and run the setup wizard
 
@@ -121,14 +121,26 @@ hermes-peek setup \
 
 Review the plan, then remove `--plan` to apply it. The user-only Secret file should contain `TELEGRAM_BOT_TOKEN=...`; never commit it.
 
-### 2. Complete Hermes and Telegram configuration
+### 2. Obtain a Telegram-reachable HTTPS URL with Tailscale Serve
+
+If you do not already have an HTTPS domain, install and sign in to [Tailscale](https://tailscale.com/download), then publish the loopback-only HermesPeek service to your tailnet:
+
+```bash
+tailscale status
+tailscale serve --bg http://127.0.0.1:8765
+tailscale serve status
+```
+
+The command prints a URL such as `https://your-device.your-tailnet.ts.net`. Enter that origin without a path when setup asks for `External HTTPS origin`; after setup, verify it with `curl -fsS https://your-device.your-tailnet.ts.net/healthz`. Tailscale Serve is not a public-internet endpoint: the phone or desktop running Telegram must also be connected to the same tailnet. HermesPeek does not manage existing Serve rules. See [Installation, upgrade, uninstall, and purge: Tailscale Serve HTTPS](docs/06-installation-uninstallation.md#tailscale-serve-https) for the full procedure, Funnel distinction, and cleanup warning.
+
+### 3. Complete Hermes and Telegram configuration
 
 1. Follow the [Hermes Telegram documentation](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram), enable Telegram, and add your Telegram user ID to allowed users. HermesPeek never broadens authorization automatically.
 2. Private-chat Preview does not require a Main Mini App. Before using Direct Links in a group or Forum Topic, the bot owner must bind a Main Mini App to the same bot in BotFather; `setChatMenuButton` is not a substitute.
 3. The HTTPS origin must be reachable from the actual Telegram client. Privacy Mode, BotFather, and network configuration remain separate owner actions or approvals.
 4. After setup, follow its checklist for Gateway activation, then start a new Hermes session so it can discover the new Skill and Tool.
 
-### 3. Verify real usability
+### 4. Verify real usability
 
 ```bash
 hermes-peek status --json
@@ -137,7 +149,7 @@ hermes-peek doctor --json
 
 Passing these checks proves installation/configuration readiness only. Final acceptance requires requesting a real Preview from a new Hermes session and opening it in the intended private chat, group, or Topic.
 
-### 4. Update, rollback, and uninstall
+### 5. Update, rollback, and uninstall
 
 Check whether a newer Release is available, inspect the update plan, or apply the update:
 
@@ -147,7 +159,7 @@ hermes-peek update --plan
 hermes-peek update
 ```
 
-`upgrade` is an alias for `update`. Automatic update is supported for installations created by the repository `install.sh`; it downloads and verifies the selected Release, switches the CLI atomically, reapplies the committed integration, and runs `status` and `doctor`. Use `--yes` for non-interactive execution or `--version 0.2.11` to select a fixed Release.
+`upgrade` is an alias for `update`. Automatic update is supported for installations created by the repository `install.sh`; it downloads and verifies the selected Release, switches the CLI atomically, reapplies the committed integration, and runs `status` and `doctor`. Use `--yes` for non-interactive execution or `--version 0.2.12` to select a fixed Release.
 
 Roll back a committed setup with its transaction ID:
 
