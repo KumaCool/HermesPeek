@@ -167,28 +167,6 @@ Purge 不会删除允许根目录中的原始项目文件。更完整的保留�
 <!-- ai-install-prompt:start -->
 ```text
 请帮我从 https://github.com/KumaCool/HermesPeek 安装并验证 HermesPeek。
-
-执行前：
-1. 阅读 README.zh-CN.md、docs/08-one-click-ai-telegram-onboarding.md、
-   docs/06-installation-uninstallation.md、AGENTS.md、
-   docs/plan/05-one-click-ai-telegram-onboarding-rollout.md 的实施状态，并检查
-   当前 GitHub Release 资产。把它们作为权威来源，然后只读现场发现真实主机、
-   Hermes profile、service、Gateway、Telegram 配置和缺失输入。
-2. 先输出脱敏计划。在我批准每项副作用前不要做任何变更。修改真实 Hermes
-   profile 或 service、重启 Gateway、修改 Telegram 菜单，以及任何 HTTPS、
-   端口、防火墙、代理、Tailscale、证书或其他网络变更，都必须单独确认。
-3. Secret 不要发送进聊天。不要在聊天中发送，也不要要求我发送 Telegram Bot Token、
-   API Key、密码或其他 Secret。Secret 只能从本机受限权限文件或本机安全输入读取，
-   绝不能出现在聊天、命令参数、计划或日志中。
-4. 检查 v0.2.1 Release 确实包含匹配的 wheel、sdist 和 SHA256SUMS，然后使用
-   仓库/tag 安装器和 hermes-peek setup；不要复制内部
-   Plugin/Skill 文件或发明另一套安装流程。
-5. 分别验证并报告三个完成层级：(a) 安装完成：CLI/profile/service 检查通过；
-   (b) Hermes 加载完成：目标 profile、Gateway、新会话、Skill 和 Tool 已现场
-   加载；(c) Telegram 现场验收完成：在新会话中真实 Preview 成功发回原私聊、
-   群组或 Topic。不得用离线测试或前一层结果冒充后一层完成。
-6. 最后给出脱敏验证清单，以及仍待 Bot owner 完成的 BotFather、HTTPS、Gateway
-   或 Telegram 步骤。没有现场运行的检查不得声称成功。
 ```
 <!-- ai-install-prompt:end -->
 

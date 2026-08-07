@@ -6,6 +6,26 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-08-07
+
+### Added
+
+- Add concise TTY progress animation for setup, update, uninstall, and purge while keeping redirected and machine-readable output quiet.
+- Persist restricted curl-install ownership metadata so update and uninstall can validate the exact installation they manage.
+- Allow the setup wizard to preserve and edit multiple comma-separated Preview roots.
+
+### Changed
+
+- Re-running the installer with setup arguments now repairs the stable command entry and continues configuration instead of exiting early.
+- Simplify the copyable Chinese AI-install request while retaining the complete operator contract in project guidance.
+- Make curl update and uninstall validate the invoked executable, command link, and approved installation root before replacing or removing files.
+
+### Fixed
+
+- Serialize `hermes_peek_send_preview` results at the Hermes Tool boundary so Hermes 0.19 accepts successful and failed Preview results instead of rejecting Python dictionaries.
+- Reuse the committed HermesPeek credential file during subsequent setup runs when no credential path is supplied.
+- Delay curl-installed CLI removal until the active uninstall process exits and avoid unsafe self-removal for default `uv tool` installations.
+
 ## [0.2.9] - 2026-08-07
 
 ### Added
@@ -125,7 +145,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.9...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.10...HEAD
+[0.2.10]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.10
 [0.2.9]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.9
 [0.2.8]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.8
 [0.2.7]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.7

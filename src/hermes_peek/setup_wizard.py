@@ -111,6 +111,12 @@ def read_existing_setup(paths: InstallPaths) -> dict[str, Any]:
         raise LifecycleError("existing HermesPeek configuration is invalid")
     roots = value.get("allowed_roots")
     origin = value.get("external_base_url")
+    if roots is not None and (
+        not isinstance(roots, list)
+        or not roots
+        or any(not isinstance(item, str) or not item for item in roots)
+    ):
+        raise LifecycleError("existing HermesPeek configuration is invalid")
     return {
         "allowed_roots": tuple(Path(item) for item in roots) if isinstance(roots, list) else (),
         "external_url": origin.rstrip("/") if isinstance(origin, str) else None,
@@ -149,9 +155,10 @@ def run_setup_wizard(
 ) -> dict[str, Any]:
     current = existing or read_existing_setup(paths)
     current_roots = tuple(current.get("allowed_roots") or ())
-    root_default = str(current_roots[0]) if current_roots else ""
-    root_answer = input_fn(f"Allowed preview directory [{root_default}]: ").strip()
-    roots = validate_allowed_roots((Path(root_answer or root_default),))
+    root_default = ", ".join(str(path) for path in current_roots)
+    root_answer = input_fn(f"Allowed preview directories (comma-separated) [{root_default}]: ").strip()
+    roots = (validate_allowed_roots(tuple(Path(value.strip()) for value in root_answer.split(",") if value.strip()))
+             if root_answer else validate_allowed_roots(current_roots))
     origin_default = current.get("external_url") or ""
     origin_answer = input_fn(f"External HTTPS origin [{origin_default}]: ").strip()
     origin = validate_https_origin(origin_answer or origin_default)

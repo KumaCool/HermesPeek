@@ -167,13 +167,25 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
 
     marker = target.state_dir / "keep.json"
     marker.write_text("{}", encoding="utf-8")
-    removed = uninstall(paths=target, runner=runner, service_backend=FakeServiceBackend(runner))
+    uninstall_progress: list[str] = []
+    removed = uninstall(
+        paths=target,
+        runner=runner,
+        service_backend=FakeServiceBackend(runner),
+        progress=uninstall_progress.append,
+    )
 
     assert removed["uninstalled"] is True and removed["state_preserved"] is True
     assert not target.plugin_dir.exists()
     assert not target.unit_file.exists() and not target.env_file.exists()
     assert marker.exists()
     assert ("env", f"HERMES_HOME={target.hermes_home}", "hermes", "plugins", "disable", "hermes-peek") in runner.commands
+    assert uninstall_progress == [
+        "stopping_service",
+        "disabling_integration",
+        "restarting_gateway",
+        "removing_integration",
+    ]
 
 
 def test_uninstall_removes_generated_plugin_bytecode_cache(tmp_path: Path) -> None:

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-INSTALLER_VERSION="0.2.9"
+INSTALLER_VERSION="0.2.10"
 RELEASE_CHANNEL="${HERMES_PEEK_CHANNEL:-release}"
 NON_INTERACTIVE=false
 DRY_RUN=false
@@ -80,13 +80,14 @@ if ! "$UV_COMMAND" --version >/dev/null 2>&1; then
     exit 1
 fi
 
-ASSET="hermes_peek-0.2.9-py3-none-any.whl"
+ASSET="hermes_peek-0.2.10-py3-none-any.whl"
 RELEASE_BASE_URL="${HERMES_PEEK_RELEASE_BASE_URL:-https://github.com/KumaCool/HermesPeek/releases/download/v${INSTALLER_VERSION}}"
 CURL_COMMAND="${HERMES_PEEK_CURL:-curl}"
 INSTALL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/hermes-peek"
 INSTALL_BIN="${HERMES_PEEK_INSTALL_BIN:-$INSTALL_ROOT/bin}"
 COMMAND_DIR="${HERMES_PEEK_COMMAND_DIR:-$HOME/.local/bin}"
 COMMAND_LINK="${HERMES_PEEK_COMMAND_LINK:-$COMMAND_DIR/hermes-peek}"
+INSTALL_METADATA="$INSTALL_ROOT/install-metadata.json"
 export UV_TOOL_DIR="$INSTALL_ROOT"
 export UV_TOOL_BIN_DIR="$INSTALL_BIN"
 PEEK_COMMAND="${HERMES_PEEK_BIN:-$INSTALL_BIN/hermes-peek}"
@@ -98,8 +99,16 @@ if [ -x "$PEEK_COMMAND" ] && [ "$($PEEK_COMMAND --version 2>/dev/null || true)" 
         exit 1
     fi
     ln -sfn "$PEEK_COMMAND" "$COMMAND_LINK"
+    printf '{"schema_version":1,"install_root":"%s","executable":"%s","command_link":"%s"}\n' \
+        "$INSTALL_ROOT" "$PEEK_COMMAND" "$COMMAND_LINK" > "$INSTALL_METADATA"
+    chmod 600 "$INSTALL_METADATA"
     printf 'HermesPeek %s is already installed; repaired command entry %s\n' "$INSTALLER_VERSION" "$COMMAND_LINK"
-    exit 0
+    if [ "$NON_INTERACTIVE" = false ] && [ "$SETUP_ARGUMENTS" = false ]; then
+        exit 0
+    fi
+    PATH="$INSTALL_BIN:$COMMAND_DIR:$PATH"; export PATH
+    "$PEEK_COMMAND" setup "$@" </dev/null
+    exit $?
 fi
 
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hermes-peek-install.XXXXXX")
@@ -138,6 +147,13 @@ if [ "$($COMMAND_LINK --version 2>/dev/null || true)" != "hermes-peek $INSTALLER
     printf 'error: stable hermes-peek command verification failed\n' >&2
     exit 1
 fi
+printf '{"schema_version":1,"install_root":"%s","executable":"%s","command_link":"%s"}\n' \
+    "$INSTALL_ROOT" "$PEEK_COMMAND" "$COMMAND_LINK" > "$INSTALL_METADATA"
+chmod 600 "$INSTALL_METADATA"
+case ":$PATH:" in
+    *":$COMMAND_DIR:"*) : ;;
+    *) printf 'NOTE: add %s to PATH, then open a new shell to use hermes-peek directly.\n' "$COMMAND_DIR" ;;
+esac
 # Keep the freshly installed uv tool and its stable user command discoverable
 # while setup writes the service unit.
 PATH="$INSTALL_BIN:$COMMAND_DIR:$PATH"

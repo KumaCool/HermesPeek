@@ -10,8 +10,9 @@ import urllib.error
 import urllib.request
 import hashlib
 import tempfile
+import threading
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 import uvicorn
 from pydantic import ValidationError
@@ -79,24 +80,40 @@ def _paths_for_user(hermes_home: Path | None = None) -> InstallPaths:
 
 
 def _remove_uv_tool() -> tuple[bool, str]:
-    """Remove this CLI when it is installed as the uv tool named hermes-peek."""
+    """Refuse to remove a uv tool unless it owns the executable actually invoked."""
     uv = shutil.which("uv")
     if uv is None:
         return False, "uv 未找到，CLI 未删除"
-    listed = subprocess.run([uv, "tool", "list"], text=True, capture_output=True, check=False)
-    if listed.returncode != 0 or not any(line.startswith("hermes-peek ") for line in listed.stdout.splitlines()):
-        return False, "当前 CLI 不是由 uv tool 管理，CLI 未删除"
-    removed = subprocess.run([uv, "tool", "uninstall", "hermes-peek"], text=True, capture_output=True, check=False)
-    if removed.returncode != 0:
-        detail = (removed.stderr or removed.stdout).strip()
-        return False, f"uv tool 卸载失败{': ' + detail if detail else ''}"
-    return True, "已通过 uv tool 删除"
+    directory = subprocess.run([uv, "tool", "dir"], text=True, capture_output=True, check=False)
+    if directory.returncode:
+        return False, "无法确认 uv tool 所有权，CLI 未删除"
+    candidate = Path(directory.stdout.strip()) / "hermes-peek/bin/hermes-peek"
+    try:
+        if candidate.resolve(strict=True) != resolve_current_executable():
+            return False, "当前 CLI 不属于默认 uv tool，CLI 未删除"
+    except OSError:
+        return False, "无法确认 uv tool 所有权，CLI 未删除"
+    return False, "默认 uv tool 安装不能安全地自删除；请执行 uv tool uninstall hermes-peek"
 
 
-def _curl_install_paths() -> tuple[Path, Path]:
-    root = Path(os.environ.get("HERMES_PEEK_INSTALL_ROOT", Path.home() / ".local/share/hermes-peek"))
-    command = Path(os.environ.get("HERMES_PEEK_COMMAND_LINK", Path.home() / ".local/bin/hermes-peek"))
-    return root.expanduser().resolve(), command.expanduser()
+def _curl_install_paths() -> tuple[Path, Path, Path]:
+    candidates = [
+        Path(os.environ.get("HERMES_PEEK_INSTALL_ROOT", Path.home() / ".local/share/hermes-peek")),
+        Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "hermes-peek",
+    ]
+    for candidate in candidates:
+        metadata = candidate.expanduser() / "install-metadata.json"
+        if not metadata.is_file() or metadata.is_symlink():
+            continue
+        try:
+            value = json.loads(metadata.read_text(encoding="utf-8"))
+            root = Path(value["install_root"]).expanduser().resolve(strict=True)
+            executable = Path(value["executable"]).expanduser().resolve(strict=True)
+            command = Path(value["command_link"]).expanduser()
+        except (OSError, KeyError, TypeError, json.JSONDecodeError):
+            continue
+        return root, executable, command
+    raise LifecycleError("curl installation ownership metadata is missing or invalid")
 
 
 def _curl_tool_executable(root: Path) -> Path:
@@ -104,22 +121,35 @@ def _curl_tool_executable(root: Path) -> Path:
 
 
 def _remove_cli_installation() -> tuple[bool, str]:
-    """Remove a curl install after lifecycle removal; never follow an unrelated link."""
-    root, command = _curl_install_paths()
-    current = resolve_current_executable()
+    """Quarantine an owned curl install and remove it after this process exits."""
     try:
-        current.relative_to(root)
-    except ValueError:
+        root, executable, command = _curl_install_paths()
+    except LifecycleError:
         return _remove_uv_tool()
-    if command.is_symlink():
-        try:
-            target = command.resolve(strict=False)
-            target.relative_to(root)
-        except (OSError, ValueError):
-            return False, "命令入口不属于 HermesPeek，CLI 未删除"
-        command.unlink(missing_ok=True)
-    shutil.rmtree(root)
-    return True, "curl 安装的 CLI 已删除"
+    current = resolve_current_executable()
+    approved_parent = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")).expanduser().resolve()
+    expected = _curl_tool_executable(root).resolve(strict=True)
+    if root == Path("/") or root == Path.home().resolve() or root.parent != approved_parent:
+        return False, "安装根目录未通过安全校验，CLI 未删除"
+    if executable != expected or current != expected:
+        return False, "安装元数据与当前 CLI 不一致，CLI 未删除"
+    if not command.is_symlink() or command.resolve(strict=True) != expected:
+        return False, "命令入口不属于当前 HermesPeek 安装，CLI 未删除"
+    quarantine = root.with_name(f"{root.name}.remove-{os.getpid()}")
+    if quarantine.exists():
+        return False, "CLI 延迟删除目录已存在，CLI 未删除"
+    command.unlink()
+    os.replace(root, quarantine)
+    helper = "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; rm -rf -- \"$2\""
+    try:
+        subprocess.Popen(["/bin/sh", "-c", helper, "hermes-peek-remove", str(os.getpid()), str(quarantine)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except OSError:
+        os.replace(quarantine, root)
+        command.symlink_to(expected)
+        return False, "无法启动延迟删除助手，CLI 未删除"
+    return True, "curl 安装的 CLI 将在当前命令退出后删除"
 
 
 def _latest_release_version() -> str:
@@ -144,9 +174,17 @@ def _version_key(value: str) -> tuple[int, ...]:
         raise LifecycleError("release version must contain only dot-separated numbers") from exc
 
 
-def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
-    root, command_link = _curl_install_paths()
+def _update_cli(
+    target: str,
+    *,
+    apply: bool,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, object]:
+    report = progress or (lambda _phase: None)
+    root, owned_executable, command_link = _curl_install_paths()
     current_executable = resolve_current_executable()
+    if owned_executable != current_executable:
+        raise LifecycleError("update is only supported from the owned curl installation")
     try:
         current_executable.relative_to(root)
     except ValueError as exc:
@@ -158,6 +196,7 @@ def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
                             "reapply the committed integration", "run status and doctor", "roll back on failure"]}
     if command_link.exists() and not command_link.is_symlink():
         raise LifecycleError("refusing to replace a non-symlink hermes-peek command")
+    report("downloading_update")
     asset = f"hermes_peek-{target}-py3-none-any.whl"
     base = f"https://github.com/KumaCool/HermesPeek/releases/download/v{target}"
     uv = shutil.which("uv")
@@ -178,6 +217,7 @@ def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
         actual = hashlib.sha256((directory / asset).read_bytes()).hexdigest()
         if expected is None or expected != actual:
             raise LifecycleError("release checksum verification failed")
+        report("staging_update")
         env = os.environ.copy()
         stage = directory / "tool"
         env.update(UV_TOOL_DIR=str(stage), UV_TOOL_BIN_DIR=str(stage / "bin"))
@@ -194,6 +234,7 @@ def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
         if root.exists():
             os.replace(root, backup)
         try:
+            report("switching_update")
             os.replace(stage, root)
             installed = _curl_tool_executable(root)
             command_link.parent.mkdir(parents=True, exist_ok=True)
@@ -201,7 +242,9 @@ def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
             temporary_link.unlink(missing_ok=True)
             temporary_link.symlink_to(installed)
             os.replace(temporary_link, command_link)
+            report("reapplying_integration")
             setup = subprocess.run([str(installed), "setup"], text=True, capture_output=True, check=False)
+            report("verifying_update")
             status = subprocess.run([str(installed), "status", "--json"], text=True, capture_output=True, check=False)
             doctor = subprocess.run([str(installed), "doctor", "--json"], text=True, capture_output=True, check=False)
             if setup.returncode or status.returncode or doctor.returncode:
@@ -250,12 +293,14 @@ def verify_installed_plugin_runtime(paths: InstallPaths) -> None:
 
 
 def resolve_current_executable() -> Path:
-    discovered = shutil.which("hermes-peek")
+    invoked = Path(sys.argv[0]).expanduser()
+    if invoked.parent != Path("."):
+        if invoked.is_file() and os.access(invoked, os.X_OK):
+            return invoked.resolve(strict=True)
+        raise LifecycleError("invoked hermes-peek executable could not be resolved")
+    discovered = shutil.which(sys.argv[0])
     if discovered is not None:
         return Path(discovered).resolve(strict=True)
-    invoked = Path(sys.argv[0]).expanduser()
-    if invoked.is_file() and os.access(invoked, os.X_OK):
-        return invoked.resolve(strict=True)
     raise LifecycleError("hermes-peek executable could not be resolved")
 
 
@@ -349,19 +394,78 @@ def _port(value: str) -> int:
 
 
 _SETUP_PROGRESS_MESSAGES = {
-    "validating_setup": "Validating setup...",
-    "installing_integration": "Installing HermesPeek integration...",
-    "starting_service": "Starting HermesPeek service...",
-    "enabling_plugin": "Enabling HermesPeek in Hermes...",
-    "restarting_gateway": "Restarting Hermes Gateway...",
-    "verifying_installation": "Verifying installation...",
+    "validating_setup": ("Validating setup...", "Setup validated"),
+    "installing_integration": ("Installing HermesPeek integration...", "HermesPeek integration installed"),
+    "starting_service": ("Starting HermesPeek service...", "HermesPeek service started"),
+    "enabling_plugin": ("Enabling HermesPeek in Hermes...", "HermesPeek enabled in Hermes"),
+    "restarting_gateway": ("Restarting Hermes Gateway...", "Hermes Gateway restarted"),
+    "verifying_installation": ("Verifying installation...", "Installation verified"),
+}
+
+_UPDATE_PROGRESS_MESSAGES = {
+    "downloading_update": ("Downloading HermesPeek update...", "HermesPeek update downloaded"),
+    "staging_update": ("Staging HermesPeek update...", "HermesPeek update staged"),
+    "switching_update": ("Installing HermesPeek update...", "HermesPeek update installed"),
+    "reapplying_integration": ("Updating HermesPeek integration...", "HermesPeek integration updated"),
+    "verifying_update": ("Verifying HermesPeek update...", "HermesPeek update verified"),
+}
+
+_UNINSTALL_PROGRESS_MESSAGES = {
+    "stopping_service": ("Stopping HermesPeek service...", "HermesPeek service stopped"),
+    "disabling_integration": ("Disabling HermesPeek in Hermes...", "HermesPeek disabled in Hermes"),
+    "restarting_gateway": ("Restarting Hermes Gateway...", "Hermes Gateway restarted"),
+    "removing_integration": ("Removing HermesPeek integration...", "HermesPeek integration removed"),
+    "purging_data": ("Purging HermesPeek data...", "HermesPeek data purged"),
+    "removing_cli": ("Removing HermesPeek CLI...", "HermesPeek CLI removal scheduled"),
 }
 
 
-def _report_setup_progress(phase: str) -> None:
-    message = _SETUP_PROGRESS_MESSAGES.get(phase)
-    if message:
-        print(message, flush=True)
+class _TerminalProgress:
+    """Render one animated progress line on a TTY and stay silent elsewhere."""
+
+    _frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+
+    def __init__(self, messages: dict[str, tuple[str, str]]) -> None:
+        self.messages = messages
+        self.enabled = bool(getattr(sys.stdout, "isatty", lambda: False)())
+        self._phase: str | None = None
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def __call__(self, phase: str) -> None:
+        if phase not in self.messages:
+            if phase == "committed":
+                self.finish()
+            return
+        self.finish()
+        if not self.enabled:
+            return
+        self._phase = phase
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._animate, daemon=True)
+        self._thread.start()
+
+    def _animate(self) -> None:
+        message = self.messages[self._phase][0] if self._phase else ""
+        index = 0
+        while not self._stop.is_set():
+            print(f"\r\033[2K{self._frames[index % len(self._frames)]} {message}", end="", flush=True)
+            index += 1
+            self._stop.wait(0.08)
+
+    def finish(self, *, failed: bool = False) -> None:
+        phase = self._phase
+        if phase is None:
+            return
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=0.5)
+        if self.enabled:
+            message = self.messages[phase][0 if failed else 1]
+            marker = "✗" if failed else "✓"
+            print(f"\r\033[2K{marker} {message}", flush=True)
+        self._phase = None
+        self._thread = None
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -379,7 +483,14 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     raise LifecycleError("non-interactive update requires --yes")
                 if input(f"Update HermesPeek {__version__} to {target}? [y/N] ").strip().lower() not in {"y", "yes"}:
                     raise LifecycleError("update cancelled")
-            print(json.dumps(_update_cli(target, apply=True), ensure_ascii=False, sort_keys=True))
+            update_progress = _TerminalProgress(_UPDATE_PROGRESS_MESSAGES)
+            try:
+                update_result = _update_cli(target, apply=True, progress=update_progress)
+                update_progress.finish()
+            except Exception:
+                update_progress.finish(failed=True)
+                raise
+            print(json.dumps(update_result, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command in {"status", "doctor", "service"}:
             paths = _paths_for_user(getattr(args, "hermes_home", None))
@@ -430,7 +541,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             if args.command == "setup":
                 args.allowed_root = list(validate_allowed_roots(args.allowed_root))
                 args.external_url = validate_https_origin(args.external_url)
-                token_file = args.telegram_env or paths.hermes_home / ".env"
+                token_file = args.telegram_env or (paths.env_file if paths.env_file.is_file() else paths.hermes_home / ".env")
                 if not args.plan:
                     validate_secret_file(token_file)
                 if args.plan:
@@ -442,29 +553,34 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     )
                     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
                     return 0
-                token_file = args.telegram_env or paths.hermes_home / ".env"
                 executable_path = resolve_current_executable()
-                result = install_application(
-                    paths=paths,
-                    integration_dir=Path(__file__).with_name("hermes_plugin"),
-                    executable=executable_path,
-                    allowed_roots=tuple(args.allowed_root),
-                    external_url=args.external_url,
-                    bot_token=read_bot_token(token_file),
-                    telegram_bot_username=args.telegram_bot_username,
-                    telegram_mini_app_short_name=args.telegram_mini_app_short_name,
-                    telegram_mini_app_mode=args.telegram_mini_app_mode,
-                    activate=not args.no_activate,
-                    telegram=TelegramLifecycle(telegram_lifecycle_transport()),
-                    configure_telegram_menu=args.configure_telegram_menu,
-                    defer_gateway_restart=_running_inside_gateway_session(),
-                    final_verify=(lambda: (
-                        verify_installed_plugin_runtime(paths),
-                        verify_external_https_health(args.external_url),
-                    )) if not args.no_activate else None,
-                    runner=lifecycle_runner,
-                    progress=_report_setup_progress,
-                )
+                setup_progress = _TerminalProgress(_SETUP_PROGRESS_MESSAGES)
+                try:
+                    result = install_application(
+                        paths=paths,
+                        integration_dir=Path(__file__).with_name("hermes_plugin"),
+                        executable=executable_path,
+                        allowed_roots=tuple(args.allowed_root),
+                        external_url=args.external_url,
+                        bot_token=read_bot_token(token_file),
+                        telegram_bot_username=args.telegram_bot_username,
+                        telegram_mini_app_short_name=args.telegram_mini_app_short_name,
+                        telegram_mini_app_mode=args.telegram_mini_app_mode,
+                        activate=not args.no_activate,
+                        telegram=TelegramLifecycle(telegram_lifecycle_transport()),
+                        configure_telegram_menu=args.configure_telegram_menu,
+                        defer_gateway_restart=_running_inside_gateway_session(),
+                        final_verify=(lambda: (
+                            verify_installed_plugin_runtime(paths),
+                            verify_external_https_health(args.external_url),
+                        )) if not args.no_activate else None,
+                        runner=lifecycle_runner,
+                        progress=setup_progress,
+                    )
+                    setup_progress.finish()
+                except Exception:
+                    setup_progress.finish(failed=True)
+                    raise
             else:
                 if args.dry_run and not args.purge:
                     raise LifecycleError("--dry-run requires --purge")
@@ -477,17 +593,34 @@ def main(arguments: Sequence[str] | None = None) -> int:
                         expected = json.loads(paths.manifest_file.read_text()).get("transaction_id") if paths.manifest_file.is_file() else "PURGE"
                         if input(f"Type {expected} to permanently purge HermesPeek data: ") != expected:
                             raise LifecycleError("purge confirmation did not match")
-                    uninstall_application(paths=paths, purge_data=False,
-                                          deactivate=not args.no_deactivate)
-                    result = purge_application(paths, confirmed=True)
-                    _, cli_status = _remove_cli_installation()
+                    uninstall_progress = _TerminalProgress(_UNINSTALL_PROGRESS_MESSAGES)
+                    try:
+                        uninstall_application(paths=paths, purge_data=False,
+                                              deactivate=not args.no_deactivate,
+                                              progress=uninstall_progress)
+                        uninstall_progress("purging_data")
+                        result = purge_application(paths, confirmed=True)
+                        uninstall_progress("removing_cli")
+                        _, cli_status = _remove_cli_installation()
+                        uninstall_progress.finish()
+                    except Exception:
+                        uninstall_progress.finish(failed=True)
+                        raise
                     result["original_files_preserved"] = True
                     print(_uninstall_message(result, cli_status=cli_status))
                     return 0
                 else:
-                    result = uninstall_application(paths=paths, purge_data=False,
-                                                   deactivate=not args.no_deactivate)
-                    _, cli_status = _remove_cli_installation()
+                    uninstall_progress = _TerminalProgress(_UNINSTALL_PROGRESS_MESSAGES)
+                    try:
+                        result = uninstall_application(paths=paths, purge_data=False,
+                                                       deactivate=not args.no_deactivate,
+                                                       progress=uninstall_progress)
+                        uninstall_progress("removing_cli")
+                        _, cli_status = _remove_cli_installation()
+                        uninstall_progress.finish()
+                    except Exception:
+                        uninstall_progress.finish(failed=True)
+                        raise
                     print(_uninstall_message(result, cli_status=cli_status))
                     return 0
             if args.command == "uninstall" and not args.dry_run:

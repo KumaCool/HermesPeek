@@ -313,3 +313,30 @@ def test_missing_bot_token_file_reports_selected_profile_error(tmp_path: Path):
 
     with pytest.raises(LifecycleError, match="not found for the selected Hermes profile"):
         validate_secret_file(tmp_path / "missing.env")
+
+
+def test_terminal_progress_replaces_spinner_with_success_on_one_tty_line(monkeypatch, capsys):
+    import hermes_peek.cli as cli
+
+    monkeypatch.setattr(cli.sys.stdout, "isatty", lambda: True)
+    progress = cli._TerminalProgress({"work": ("Working...", "Work complete")})
+
+    progress("work")
+    progress.finish()
+
+    output = capsys.readouterr().out
+    assert "Working..." in output
+    assert "\r\033[2K✓ Work complete\n" in output
+    assert "Working...\n" not in output
+
+
+def test_terminal_progress_is_silent_when_stdout_is_not_a_tty(monkeypatch, capsys):
+    import hermes_peek.cli as cli
+
+    monkeypatch.setattr(cli.sys.stdout, "isatty", lambda: False)
+    progress = cli._TerminalProgress({"work": ("Working...", "Work complete")})
+
+    progress("work")
+    progress.finish()
+
+    assert capsys.readouterr().out == ""

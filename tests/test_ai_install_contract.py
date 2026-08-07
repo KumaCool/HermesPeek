@@ -35,21 +35,33 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_with_fixed_releas
         assert all(link in text for link in required_links)
         assert RELEASE_INSTALLER_URL not in text
         assert "raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh" in text
-        assert_terms(
-            text,
-            (
-                ("authoritative", "权威"),
-                ("read-only discovery", "只读现场发现"),
-                ("redacted plan", "脱敏计划"),
-                ("restricted local file", "本机受限权限文件"),
-                ("secure local input", "本机安全输入"),
-                ("do not send", "不要发送"),
-                ("install.sh",),
-                ("hermes-peek setup",),
-                ("release asset", "release 资产"),
-                ("v0.2.1 release",),
-            ),
-        )
+
+    english = read(ENGLISH_README)
+    assert_terms(
+        english,
+        (
+            ("authoritative",),
+            ("read-only discovery",),
+            ("redacted plan",),
+            ("restricted local file",),
+            ("secure local input",),
+            ("do not send",),
+            ("install.sh",),
+            ("hermes-peek setup",),
+            ("release asset",),
+            ("v0.2.1 release",),
+        ),
+    )
+
+    chinese = read(CHINESE_README)
+    prompt = chinese.split("<!-- ai-install-prompt:start -->", 1)[1].split(
+        "<!-- ai-install-prompt:end -->", 1
+    )[0]
+    assert prompt.strip() == (
+        "```text\n"
+        "请帮我从 https://github.com/KumaCool/HermesPeek 安装并验证 HermesPeek。\n"
+        "```"
+    )
 
 
 def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:

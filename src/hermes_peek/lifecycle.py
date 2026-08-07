@@ -542,7 +542,9 @@ def _uninstall_transaction(
     deactivate: bool = True,
     runner: CommandRunner = _default_runner,
     service_backend: Any | None = None,
+    progress: ProgressReporter | None = None,
 ) -> dict[str, object]:
+    report = progress or (lambda _phase: None)
     target = HermesTarget.from_paths(paths)
     if not paths.manifest_file.is_file():
         if paths.plugin_dir.exists():
@@ -571,12 +573,16 @@ def _uninstall_transaction(
     if deactivate:
         from .service_backend import SystemdUserBackend
         backend = service_backend or SystemdUserBackend(runner)
+        report("stopping_service")
         _run(runner, ("systemctl", "--user", "disable", "--now", "hermes-peek.service"))
         backend.verify_stopped()
+        report("disabling_integration")
         _run(runner, target.command("plugins", "disable", "hermes-peek"))
+        report("restarting_gateway")
         _run(runner, target.command("gateway", "restart"))
         _verify_plugin_unloaded(paths, runner)
 
+    report("removing_integration")
     skill_entries = [entry for entry in manifest.get("owned_resources", []) if Path(entry.get("path", "")).is_relative_to(paths.skill_dir)]
     for entry in skill_entries:
         resource = Path(entry["path"])
