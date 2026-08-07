@@ -134,5 +134,5 @@ def register(ctx) -> None:
                 "additionalProperties": False,
             },
         },
-        handler=lambda args, **_: send_preview(**args),
+        handler=lambda args, **_: json.dumps(send_preview(**args), ensure_ascii=False),
     )

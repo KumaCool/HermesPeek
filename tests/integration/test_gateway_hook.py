@@ -9,6 +9,7 @@ import httpx
 
 
 HANDLER = Path(__file__).resolve().parents[2] / "integrations" / "hermes" / "handler.py"
+PLUGIN_SOURCE = Path(__file__).resolve().parents[2] / "src" / "hermes_peek" / "hermes_plugin" / "__init__.py"
 
 
 def load_handler():
@@ -21,7 +22,7 @@ def load_handler():
 
 
 def load_plugin():
-    plugin = Path(__file__).resolve().parents[2] / "integrations" / "hermes" / "__init__.py"
+    plugin = PLUGIN_SOURCE
     spec = importlib.util.spec_from_file_location(
         "hermes_peek_plugin",
         plugin,
@@ -149,8 +150,15 @@ def test_final_message_action_publishes_preview_without_bot_send(monkeypatch, tm
     assert not spool.exists()
 
 
-def test_plugin_registers_delivery_guards_collector_final_action_and_preview_tool() -> None:
+def test_plugin_registers_delivery_guards_collector_final_action_and_preview_tool(monkeypatch) -> None:
     plugin = load_plugin()
+    preview_tool = importlib.import_module(f"{plugin.__name__}.preview_tool")
+    monkeypatch.setattr(preview_tool, "runtime_dependencies_available", lambda: True)
+    monkeypatch.setattr(
+        preview_tool,
+        "send_preview",
+        lambda **_: {"success": True, "sent": True, "message_id": 17},
+    )
     hooks = []
     tools = []
 
@@ -173,7 +181,9 @@ def test_plugin_registers_delivery_guards_collector_final_action_and_preview_too
     assert schema["name"] == "hermes_peek_send_preview"
     assert set(schema["parameters"]["properties"]) == {"files", "entry", "title"}
     assert set(schema["parameters"]["required"]) == {"files", "entry", "title"}
-    assert registered["handler"]
+    result = registered["handler"]({"files": ["/tmp/result.md"], "entry": "/tmp/result.md", "title": "Result"})
+    assert isinstance(result, str)
+    assert json.loads(result) == {"success": True, "sent": True, "message_id": 17}
 
 
 def test_successful_direct_delivery_suppresses_confirmation_but_failure_does_not() -> None:
