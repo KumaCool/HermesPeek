@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Callable, Sequence
 from urllib.parse import urlparse
@@ -98,6 +99,45 @@ def select_hermes_profile(
     return profiles[int(answer) - 1].resolve()
 
 
+def read_existing_setup(paths: InstallPaths) -> dict[str, Any]:
+    """Read non-secret committed setup values for patch-style reconfiguration."""
+    if not paths.config_file.is_file():
+        return {}
+    try:
+        value = json.loads(paths.config_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LifecycleError("existing HermesPeek configuration is unreadable") from exc
+    if not isinstance(value, dict):
+        raise LifecycleError("existing HermesPeek configuration is invalid")
+    roots = value.get("allowed_roots")
+    origin = value.get("external_base_url")
+    return {
+        "allowed_roots": tuple(Path(item) for item in roots) if isinstance(roots, list) else (),
+        "external_url": origin.rstrip("/") if isinstance(origin, str) else None,
+        "telegram_bot_username": value.get("telegram_bot_username"),
+        "telegram_mini_app_short_name": value.get("telegram_mini_app_short_name"),
+        "telegram_mini_app_mode": value.get("telegram_mini_app_mode", "compact"),
+    }
+
+
+def discover_installed_hermes_home(*, config_home: Path | None = None) -> Path | None:
+    """Prefer the committed manifest/config target over profile guessing."""
+    base = (config_home or Path.home() / ".config").expanduser().resolve() / "hermes-peek"
+    for filename in ("install.json", "config.json"):
+        path = base / filename
+        if not path.is_file():
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            target = value.get("target", {})
+            home = target.get("hermes_home") if isinstance(target, dict) else None
+            if isinstance(home, str) and home:
+                return Path(home).expanduser().resolve()
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+    return None
+
+
 def run_setup_wizard(
     paths: InstallPaths,
     *,
@@ -105,10 +145,16 @@ def run_setup_wizard(
     output_fn: Callable[[str], None] = print,
     https_probe: Callable[[str], dict[str, Any]],
     activate: bool = True,
+    existing: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    root = Path(input_fn("Allowed preview directory: ").strip())
-    roots = validate_allowed_roots((root,))
-    origin = validate_https_origin(input_fn("External HTTPS origin: ").strip())
+    current = existing or read_existing_setup(paths)
+    current_roots = tuple(current.get("allowed_roots") or ())
+    root_default = str(current_roots[0]) if current_roots else ""
+    root_answer = input_fn(f"Allowed preview directory [{root_default}]: ").strip()
+    roots = validate_allowed_roots((Path(root_answer or root_default),))
+    origin_default = current.get("external_url") or ""
+    origin_answer = input_fn(f"External HTTPS origin [{origin_default}]: ").strip()
+    origin = validate_https_origin(origin_answer or origin_default)
     health = https_probe(f"{origin}/healthz")
     if not health.get("reachable"):
         output_fn(

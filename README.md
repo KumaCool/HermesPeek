@@ -110,7 +110,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
 For a non-interactive environment, first provide all values and print a read-only plan:
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -131,8 +131,8 @@ Review the plan, then remove `--plan` to apply it. The user-only Secret file sho
 ### 3. Verify real usability
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor --json
+hermes-peek status --json
+hermes-peek doctor --json
 ```
 
 Passing these checks proves installation/configuration readiness only. Final acceptance requires requesting a real Preview from a new Hermes session and opening it in the intended private chat, group, or Topic.
@@ -142,20 +142,20 @@ Passing these checks proves installation/configuration readiness only. Final acc
 The current CLI has no public `upgrade` subcommand. To upgrade, check out/install a verified fixed version and run `setup --plan`/`setup` again; do not copy internal Plugin or Skill files. Roll back a committed setup with its transaction ID:
 
 ```bash
-uv run hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
 ```
 
 The default uninstall removes HermesPeek integration resources while **retaining Preview data**:
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall --hermes-home "$HERMES_HOME"
 ```
 
 To permanently remove the Registry, spool, logs, journals, and backups, inspect the Purge plan first and then explicitly confirm it:
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
 ```
 
 Purge never deletes original project files under an allowed root. See [Installation, upgrade, uninstall, and purge](docs/06-installation-uninstallation.md) for the complete retention matrix, deactivation failure behavior, and recovery guidance.
@@ -213,7 +213,7 @@ uv sync --locked
 Run the CLI help to confirm the installation:
 
 ```bash
-uv run hermes-peek --help
+hermes-peek --help
 ```
 
 The project is not currently published as a PyPI package. For development, use `uv run` from the repository or install the built wheel into a separate environment.
@@ -226,7 +226,7 @@ Choose a safe workspace containing files you intentionally want to preview. The 
 export HERMES_PEEK_ALLOWED_ROOTS="$PWD/example-workspace"
 export HERMES_PEEK_STATE_DIR="$PWD/.hermes-peek-state"
 
-uv run hermes-peek serve --host 127.0.0.1 --port 8765
+hermes-peek serve --host 127.0.0.1 --port 8765
 ```
 
 The service listens on loopback only. Verify it from another terminal:
@@ -256,7 +256,7 @@ export HERMES_PEEK_EXTERNAL_BASE_URL="https://preview.example.test"
 Publish one or more files. The entry file must be one of the published files:
 
 ```bash
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md docs/03-security.md \
   --entry README.md \
   --title "HermesPeek documentation" \
@@ -268,13 +268,13 @@ The command prints JSON containing the opaque Preview ID and, when an external b
 Inspect public metadata:
 
 ```bash
-uv run hermes-peek inspect <preview-id>
+hermes-peek inspect <preview-id>
 ```
 
 Revoke a Preview when it should no longer be available:
 
 ```bash
-uv run hermes-peek revoke <preview-id>
+hermes-peek revoke <preview-id>
 ```
 
 Revocation is idempotent. It does not delete the original workspace files.
@@ -287,7 +287,7 @@ Telegram sending is optional. Configure the bot token through a secret environme
 export HERMES_PEEK_TELEGRAM_BOT_TOKEN="<bot-token>"
 export HERMES_PEEK_TELEGRAM_BOT_USERNAME="<bot-username>"
 
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md \
   --entry README.md \
   --title "HermesPeek README" \
@@ -300,7 +300,7 @@ uv run hermes-peek publish \
 For a group or Forum Topic:
 
 ```bash
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md \
   --entry README.md \
   --title "HermesPeek README" \
@@ -328,7 +328,7 @@ The repository includes tests using temporary directories, fake runners, and moc
 Lifecycle management is available through the CLI. First inspect the redacted plan; this command should not write files or start services:
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -339,7 +339,7 @@ uv run hermes-peek setup \
 After reviewing the plan, run setup in the target environment:
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -353,8 +353,8 @@ Before setup, configure the Telegram Bot in Hermes, restrict allowed users, and 
 Check the installation:
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor
+hermes-peek status --json
+hermes-peek doctor
 ```
 
 A real Hermes profile and Gateway are deployment targets, not test fixtures. Review the generated plan and obtain the required authorization before changing them or restarting the Gateway.
@@ -364,20 +364,20 @@ A real Hermes profile and Gateway are deployment targets, not test fixtures. Rev
 The default uninstall removes HermesPeek integration resources while retaining Preview data:
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall --hermes-home "$HERMES_HOME"
 ```
 
 Inspect lifecycle state and diagnostics:
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor
+hermes-peek status --json
+hermes-peek doctor
 ```
 
 Rollback a committed setup transaction using its transaction ID:
 
 ```bash
-uv run hermes-peek rollback \
+hermes-peek rollback \
   --hermes-home "$HERMES_HOME" \
   <transaction-id>
 ```
@@ -385,12 +385,12 @@ uv run hermes-peek rollback \
 Purge is destructive. Use a disposable test state, review the deletion list first, and do not run it against production Preview data until you have confirmed the scope:
 
 ```bash
-uv run hermes-peek uninstall \
+hermes-peek uninstall \
   --hermes-home "$HERMES_HOME" \
   --purge \
   --dry-run
 
-uv run hermes-peek uninstall \
+hermes-peek uninstall \
   --hermes-home "$HERMES_HOME" \
   --purge \
   --yes

@@ -110,7 +110,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
 无交互环境可先显式生成只读计划：
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -131,8 +131,8 @@ uv run hermes-peek setup \
 ### 3. 检查是否真的可用
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor --json
+hermes-peek status --json
+hermes-peek doctor --json
 ```
 
 这两条命令通过只代表安装和配置检查通过。最终仍需在新的 Hermes 会话中发起一次真实 Preview，并确认它能在目标私聊、群组或 Topic 中打开。
@@ -142,20 +142,20 @@ uv run hermes-peek doctor --json
 当前 CLI 尚无公开 `upgrade` 子命令。升级时应切换到经过校验的固定版本、重新安装该版本，并再次运行 `setup --plan`/`setup`；不要直接复制内部 Plugin 或 Skill 文件。setup 返回的 transaction ID 可用于回滚：
 
 ```bash
-uv run hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
 ```
 
 默认卸载会移除 HermesPeek 集成资源，但**保留 Preview 数据**：
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall --hermes-home "$HERMES_HOME"
 ```
 
 若还要永久删除 Registry、spool、日志、journal 和备份，必须先查看 Purge 清单，再明确确认：
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
 ```
 
 Purge 不会删除允许根目录中的原始项目文件。更完整的保留矩阵、停服失败处理和恢复说明见[安装、升级、卸载与 Purge](docs/06-installation-uninstallation.md)。
@@ -205,7 +205,7 @@ uv sync --locked
 运行 CLI 帮助，确认安装成功：
 
 ```bash
-uv run hermes-peek --help
+hermes-peek --help
 ```
 
 项目目前尚未发布为 PyPI 软件包。开发时请在仓库目录中使用 `uv run`，或者构建 wheel 后将其安装到独立环境。
@@ -218,7 +218,7 @@ uv run hermes-peek --help
 export HERMES_PEEK_ALLOWED_ROOTS="$PWD/example-workspace"
 export HERMES_PEEK_STATE_DIR="$PWD/.hermes-peek-state"
 
-uv run hermes-peek serve --host 127.0.0.1 --port 8765
+hermes-peek serve --host 127.0.0.1 --port 8765
 ```
 
 服务只监听本机回环地址。在另一个终端中验证健康状态：
@@ -248,7 +248,7 @@ export HERMES_PEEK_EXTERNAL_BASE_URL="https://preview.example.test"
 发布一个或多个文件。入口文件必须包含在发布的文件列表中：
 
 ```bash
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md docs/03-security.md \
   --entry README.md \
   --title "HermesPeek documentation" \
@@ -260,13 +260,13 @@ uv run hermes-peek publish \
 查看公开元数据：
 
 ```bash
-uv run hermes-peek inspect <preview-id>
+hermes-peek inspect <preview-id>
 ```
 
 不再需要某个 Preview 时，可以将其撤销：
 
 ```bash
-uv run hermes-peek revoke <preview-id>
+hermes-peek revoke <preview-id>
 ```
 
 撤销操作是幂等的，不会删除工作区中的原始文件。
@@ -279,7 +279,7 @@ Telegram 发送是可选功能。请通过 Secret 环境文件或运行时环境
 export HERMES_PEEK_TELEGRAM_BOT_TOKEN="<bot-token>"
 export HERMES_PEEK_TELEGRAM_BOT_USERNAME="<bot-username>"
 
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md \
   --entry README.md \
   --title "HermesPeek README" \
@@ -292,7 +292,7 @@ uv run hermes-peek publish \
 发送到群组或 Forum Topic：
 
 ```bash
-uv run hermes-peek publish \
+hermes-peek publish \
   README.md \
   --entry README.md \
   --title "HermesPeek README" \
@@ -320,7 +320,7 @@ uv run hermes-peek publish \
 CLI 提供完整生命周期管理。首先查看脱敏后的只读计划；该命令不应写入文件或启动服务：
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -331,7 +331,7 @@ uv run hermes-peek setup \
 审核计划后，在目标环境执行安装：
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.test \
@@ -345,8 +345,8 @@ uv run hermes-peek setup \
 检查安装状态：
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor
+hermes-peek status --json
+hermes-peek doctor
 ```
 
 真实 Hermes profile 和 Gateway 是部署目标，不是测试夹具。在修改真实 profile 或重启 Gateway 前，请审核生成的计划并取得所需授权。
@@ -356,20 +356,20 @@ uv run hermes-peek doctor
 默认卸载会删除 HermesPeek 集成资源，但保留 Preview 数据：
 
 ```bash
-uv run hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall --hermes-home "$HERMES_HOME"
 ```
 
 检查生命周期状态和诊断信息：
 
 ```bash
-uv run hermes-peek status --json
-uv run hermes-peek doctor
+hermes-peek status --json
+hermes-peek doctor
 ```
 
 使用 transaction ID 回滚已提交的 setup transaction：
 
 ```bash
-uv run hermes-peek rollback \
+hermes-peek rollback \
   --hermes-home "$HERMES_HOME" \
   <transaction-id>
 ```
@@ -377,12 +377,12 @@ uv run hermes-peek rollback \
 Purge 是破坏性操作。请使用一次性测试状态，先审核删除清单；确认范围前，不要对生产 Preview 数据执行 Purge：
 
 ```bash
-uv run hermes-peek uninstall \
+hermes-peek uninstall \
   --hermes-home "$HERMES_HOME" \
   --purge \
   --dry-run
 
-uv run hermes-peek uninstall \
+hermes-peek uninstall \
   --hermes-home "$HERMES_HOME" \
   --purge \
   --yes

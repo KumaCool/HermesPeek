@@ -8,6 +8,8 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+import hashlib
+import tempfile
 from pathlib import Path
 from typing import Sequence
 
@@ -44,6 +46,8 @@ from hermes_peek.lifecycle_ux import (
 from hermes_peek.service_backend import SystemdUserBackend
 from hermes_peek.setup_wizard import (
     discover_hermes_profiles,
+    discover_installed_hermes_home,
+    read_existing_setup,
     run_setup_wizard,
     select_hermes_profile,
     validate_allowed_roots,
@@ -68,6 +72,12 @@ def lifecycle_runner(command):
     return subprocess.run(command, text=True, capture_output=True, check=False)
 
 
+def _paths_for_user(hermes_home: Path | None = None) -> InstallPaths:
+    return InstallPaths.for_user(
+        hermes_home=hermes_home or discover_installed_hermes_home() or Path.home() / ".hermes"
+    )
+
+
 def _remove_uv_tool() -> tuple[bool, str]:
     """Remove this CLI when it is installed as the uv tool named hermes-peek."""
     uv = shutil.which("uv")
@@ -81,6 +91,134 @@ def _remove_uv_tool() -> tuple[bool, str]:
         detail = (removed.stderr or removed.stdout).strip()
         return False, f"uv tool 卸载失败{': ' + detail if detail else ''}"
     return True, "已通过 uv tool 删除"
+
+
+def _curl_install_paths() -> tuple[Path, Path]:
+    root = Path(os.environ.get("HERMES_PEEK_INSTALL_ROOT", Path.home() / ".local/share/hermes-peek"))
+    command = Path(os.environ.get("HERMES_PEEK_COMMAND_LINK", Path.home() / ".local/bin/hermes-peek"))
+    return root.expanduser().resolve(), command.expanduser()
+
+
+def _curl_tool_executable(root: Path) -> Path:
+    return root / "hermes-peek/bin/hermes-peek"
+
+
+def _remove_cli_installation() -> tuple[bool, str]:
+    """Remove a curl install after lifecycle removal; never follow an unrelated link."""
+    root, command = _curl_install_paths()
+    current = resolve_current_executable()
+    try:
+        current.relative_to(root)
+    except ValueError:
+        return _remove_uv_tool()
+    if command.is_symlink():
+        try:
+            target = command.resolve(strict=False)
+            target.relative_to(root)
+        except (OSError, ValueError):
+            return False, "命令入口不属于 HermesPeek，CLI 未删除"
+        command.unlink(missing_ok=True)
+    shutil.rmtree(root)
+    return True, "curl 安装的 CLI 已删除"
+
+
+def _latest_release_version() -> str:
+    request = urllib.request.Request(
+        "https://api.github.com/repos/KumaCool/HermesPeek/releases/latest",
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "hermes-peek"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            tag = json.load(response).get("tag_name", "")
+    except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+        raise LifecycleError("could not query the latest HermesPeek release") from exc
+    if not isinstance(tag, str) or not tag.startswith("v"):
+        raise LifecycleError("latest HermesPeek release metadata is invalid")
+    return tag[1:]
+
+
+def _version_key(value: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(part) for part in value.split("."))
+    except ValueError as exc:
+        raise LifecycleError("release version must contain only dot-separated numbers") from exc
+
+
+def _update_cli(target: str, *, apply: bool) -> dict[str, object]:
+    root, command_link = _curl_install_paths()
+    current_executable = resolve_current_executable()
+    try:
+        current_executable.relative_to(root)
+    except ValueError as exc:
+        raise LifecycleError("update is supported for curl-installed HermesPeek only") from exc
+    if not apply:
+        return {"current_version": __version__, "target_version": target,
+                "update_available": _version_key(target) > _version_key(__version__),
+                "changes": ["download and verify the fixed release wheel", "stage and atomically switch the curl CLI",
+                            "reapply the committed integration", "run status and doctor", "roll back on failure"]}
+    if command_link.exists() and not command_link.is_symlink():
+        raise LifecycleError("refusing to replace a non-symlink hermes-peek command")
+    asset = f"hermes_peek-{target}-py3-none-any.whl"
+    base = f"https://github.com/KumaCool/HermesPeek/releases/download/v{target}"
+    uv = shutil.which("uv")
+    if uv is None:
+        raise LifecycleError("uv is required to update HermesPeek")
+    with tempfile.TemporaryDirectory(prefix="hermes-peek-update-") as temporary:
+        directory = Path(temporary)
+        try:
+            urllib.request.urlretrieve(f"{base}/{asset}", directory / asset)
+            urllib.request.urlretrieve(f"{base}/SHA256SUMS", directory / "SHA256SUMS")
+        except (OSError, urllib.error.URLError) as exc:
+            raise LifecycleError("failed to download the requested HermesPeek release") from exc
+        expected = None
+        for line in (directory / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
+            fields = line.split()
+            if len(fields) == 2 and fields[1].lstrip("*") == asset:
+                expected = fields[0]
+        actual = hashlib.sha256((directory / asset).read_bytes()).hexdigest()
+        if expected is None or expected != actual:
+            raise LifecycleError("release checksum verification failed")
+        env = os.environ.copy()
+        stage = directory / "tool"
+        env.update(UV_TOOL_DIR=str(stage), UV_TOOL_BIN_DIR=str(stage / "bin"))
+        result = subprocess.run([uv, "tool", "install", "--force", str(directory / asset)],
+                                text=True, capture_output=True, env=env, check=False)
+        if result.returncode:
+            raise LifecycleError("uv failed to stage the verified HermesPeek release")
+        staged = _curl_tool_executable(stage)
+        probe = subprocess.run([str(staged), "--version"], text=True, capture_output=True, check=False)
+        if probe.returncode or probe.stdout.strip() != f"hermes-peek {target}":
+            raise LifecycleError("staged HermesPeek version verification failed")
+        backup = root.with_name(root.name + ".update-backup")
+        shutil.rmtree(backup, ignore_errors=True)
+        if root.exists():
+            os.replace(root, backup)
+        try:
+            os.replace(stage, root)
+            installed = _curl_tool_executable(root)
+            command_link.parent.mkdir(parents=True, exist_ok=True)
+            temporary_link = command_link.with_name(command_link.name + ".new")
+            temporary_link.unlink(missing_ok=True)
+            temporary_link.symlink_to(installed)
+            os.replace(temporary_link, command_link)
+            setup = subprocess.run([str(installed), "setup"], text=True, capture_output=True, check=False)
+            status = subprocess.run([str(installed), "status", "--json"], text=True, capture_output=True, check=False)
+            doctor = subprocess.run([str(installed), "doctor", "--json"], text=True, capture_output=True, check=False)
+            if setup.returncode or status.returncode or doctor.returncode:
+                raise LifecycleError("updated integration verification failed")
+        except Exception:
+            shutil.rmtree(root, ignore_errors=True)
+            if backup.exists():
+                os.replace(backup, root)
+            if _curl_tool_executable(root).is_file():
+                temporary_link = command_link.with_name(command_link.name + ".rollback")
+                temporary_link.unlink(missing_ok=True)
+                temporary_link.symlink_to(_curl_tool_executable(root))
+                os.replace(temporary_link, command_link)
+            raise
+        shutil.rmtree(backup, ignore_errors=True)
+    return {"updated": True, "from_version": __version__, "to_version": target,
+            "integration_verified": True, "rollback_available_on_failure": True}
 
 
 def _uninstall_message(result: dict[str, object], cli_status: str | None = None) -> str:
@@ -195,6 +333,11 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--hermes-home", type=Path)
     service = subparsers.add_parser("service", help="Manage the local service")
     service.add_argument("action", choices=("start", "stop", "restart", "logs"))
+    update = subparsers.add_parser("update", aliases=("upgrade",), help="Update a curl-installed HermesPeek CLI")
+    update.add_argument("--check", action="store_true", help="Check for an update without changing anything")
+    update.add_argument("--plan", action="store_true", help="Print a read-only update plan")
+    update.add_argument("--version", dest="target_version", help="Update to a specific release version")
+    update.add_argument("--yes", action="store_true", help="Apply without interactive confirmation")
     return parser
 
 
@@ -225,8 +368,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(arguments)
     try:
+        if args.command in {"update", "upgrade"}:
+            target = args.target_version or _latest_release_version()
+            plan = _update_cli(target, apply=False)
+            if args.check or args.plan or not plan["update_available"]:
+                print(json.dumps(plan, ensure_ascii=False, sort_keys=True))
+                return 0
+            if not args.yes:
+                if not sys.stdin.isatty():
+                    raise LifecycleError("non-interactive update requires --yes")
+                if input(f"Update HermesPeek {__version__} to {target}? [y/N] ").strip().lower() not in {"y", "yes"}:
+                    raise LifecycleError("update cancelled")
+            print(json.dumps(_update_cli(target, apply=True), ensure_ascii=False, sort_keys=True))
+            return 0
         if args.command in {"status", "doctor", "service"}:
-            paths = InstallPaths.for_user(hermes_home=getattr(args, "hermes_home", None))
+            paths = _paths_for_user(getattr(args, "hermes_home", None))
             if args.command == "status":
                 output = lifecycle_status(paths, lifecycle_runner)
             elif args.command == "doctor":
@@ -243,35 +399,40 @@ def main(arguments: Sequence[str] | None = None) -> int:
             print(json.dumps(output, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command == "rollback":
-            paths = InstallPaths.for_user(hermes_home=args.hermes_home)
+            paths = _paths_for_user(args.hermes_home)
             result = rollback_transaction(paths, args.transaction_id, runner=lifecycle_runner)
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command in {"setup", "uninstall"}:
-            if args.command == "setup" and (not args.allowed_root or not args.external_url):
-                if not sys.stdin.isatty():
-                    raise LifecycleError(
-                        "non-interactive setup requires --allowed-root and --external-url"
-                    )
-                default_home = Path.home() / ".hermes"
-                selected_home = args.hermes_home or select_hermes_profile(
-                    discover_hermes_profiles(default_home)
-                )
-                paths = InstallPaths.for_user(hermes_home=selected_home)
-                validate_secret_file(args.telegram_env or paths.hermes_home / ".env")
-                wizard = run_setup_wizard(
-                    paths,
-                    input_fn=input,
-                    https_probe=setup_https_probe,
-                    activate=not args.no_activate,
-                )
-                args.allowed_root = list(wizard["allowed_roots"])
-                args.external_url = wizard["external_url"]
-            else:
-                paths = InstallPaths.for_user(hermes_home=args.hermes_home)
+            selected_home = args.hermes_home or discover_installed_hermes_home()
+            if selected_home is None:
+                profiles = discover_hermes_profiles(Path.home() / ".hermes")
+                selected_home = (select_hermes_profile(profiles) if sys.stdin.isatty() and len(profiles) > 1
+                                 else (profiles[0] if len(profiles) == 1 else Path.home() / ".hermes"))
+            paths = _paths_for_user(selected_home)
+            if args.command == "setup":
+                existing = read_existing_setup(paths)
+                if not args.allowed_root:
+                    args.allowed_root = list(existing.get("allowed_roots") or ())
+                if not args.external_url:
+                    args.external_url = existing.get("external_url")
+                if not args.allowed_root or not args.external_url:
+                    if not sys.stdin.isatty():
+                        raise LifecycleError("first setup requires --allowed-root and --external-url")
+                    wizard = run_setup_wizard(paths, input_fn=input, https_probe=setup_https_probe,
+                                              activate=not args.no_activate, existing=existing)
+                    args.allowed_root = list(wizard["allowed_roots"])
+                    args.external_url = wizard["external_url"]
+                if args.telegram_bot_username is None:
+                    args.telegram_bot_username = existing.get("telegram_bot_username")
+                if args.telegram_mini_app_short_name is None:
+                    args.telegram_mini_app_short_name = existing.get("telegram_mini_app_short_name")
             if args.command == "setup":
                 args.allowed_root = list(validate_allowed_roots(args.allowed_root))
                 args.external_url = validate_https_origin(args.external_url)
+                token_file = args.telegram_env or paths.hermes_home / ".env"
+                if not args.plan:
+                    validate_secret_file(token_file)
                 if args.plan:
                     result = lifecycle_setup_plan(
                         paths,
@@ -319,13 +480,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     uninstall_application(paths=paths, purge_data=False,
                                           deactivate=not args.no_deactivate)
                     result = purge_application(paths, confirmed=True)
-                    _, cli_status = _remove_uv_tool()
+                    _, cli_status = _remove_cli_installation()
                     result["original_files_preserved"] = True
                     print(_uninstall_message(result, cli_status=cli_status))
                     return 0
                 else:
                     result = uninstall_application(paths=paths, purge_data=False,
                                                    deactivate=not args.no_deactivate)
+                    _, cli_status = _remove_cli_installation()
+                    print(_uninstall_message(result, cli_status=cli_status))
+                    return 0
             if args.command == "uninstall" and not args.dry_run:
                 print(_uninstall_message(result))
             elif args.command == "setup":

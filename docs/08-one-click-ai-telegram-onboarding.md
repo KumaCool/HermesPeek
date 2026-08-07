@@ -249,7 +249,7 @@ hermes-peek setup ... --configure-telegram-menu
 当前已实现的显式参数路径如下；在一键交互向导完成前，它仍是权威安装入口：
 
 ```bash
-uv run hermes-peek setup \
+hermes-peek setup \
   --hermes-home "$HERMES_HOME" \
   --allowed-root /path/to/approved/workspace \
   --external-url https://preview.example.com \

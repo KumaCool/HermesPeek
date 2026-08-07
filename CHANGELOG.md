@@ -6,6 +6,19 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-08-07
+
+### Added
+
+- Add `hermes-peek update` (`upgrade` alias) with check, plan, fixed-version and non-interactive modes for curl installations.
+- Install a stable `~/.local/bin/hermes-peek` command for every curl-installed lifecycle operation.
+
+### Changed
+
+- Re-running `hermes-peek setup` now discovers the committed Hermes target and preserves omitted settings, so HTTPS or allowed roots can be changed independently.
+- `hermes-peek uninstall` removes the curl-installed CLI only after integration removal succeeds.
+- Reserve `uv run hermes-peek` for source-development workflows; installed-user documentation uses the bare command.
+
 ## [0.2.8] - 2026-08-07
 
 ### Changed
@@ -111,7 +124,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.9
 [0.2.8]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.8
 [0.2.7]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.7
 [0.2.6]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.6

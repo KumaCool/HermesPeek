@@ -14,9 +14,12 @@ def test_setup_accepts_no_arguments_but_fails_fast_without_tty(monkeypatch, caps
     assert args.external_url is None
 
     monkeypatch.setattr("hermes_peek.cli.sys.stdin.isatty", lambda: False)
+    monkeypatch.setattr("hermes_peek.cli.discover_installed_hermes_home", lambda: None)
+    monkeypatch.setattr("hermes_peek.cli.discover_hermes_profiles", lambda home: ())
+    monkeypatch.setattr("hermes_peek.cli.read_existing_setup", lambda paths: {})
 
     assert main(["setup"]) == 2
-    assert "non-interactive setup requires --allowed-root and --external-url" in capsys.readouterr().err
+    assert "first setup requires --allowed-root and --external-url" in capsys.readouterr().err
 
 
 def test_profile_discovery_selects_single_profile_and_requires_explicit_choice(tmp_path: Path):

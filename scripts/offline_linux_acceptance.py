@@ -76,7 +76,7 @@ venv="$UV_TOOL_DIR/venv"
 mkdir -p "$UV_TOOL_BIN_DIR"
 cat > "$UV_TOOL_BIN_DIR/hermes-peek" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.8\n'; exit 0; fi
+if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 0.2.9\n'; exit 0; fi
 if [ "${1:-}" = "setup" ] && [ "$(command -v hermes-peek || true)" != "$0" ]; then
   printf 'installed CLI was not added to PATH before setup\n' >&2
   exit 92
