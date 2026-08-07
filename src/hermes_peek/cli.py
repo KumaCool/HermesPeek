@@ -410,6 +410,7 @@ def _format_status(result: dict[str, object]) -> str:
     service = _mapping(result.get("service"))
     plugin = _mapping(result.get("plugin"))
     gateway = _mapping(result.get("gateway"))
+    telegram = _mapping(result.get("telegram"))
     https = _mapping(result.get("https"))
     drift = _mapping(result.get("drift"))
     manifest = _mapping(result.get("manifest"))
@@ -425,6 +426,7 @@ def _format_status(result: dict[str, object]) -> str:
         ("Plugin loaded", bool(plugin.get("loaded"))),
         ("Plugin runtime", bool(runtime.get("available"))),
         ("Hermes Gateway", bool(gateway.get("active"))),
+        ("Group and Topic delivery", bool(telegram.get("group_topic_delivery_ready"))),
         ("HTTPS origin", bool(https.get("reachable"))),
         ("Configuration drift", not bool(drift.get("detected"))),
     ]

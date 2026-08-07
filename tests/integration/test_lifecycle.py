@@ -132,6 +132,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     token = "123456789:" + "A" * 35
     runner = RecordingRunner()
     progress: list[str] = []
+    telegram = TelegramLifecycle(SetupTelegramTransport())
 
     result = install(
         paths=target,
@@ -143,6 +144,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         runner=runner,
         service_backend=FakeServiceBackend(runner),
         progress=progress.append,
+        telegram=telegram,
     )
 
     assert result["installed"] is True and result["activated"] is True
@@ -155,6 +157,7 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
     assert target.unit_file.exists() and target.env_file.exists() and target.manifest_file.exists()
     config = json.loads(target.config_file.read_text(encoding="utf-8"))
     assert config["telegram_mini_app_mode"] == "compact"
+    assert config["telegram_bot_username"] == "peek_bot"
     unit = target.unit_file.read_text(encoding="utf-8")
     assert "PrivateDevices=true" not in unit and "ProtectKernelModules=true" not in unit
     assert stat.S_IMODE(target.env_file.stat().st_mode) == 0o600
@@ -198,6 +201,27 @@ def test_setup_and_safe_uninstall_round_trip(tmp_path: Path) -> None:
         "restarting_gateway",
         "removing_integration",
     ]
+
+
+def test_setup_rejects_explicit_bot_username_that_mismatches_verified_identity(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"; allowed.mkdir()
+    executable = tmp_path / "hermes-peek"; executable.write_text("launcher", encoding="utf-8")
+
+    with pytest.raises(LifecycleError, match="username mismatch"):
+        install(
+            paths=target,
+            integration_dir=PLUGIN,
+            executable=executable,
+            allowed_roots=(allowed,),
+            external_url="https://preview.example.test",
+            bot_token="123456789:" + "A" * 35,
+            telegram_bot_username="wrong_bot",
+            telegram=TelegramLifecycle(SetupTelegramTransport()),
+            activate=False,
+        )
+
+    assert not target.config_file.exists()
 
 
 def test_uninstall_removes_generated_plugin_bytecode_cache(tmp_path: Path) -> None:

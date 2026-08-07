@@ -170,6 +170,14 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
             elif hashlib.sha256(resource.read_bytes()).hexdigest() != entry.get("sha256"):
                 drifted.append("owned_resource")
     external = str(config.get("external_base_url") or "")
+    telegram = telegram_probe() if telegram_probe else _telegram_probe(paths)
+    configured_username = str(config.get("telegram_bot_username") or "").removeprefix("@")
+    verified_username = str(telegram.get("bot_username") or "").removeprefix("@")
+    telegram["group_topic_delivery_ready"] = bool(
+        telegram.get("verified")
+        and configured_username
+        and configured_username.casefold() == verified_username.casefold()
+    )
     return {
         "schema_version": 1,
         "target": {"hermes_home": str(paths.hermes_home), "identity": target.identity},
@@ -179,7 +187,7 @@ def status(paths: InstallPaths, runner: Runner, *, port_probe: PortProbe = _port
         "plugin": {"installed": paths.plugin_dir.is_dir(), "enabled": bool(plugin_state.get("enabled")),
                    "loaded": bool(plugin_state.get("loaded")), "runtime": plugin_runtime},
         "gateway": {"active": gateway_result.returncode == 0},
-        "telegram": telegram_probe() if telegram_probe else _telegram_probe(paths),
+        "telegram": telegram,
         "https": https_probe(external) if https_probe else _https_probe(external),
         "drift": {"detected": bool(drifted), "categories": sorted(set(drifted))},
         "data": {"state_directory_present": paths.state_dir.is_dir(), "bytes": _directory_size(paths.state_dir)},
@@ -202,6 +210,8 @@ def doctor(paths: InstallPaths, runner: Runner, **probes: Any) -> dict[str, Any]
          "suggestion": "repair setup so the installed Plugin can import its bundled runtime"},
         {"name": "gateway", "ok": report["gateway"]["active"], "suggestion": "inspect the selected Gateway status"},
         {"name": "telegram", "ok": bool(report["telegram"].get("verified")), "suggestion": "verify the Bot token and BotFather prerequisites"},
+        {"name": "group_topic_delivery", "ok": bool(report["telegram"].get("group_topic_delivery_ready")),
+         "suggestion": "run setup to commit the verified Telegram Bot username for group and Topic delivery"},
         {"name": "https", "ok": bool(report["https"].get("reachable")), "suggestion": "verify the configured external HTTPS origin"},
         {"name": "config_drift", "ok": not report["drift"]["detected"], "suggestion": "review modified installer-owned resources before repair"},
     ]

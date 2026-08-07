@@ -452,7 +452,12 @@ def _install_transaction(**kwargs) -> dict[str, object]:
         expected_bot_id = kwargs.pop("expected_bot_id", None)
         final_verify = kwargs.pop("final_verify", None)
         if telegram is not None:
-            telegram.inspect(kwargs["bot_token"], expected_bot_id=expected_bot_id)
+            telegram_identity = telegram.inspect(kwargs["bot_token"], expected_bot_id=expected_bot_id)
+            verified_username = str(telegram_identity.get("bot_username") or "").removeprefix("@")
+            configured_username = str(kwargs.get("telegram_bot_username") or "").removeprefix("@")
+            if configured_username and configured_username.casefold() != verified_username.casefold():
+                raise LifecycleError("configured Telegram Bot username mismatch")
+            kwargs["telegram_bot_username"] = verified_username
             if configure_menu:
                 record["telegram_changes"].append(
                     telegram.set_menu(kwargs["bot_token"], kwargs["external_url"].rstrip("/")))

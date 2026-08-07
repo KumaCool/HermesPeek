@@ -55,8 +55,58 @@ def test_doctor_matrix_has_named_checks_and_actionable_suggestions(tmp_path):
                   telegram_probe=lambda:{"verified":False,"main_mini_app_requires_botfather":True},
                   plugin_runtime_probe=lambda:{"available":False,"error":"ImportError"})
     names={check["name"] for check in report["checks"]}
-    assert {"manifest","service_health","plugin_loaded","plugin_runtime","gateway","telegram","https","config_drift"} <= names
+    assert {"manifest","service_health","plugin_loaded","plugin_runtime","gateway","telegram","group_topic_delivery","https","config_drift"} <= names
     assert report["suggestions"] and all(isinstance(item,str) for item in report["suggestions"])
+
+
+def test_doctor_rejects_false_green_when_verified_bot_username_is_not_committed(tmp_path):
+    from hermes_peek.lifecycle_ux import doctor, status
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    paths.config_dir.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({"external_base_url":"https://preview.example.test"}))
+    probes=dict(
+        port_probe=lambda h,p:{"listening":True,"address":"127.0.0.1:8765","pid":321},
+        health_probe=lambda u:{"ok":True,"status":200},
+        https_probe=lambda u:{"reachable":True,"status":200,"configured":True},
+        telegram_probe=lambda:{"verified":True,"identity_verified":True,"bot_username":"peek_bot"},
+        plugin_runtime_probe=lambda:{"available":True,"error":None})
+    status_report=status(paths,MatrixRunner(),**probes)
+    report=doctor(paths,MatrixRunner(),**probes)
+    assert status_report["telegram"]["group_topic_delivery_ready"] is False
+    check=next(item for item in report["checks"] if item["name"] == "group_topic_delivery")
+    assert check["ok"] is False
+    assert "Bot username" in check["suggestion"]
+
+
+def test_status_marks_group_topic_delivery_ready_when_verified_username_matches_config(tmp_path):
+    from hermes_peek.lifecycle_ux import status
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    paths.config_dir.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({
+        "external_base_url":"https://preview.example.test",
+        "telegram_bot_username":"peek_bot",
+    }))
+    report=status(paths,MatrixRunner(),
+        port_probe=lambda h,p:{"listening":True,"address":"127.0.0.1:8765","pid":321},
+        health_probe=lambda u:{"ok":True,"status":200},
+        https_probe=lambda u:{"reachable":True,"status":200,"configured":True},
+        telegram_probe=lambda:{"verified":True,"identity_verified":True,"bot_username":"@peek_bot"},
+        plugin_runtime_probe=lambda:{"available":True,"error":None})
+    assert report["telegram"]["group_topic_delivery_ready"] is True
+
+
+def test_status_does_not_claim_group_topic_readiness_for_unverified_identity(tmp_path):
+    from hermes_peek.lifecycle_ux import status
+    paths=InstallPaths(tmp_path/"hermes",tmp_path/"config",tmp_path/"state",tmp_path/"systemd")
+    paths.config_dir.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({
+        "external_base_url":"https://preview.example.test",
+        "telegram_bot_username":"peek_bot",
+    }))
+    report=status(paths,MatrixRunner(),
+        telegram_probe=lambda:{"verified":False,"bot_username":"peek_bot"},
+        plugin_runtime_probe=lambda:{"available":True,"error":None})
+    assert report["telegram"]["group_topic_delivery_ready"] is False
 
 
 def test_installed_plugin_runtime_probe_uses_bundled_package_without_sys_path_injection(tmp_path):
