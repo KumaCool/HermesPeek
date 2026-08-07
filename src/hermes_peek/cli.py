@@ -79,6 +79,20 @@ def _paths_for_user(hermes_home: Path | None = None) -> InstallPaths:
     )
 
 
+def _resolve_lifecycle_home(requested: Path | None) -> Path:
+    """Use the committed install target unless the operator explicitly selects the same target."""
+    committed = discover_installed_hermes_home()
+    if requested is None:
+        return committed or (Path.home() / ".hermes").resolve()
+    resolved = requested.expanduser().resolve()
+    if committed is not None and resolved != committed:
+        raise LifecycleError(
+            "requested Hermes target does not match the installed target; "
+            "omit --hermes-home to use the committed installation target"
+        )
+    return resolved
+
+
 def _remove_uv_tool() -> tuple[bool, str]:
     """Refuse to remove a uv tool unless it owns the executable actually invoked."""
     uv = shutil.which("uv")
@@ -235,8 +249,38 @@ def _update_cli(
             os.replace(root, backup)
         try:
             report("switching_update")
-            os.replace(stage, root)
+            final_env = os.environ.copy()
+            final_env.update(UV_TOOL_DIR=str(root), UV_TOOL_BIN_DIR=str(root / "bin"))
+            install = subprocess.run(
+                [uv, "tool", "install", "--force", str(directory / asset)],
+                text=True,
+                capture_output=True,
+                env=final_env,
+                check=False,
+            )
+            if install.returncode:
+                raise LifecycleError("uv failed to install the verified HermesPeek release at its final path")
             installed = _curl_tool_executable(root)
+            final_probe = subprocess.run(
+                [str(installed), "--version"], text=True, capture_output=True, check=False
+            )
+            if final_probe.returncode or final_probe.stdout.strip() != f"hermes-peek {target}":
+                raise LifecycleError("installed HermesPeek version verification failed at final path")
+            metadata = root / "install-metadata.json"
+            metadata.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "install_root": str(root),
+                        "executable": str(installed),
+                        "command_link": str(command_link),
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            metadata.chmod(0o600)
             command_link.parent.mkdir(parents=True, exist_ok=True)
             temporary_link = command_link.with_name(command_link.name + ".new")
             temporary_link.unlink(missing_ok=True)
@@ -493,7 +537,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             print(json.dumps(update_result, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command in {"status", "doctor", "service"}:
-            paths = _paths_for_user(getattr(args, "hermes_home", None))
+            paths = _paths_for_user(
+                _resolve_lifecycle_home(getattr(args, "hermes_home", None))
+                if args.command != "service"
+                else None
+            )
             if args.command == "status":
                 output = lifecycle_status(paths, lifecycle_runner)
             elif args.command == "doctor":
@@ -510,12 +558,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
             print(json.dumps(output, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command == "rollback":
-            paths = _paths_for_user(args.hermes_home)
+            paths = _paths_for_user(_resolve_lifecycle_home(args.hermes_home))
             result = rollback_transaction(paths, args.transaction_id, runner=lifecycle_runner)
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0
         if args.command in {"setup", "uninstall"}:
-            selected_home = args.hermes_home or discover_installed_hermes_home()
+            selected_home = (
+                _resolve_lifecycle_home(args.hermes_home)
+                if args.command == "uninstall"
+                else args.hermes_home or discover_installed_hermes_home()
+            )
             if selected_home is None:
                 profiles = discover_hermes_profiles(Path.home() / ".hermes")
                 selected_home = (select_hermes_profile(profiles) if sys.stdin.isatty() and len(profiles) > 1

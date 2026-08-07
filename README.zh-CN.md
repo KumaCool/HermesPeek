@@ -152,20 +152,20 @@ hermes-peek update
 setup 返回的 transaction ID 可用于回滚：
 
 ```bash
-hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+hermes-peek rollback <transaction-id>
 ```
 
 默认卸载会移除 HermesPeek 集成资源，但**保留 Preview 数据**：
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall
 ```
 
 若还要永久删除 Registry、spool、日志、journal 和备份，必须先查看 Purge 清单，再明确确认：
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+hermes-peek uninstall --purge --dry-run
+hermes-peek uninstall --purge --yes
 ```
 
 Purge 不会删除允许根目录中的原始项目文件。更完整的保留矩阵、停服失败处理和恢复说明见[安装、升级、卸载与 Purge](docs/06-installation-uninstallation.md)。
@@ -391,7 +391,7 @@ hermes-peek doctor
 默认卸载会删除 HermesPeek 集成资源，但保留 Preview 数据：
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall
 ```
 
 检查生命周期状态和诊断信息：

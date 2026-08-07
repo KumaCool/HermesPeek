@@ -152,20 +152,20 @@ hermes-peek update
 Roll back a committed setup with its transaction ID:
 
 ```bash
-hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+hermes-peek rollback <transaction-id>
 ```
 
 The default uninstall removes HermesPeek integration resources while **retaining Preview data**:
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall
 ```
 
 To permanently remove the Registry, spool, logs, journals, and backups, inspect the Purge plan first and then explicitly confirm it:
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+hermes-peek uninstall --purge --dry-run
+hermes-peek uninstall --purge --yes
 ```
 
 Purge never deletes original project files under an allowed root. See [Installation, upgrade, uninstall, and purge](docs/06-installation-uninstallation.md) for the complete retention matrix, deactivation failure behavior, and recovery guidance.
@@ -391,7 +391,7 @@ A real Hermes profile and Gateway are deployment targets, not test fixtures. Rev
 The default uninstall removes HermesPeek integration resources while retaining Preview data:
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall
 ```
 
 Inspect lifecycle state and diagnostics:

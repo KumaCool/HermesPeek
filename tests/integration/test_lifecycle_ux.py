@@ -244,6 +244,7 @@ def test_setup_plan_is_read_only_redacted_and_lists_actions(tmp_path, monkeypatc
 def test_status_cli_outputs_stable_json_without_service_side_effects(tmp_path, monkeypatch, capsys):
     import hermes_peek.cli as cli
     commands = []
+    monkeypatch.setattr(cli, "discover_installed_hermes_home", lambda: None)
     monkeypatch.setattr(cli, "lifecycle_runner", lambda command: (commands.append(tuple(command)) or subprocess.CompletedProcess(command, 1, "", "")))
     assert main(["status", "--json", "--hermes-home", str(tmp_path / "hermes")]) == 0
     result = json.loads(capsys.readouterr().out)

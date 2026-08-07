@@ -109,22 +109,22 @@ hermes-peek update --version 0.2.10 --yes
 
 #### 默认卸载与 Purge
 
-默认卸载会停用并删除 HermesPeek 集成和受管 CLI，但保留 Preview 数据：
+默认卸载会从安装清单读取 Hermes profile，停用并删除 HermesPeek 集成和受管 CLI，同时保留 Preview 数据：
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME"
+hermes-peek uninstall
 ```
 
 先查看永久删除计划，再确认 Purge：
 
 ```bash
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
-hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+hermes-peek uninstall --purge --dry-run
+hermes-peek uninstall --purge --yes
 ```
 
 | 参数 | 作用 |
 |---|---|
-| `--hermes-home PATH` | 指定已安装的 Hermes profile |
+| `--hermes-home PATH` | 高级覆盖：仅允许显式指定与安装清单一致的 Hermes profile；通常应省略 |
 | `--purge` / `--purge-data` | 同时永久删除 HermesPeek 数据 |
 | `--dry-run` | 与 `--purge` 一起输出删除计划，不执行删除 |
 | `--yes` | 无人交互确认 Purge |
@@ -135,10 +135,10 @@ Purge 不删除允许根目录中的原始项目文件。默认 `uv tool` 安装
 #### 状态、诊断、服务与回滚
 
 ```bash
-hermes-peek status --hermes-home "$HERMES_HOME" --json
-hermes-peek doctor --hermes-home "$HERMES_HOME" --json
+hermes-peek status --json
+hermes-peek doctor --json
 hermes-peek service start|stop|restart|logs
-hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+hermes-peek rollback <transaction-id>
 ```
 
 ### 1.3 非目标
