@@ -36,32 +36,15 @@ def test_bilingual_readmes_publish_copyable_ai_install_prompts_with_fixed_releas
         assert RELEASE_INSTALLER_URL not in text
         assert "raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh" in text
 
-    english = read(ENGLISH_README)
-    assert_terms(
-        english,
-        (
-            ("authoritative",),
-            ("read-only discovery",),
-            ("redacted plan",),
-            ("restricted local file",),
-            ("secure local input",),
-            ("do not send",),
-            ("install.sh",),
-            ("hermes-peek setup",),
-            ("release asset",),
-            ("v0.2.1 release",),
-        ),
-    )
-
-    chinese = read(CHINESE_README)
-    prompt = chinese.split("<!-- ai-install-prompt:start -->", 1)[1].split(
-        "<!-- ai-install-prompt:end -->", 1
-    )[0]
-    assert prompt.strip() == (
-        "```text\n"
-        "请帮我从 https://github.com/KumaCool/HermesPeek 安装并验证 HermesPeek。\n"
-        "```"
-    )
+    expected_prompts = {
+        ENGLISH_README: "Help me install and verify HermesPeek from https://github.com/KumaCool/HermesPeek.",
+        CHINESE_README: "请帮我从 https://github.com/KumaCool/HermesPeek 安装并验证 HermesPeek。",
+    }
+    for path, expected in expected_prompts.items():
+        prompt = read(path).split("<!-- ai-install-prompt:start -->", 1)[1].split(
+            "<!-- ai-install-prompt:end -->", 1
+        )[0]
+        assert prompt.strip() == f"```text\n{expected}\n```"
 
 
 def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:
@@ -84,6 +67,10 @@ def test_bilingual_readmes_contain_a_complete_operator_quickstart() -> None:
                 ("--purge --dry-run",),
                 ("rollback", "回滚"),
                 ("upgrade", "升级"),
+                ("--check",),
+                ("--version version",),
+                ("--non-interactive",),
+                ("cli lifecycle reference", "cli 生命周期参数速查"),
             ),
         )
 

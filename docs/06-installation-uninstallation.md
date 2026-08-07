@@ -32,7 +32,116 @@ hermes-peek rollback [TRANSACTION_ID]
 
 默认交互式 `setup` 在必要输入验证通过后直接执行，按真实事务阶段刷新进度，并以 `HermesPeek <version> installed successfully` 结束；内部 plan/result JSON 不面向普通用户。显式 `setup --plan` 仍是无副作用的机器可读审计接口。Purge 的破坏性确认规则不受此 UX 调整影响。
 
-### 1.2 非目标
+### 1.2 当前 v0.2.10 CLI 接口
+
+本节记录当前 Release 已实现的命令。后文标为“目标”的 `--profile` 等接口属于设计方向，不应当作现有语法使用。已安装版本的最终权威来源是：
+
+```bash
+hermes-peek --help
+hermes-peek <command> --help
+```
+
+#### 安装
+
+Linux 且 systemd user manager 正常运行时，使用仓库安装器：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
+```
+
+固定安装 v0.2.10：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/v0.2.10/install.sh | sh
+```
+
+无人交互安装时，将 `setup` 参数放在 `sh -s --` 后：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh -s -- \
+  --hermes-home "$HERMES_HOME" \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://preview.example.test \
+  --telegram-env /path/to/restricted/secrets.env
+```
+
+安装器参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--version` | 输出安装器版本并退出 |
+| `--dry-run` | 只输出安装动作，不下载或修改内容 |
+| `--non-interactive` | 禁用交互向导；必须提供完整 setup 输入 |
+| `--` | 后续参数全部转交给 `hermes-peek setup` |
+
+`setup` 参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--allowed-root PATH` | 添加允许预览的根目录；可重复传入 |
+| `--external-url HTTPS_ORIGIN` | Telegram 客户端可达的 HTTPS Origin |
+| `--telegram-bot-username NAME` | Telegram Bot username |
+| `--telegram-mini-app-short-name NAME` | 可选 Mini App short name |
+| `--telegram-mini-app-mode compact` | Mini App 显示模式；当前仅支持 `compact` |
+| `--telegram-env PATH` | 包含 `TELEGRAM_BOT_TOKEN` 的受限权限文件 |
+| `--configure-telegram-menu` | 明确授权修改 Bot 私聊菜单按钮 |
+| `--hermes-home PATH` | 指定目标 Hermes profile home |
+| `--no-activate` | 不启动服务、不启用 Plugin、不重启 Gateway |
+| `--plan` | 输出只读、脱敏 JSON 计划，不产生副作用 |
+
+#### 更新
+
+```bash
+hermes-peek update --check
+hermes-peek update --plan
+hermes-peek update
+hermes-peek update --version 0.2.10 --yes
+```
+
+`upgrade` 是 `update` 的别名。自动更新仅支持仓库 `install.sh` 创建并带有效所有权元数据的 curl 安装。它会校验 Release 资产、原子切换 CLI、重新应用集成，并执行 `status` 和 `doctor`；失败时恢复上一版本。
+
+| 参数 | 作用 |
+|---|---|
+| `--check` | 检查最新版本并输出 JSON，不执行更新 |
+| `--plan` | 输出只读更新计划 |
+| `--version VERSION` | 指定目标 Release |
+| `--yes` | 跳过交互确认；无人交互执行时必需 |
+
+#### 默认卸载与 Purge
+
+默认卸载会停用并删除 HermesPeek 集成和受管 CLI，但保留 Preview 数据：
+
+```bash
+hermes-peek uninstall --hermes-home "$HERMES_HOME"
+```
+
+先查看永久删除计划，再确认 Purge：
+
+```bash
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --dry-run
+hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
+```
+
+| 参数 | 作用 |
+|---|---|
+| `--hermes-home PATH` | 指定已安装的 Hermes profile |
+| `--purge` / `--purge-data` | 同时永久删除 HermesPeek 数据 |
+| `--dry-run` | 与 `--purge` 一起输出删除计划，不执行删除 |
+| `--yes` | 无人交互确认 Purge |
+| `--no-deactivate` | 跳过服务、Plugin 和 Gateway 停用，仅用于受控恢复 |
+
+Purge 不删除允许根目录中的原始项目文件。默认 `uv tool` 安装无法安全自删除时，CLI 会明确提示执行 `uv tool uninstall hermes-peek`。
+
+#### 状态、诊断、服务与回滚
+
+```bash
+hermes-peek status --hermes-home "$HERMES_HOME" --json
+hermes-peek doctor --hermes-home "$HERMES_HOME" --json
+hermes-peek service start|stop|restart|logs
+hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
+```
+
+### 1.3 非目标
 
 生命周期工具不得：
 

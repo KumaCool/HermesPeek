@@ -77,13 +77,13 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-HermesPeek v0.2.1 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
+HermesPeek v0.2.10 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
 ## 普通用户快速开始
 
-> `main` 安装器跟随当前稳定版 v0.2.1，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.1`。
+> `main` 安装器跟随当前稳定版 v0.2.10，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.10`。
 
 ### 1. 安装并启动向导
 
@@ -137,9 +137,19 @@ hermes-peek doctor --json
 
 这两条命令通过只代表安装和配置检查通过。最终仍需在新的 Hermes 会话中发起一次真实 Preview，并确认它能在目标私聊、群组或 Topic 中打开。
 
-### 4. 升级、回滚和卸载
+### 4. 更新、回滚和卸载
 
-当前 CLI 尚无公开 `upgrade` 子命令。升级时应切换到经过校验的固定版本、重新安装该版本，并再次运行 `setup --plan`/`setup`；不要直接复制内部 Plugin 或 Skill 文件。setup 返回的 transaction ID 可用于回滚：
+检查是否存在新版本、查看更新计划或执行更新：
+
+```bash
+hermes-peek update --check
+hermes-peek update --plan
+hermes-peek update
+```
+
+`upgrade` 是 `update` 的别名。自动更新仅支持通过仓库 `install.sh` 创建的安装；它会下载并校验目标 Release、原子切换 CLI、重新应用已提交的集成，并运行 `status` 和 `doctor`。无人交互执行时使用 `--yes`；固定目标版本时使用 `--version 0.2.10`。
+
+setup 返回的 transaction ID 可用于回滚：
 
 ```bash
 hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
@@ -159,6 +169,53 @@ hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
 ```
 
 Purge 不会删除允许根目录中的原始项目文件。更完整的保留矩阵、停服失败处理和恢复说明见[安装、升级、卸载与 Purge](docs/06-installation-uninstallation.md)。
+
+### CLI 生命周期参数速查
+
+安装器参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--version` | 输出安装器版本并退出。 |
+| `--dry-run` | 输出安装和 setup 计划，不下载或修改任何内容。 |
+| `--non-interactive` | 不打开 setup 向导；必须显式提供所有必需参数。 |
+| `--` | 结束安装器参数，并将后续参数传给 `hermes-peek setup`。 |
+
+`hermes-peek setup` 参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--allowed-root PATH` | 允许预览 `PATH` 下的文件；配置多个目录时重复传入。 |
+| `--external-url HTTPS_ORIGIN` | Telegram 客户端可访问的 HTTPS Origin，不能包含路径、query 或 fragment。 |
+| `--telegram-bot-username NAME` | 用于 Telegram Mini App 链接的 Bot username。 |
+| `--telegram-mini-app-short-name NAME` | 可选的具名 Mini App short name。 |
+| `--telegram-mini-app-mode compact` | Mini App 显示模式；当前只支持 `compact`。 |
+| `--telegram-env PATH` | 包含 `TELEGRAM_BOT_TOKEN` 的受限权限文件；默认使用当前 Hermes 凭据文件。 |
+| `--configure-telegram-menu` | 明确允许 setup 修改 Bot 的私聊菜单按钮。 |
+| `--hermes-home PATH` | 指定目标 Hermes profile home。 |
+| `--no-activate` | 只安装文件，不启动服务、不启用 Plugin，也不重启 Gateway。 |
+| `--plan` | 输出只读、脱敏的 JSON 计划，不执行变更。 |
+
+`hermes-peek update` / `hermes-peek upgrade` 参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--check` | 检查最新 Release 并输出 JSON，不执行变更。 |
+| `--plan` | 输出只读更新计划。 |
+| `--version VERSION` | 指定 Release 版本，而不是使用最新版本。 |
+| `--yes` | 跳过交互确认；stdin 不是 TTY 时必须使用。 |
+
+`hermes-peek uninstall` 参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--hermes-home PATH` | 指定已安装的 Hermes profile。 |
+| `--purge` | 同时永久删除 Registry、spool、日志、journal 和备份。 |
+| `--dry-run` | 与 `--purge` 一起使用，只输出删除计划。 |
+| `--yes` | 无人交互确认 Purge。 |
+| `--no-deactivate` | 跳过服务、Plugin 和 Gateway 停用；仅用于受控恢复。 |
+
+已安装版本的权威语法以 `hermes-peek <command> --help` 输出为准。
 
 ## 使用 AI Agent 安装
 

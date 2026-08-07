@@ -77,13 +77,13 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-HermesPeek v0.2.1 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
+HermesPeek v0.2.10 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
 ## Operator quickstart
 
-> The `main` installer tracks the current stable Release, v0.2.1. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.1`.
+> The `main` installer tracks the current stable Release, v0.2.10. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.10`.
 
 ### 1. Install and run the setup wizard
 
@@ -137,9 +137,19 @@ hermes-peek doctor --json
 
 Passing these checks proves installation/configuration readiness only. Final acceptance requires requesting a real Preview from a new Hermes session and opening it in the intended private chat, group, or Topic.
 
-### 4. Upgrade, rollback, and uninstall
+### 4. Update, rollback, and uninstall
 
-The current CLI has no public `upgrade` subcommand. To upgrade, check out/install a verified fixed version and run `setup --plan`/`setup` again; do not copy internal Plugin or Skill files. Roll back a committed setup with its transaction ID:
+Check whether a newer Release is available, inspect the update plan, or apply the update:
+
+```bash
+hermes-peek update --check
+hermes-peek update --plan
+hermes-peek update
+```
+
+`upgrade` is an alias for `update`. Automatic update is supported for installations created by the repository `install.sh`; it downloads and verifies the selected Release, switches the CLI atomically, reapplies the committed integration, and runs `status` and `doctor`. Use `--yes` for non-interactive execution or `--version 0.2.10` to select a fixed Release.
+
+Roll back a committed setup with its transaction ID:
 
 ```bash
 hermes-peek rollback --hermes-home "$HERMES_HOME" <transaction-id>
@@ -160,6 +170,53 @@ hermes-peek uninstall --hermes-home "$HERMES_HOME" --purge --yes
 
 Purge never deletes original project files under an allowed root. See [Installation, upgrade, uninstall, and purge](docs/06-installation-uninstallation.md) for the complete retention matrix, deactivation failure behavior, and recovery guidance.
 
+### CLI lifecycle reference
+
+Installer options:
+
+| Option | Purpose |
+|---|---|
+| `--version` | Print the installer version and exit. |
+| `--dry-run` | Print the installer and setup action without downloading or changing anything. |
+| `--non-interactive` | Do not open the setup wizard; all required setup values must be supplied. |
+| `--` | End installer options and pass the remaining options to `hermes-peek setup`. |
+
+`hermes-peek setup` options:
+
+| Option | Purpose |
+|---|---|
+| `--allowed-root PATH` | Allow Preview access below `PATH`; repeat for multiple roots. |
+| `--external-url HTTPS_ORIGIN` | Telegram-reachable HTTPS origin, without a path, query, or fragment. |
+| `--telegram-bot-username NAME` | Bot username used for Telegram Mini App links. |
+| `--telegram-mini-app-short-name NAME` | Optional named Mini App short name. |
+| `--telegram-mini-app-mode compact` | Mini App display mode; currently only `compact` is supported. |
+| `--telegram-env PATH` | Restricted file containing `TELEGRAM_BOT_TOKEN`; defaults to the active Hermes credential file. |
+| `--configure-telegram-menu` | Explicitly allow setup to change the bot's private-chat menu button. |
+| `--hermes-home PATH` | Select the target Hermes profile home. |
+| `--no-activate` | Install files without starting the service, enabling the Plugin, or restarting Gateway. |
+| `--plan` | Print a read-only, redacted JSON plan and make no changes. |
+
+`hermes-peek update` / `hermes-peek upgrade` options:
+
+| Option | Purpose |
+|---|---|
+| `--check` | Check the latest Release and print JSON without changing anything. |
+| `--plan` | Print the read-only update plan. |
+| `--version VERSION` | Select a specific Release instead of the latest Release. |
+| `--yes` | Apply without interactive confirmation; required when stdin is not a TTY. |
+
+`hermes-peek uninstall` options:
+
+| Option | Purpose |
+|---|---|
+| `--hermes-home PATH` | Select the installed Hermes profile. |
+| `--purge` | Also permanently delete HermesPeek Registry, spool, logs, journals, and backups. |
+| `--dry-run` | With `--purge`, print the deletion plan without changing anything. |
+| `--yes` | Confirm Purge non-interactively. |
+| `--no-deactivate` | Skip service/Plugin/Gateway deactivation; reserved for controlled recovery. |
+
+Run `hermes-peek <command> --help` for the authoritative syntax shipped with the installed version.
+
 ## Install with an AI agent
 
 Copy the prompt below into an agent that has terminal access. AI-assisted installation does not waive approvals.
@@ -167,36 +224,6 @@ Copy the prompt below into an agent that has terminal access. AI-assisted instal
 <!-- ai-install-prompt:start -->
 ```text
 Help me install and verify HermesPeek from https://github.com/KumaCool/HermesPeek.
-
-Before acting:
-1. Read README.md, docs/08-one-click-ai-telegram-onboarding.md,
-   docs/06-installation-uninstallation.md, AGENTS.md, the rollout status in
-   docs/plan/05-one-click-ai-telegram-onboarding-rollout.md, and inspect the
-   current GitHub Release assets. Treat those as authoritative sources, then
-   perform read-only discovery of the actual host, Hermes profiles, service,
-   Gateway, Telegram configuration, and missing inputs.
-2. First output a redacted plan. Do not make any change until I approve every
-   side effect. Obtain separate confirmation before changing a real Hermes
-   profile or service, restarting Gateway, changing a Telegram menu, or making
-   any HTTPS, port, firewall, proxy, Tailscale, certificate, or other network
-   change.
-3. Do not send or ask me to send a Telegram Bot Token, API key, password, or any
-   Secret in chat. Read Secrets only from a restricted local file or through
-   secure local input (not chat); never expose them in chat, command arguments,
-   plans, or logs.
-4. Inspect the v0.2.1 Release, confirm that it contains the matching wheel,
-   sdist, and SHA256SUMS, then use the repository/tag installer and
-   hermes-peek setup. Do not copy internal plugin/Skill files or invent another
-   installation flow.
-5. Verify and report three completion levels separately: (a) installation
-   complete: CLI/profile/service checks pass; (b) Hermes loading complete: the
-   intended profile, Gateway, new session, Skill, and Tool are live; and (c)
-   Telegram acceptance complete: a real new-session Preview succeeds in the
-   original private chat, group, or Topic. Never promote offline tests or an
-   earlier level to a later one.
-6. Finish with the redacted verification checklist and any pending owner-only
-   BotFather, HTTPS, Gateway, or Telegram steps. Do not claim success for a
-   check that was not run.
 ```
 <!-- ai-install-prompt:end -->
 
