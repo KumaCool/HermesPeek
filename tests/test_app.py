@@ -15,6 +15,8 @@ def test_home() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "HermesPeek" in response.text
+    assert "fetch('/api/auth/telegram/launch'" in response.text
+    assert "location.replace(`/p/${previewId}`)" in response.text
 
 
 def test_legacy_absolute_path_preview_route_is_not_exposed() -> None:

@@ -20,6 +20,7 @@ from hermes_peek.paths import PathPolicy, PathPolicyError
 from hermes_peek.registry import CorruptPreviewError, LaunchRefNotFoundError, LaunchRegistry, PreviewNotFoundError, PreviewRegistry
 from hermes_peek.renderers import RenderError, render_text_preview
 from hermes_peek.service import PreviewService
+from hermes_peek.urls import external_base_path
 
 
 class TelegramAuthRequest(BaseModel):
@@ -38,6 +39,18 @@ def create_app(
     service: PreviewService | None = None,
     bot_token: str | None = None,
 ) -> FastAPI:
+    base_path = (
+        external_base_path(str(settings.external_base_url))
+        if settings.external_base_url is not None
+        else "/"
+    )
+
+    def app_path(relative: str) -> str:
+        suffix = relative.lstrip("/")
+        if base_path == "/":
+            return f"/{suffix}" if suffix else "/"
+        return base_path if not suffix else f"{base_path}/{suffix}"
+
     preview_service = service or PreviewService(
         registry=PreviewRegistry(settings.state_dir),
         path_policy=PathPolicy(settings.allowed_roots, max_file_bytes=settings.max_file_bytes),
@@ -143,6 +156,8 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse)
     def home() -> str:
+        launch_auth_path = app_path("api/auth/telegram/launch")
+        preview_path = app_path("p")
         return """<!doctype html><html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HermesPeek</title><script src="https://telegram.org/js/telegram-web-app.js"></script></head>
@@ -168,7 +183,7 @@ def create_app(
     state.textContent = '请在 Telegram Mini App 中打开此链接。';
     return;
   }
-  fetch('/api/auth/telegram/launch', {
+  fetch('__LAUNCH_AUTH_PATH__', {
     method: 'POST', credentials: 'same-origin',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({launch_ref: launchRef, init_data: tg.initData}),
@@ -176,10 +191,12 @@ def create_app(
     if (!response.ok) throw new Error('launch authentication failed');
     const previewId = response.headers.get('X-HermesPeek-Preview-Id');
     if (!previewId) throw new Error('missing preview');
-    location.replace(`/p/${previewId}`);
+    location.replace(`__PREVIEW_PATH__/${previewId}`);
   }).catch(() => { state.textContent = '预览无效、已过期或无权访问。'; });
 })();
-</script></body></html>"""
+</script></body></html>""".replace(
+            "__LAUNCH_AUTH_PATH__", launch_auth_path
+        ).replace("__PREVIEW_PATH__", preview_path)
 
     @application.get("/p/{preview_id}", response_class=HTMLResponse)
     def preview_shell(preview_id: str) -> str:
@@ -189,9 +206,9 @@ def create_app(
             '<meta charset="utf-8"><meta name="viewport" '
             'content="width=device-width,initial-scale=1,viewport-fit=cover">'
             f"<title>{_escape(record.title)}</title>"
-            '<link rel="stylesheet" href="/static/app.css">'
+            f'<link rel="stylesheet" href="{app_path("static/app.css")}">'
             '<script src="https://telegram.org/js/telegram-web-app.js"></script>'
-            '<script src="/static/app.js" defer></script></head>'
+            f'<script src="{app_path("static/app.js")}" defer></script></head>'
             f"<body><header><h1>{_escape(record.title)}</h1></header><main>"
             f'<div id="preview-app" class="state loading" data-preview-id="{_escape(record.preview_id)}">'
             "<p>正在加载预览…</p></div></main></body></html>"

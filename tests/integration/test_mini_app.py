@@ -68,3 +68,38 @@ def test_home_is_a_telegram_startapp_router_without_trusting_user_identity(tmp_p
     assert "^lr_[A-Za-z0-9_-]{20,64}$" in home.text
     assert "location.replace(`/p/${previewId}`)" in home.text
     assert "user.id" not in home.text
+
+
+def test_base_path_is_rendered_in_shell_assets_launch_auth_and_redirects(tmp_path: Path) -> None:
+    root = tmp_path / "files"
+    root.mkdir()
+    document = root / "note.md"
+    document.write_text("# Hello", encoding="utf-8")
+    settings = Settings(
+        allowed_roots=(root,),
+        state_dir=tmp_path / "state",
+        max_file_bytes=4096,
+        default_ttl_seconds=3600,
+        development=True,
+        external_base_url="https://preview.example.test/apps/hermespeek/",
+    )
+    service = PreviewService(
+        registry=PreviewRegistry(settings.state_dir),
+        path_policy=PathPolicy(settings.allowed_roots, max_file_bytes=4096),
+        default_ttl_seconds=3600,
+        external_base_url=str(settings.external_base_url),
+    )
+    preview_id = service.publish(
+        (document,), entry=document, title="Base Path Preview", owner_telegram_user_id="123"
+    ).record.preview_id
+    client = TestClient(create_app(settings, service=service))
+
+    home = client.get("/")
+    shell = client.get(f"/p/{preview_id}")
+
+    assert home.status_code == shell.status_code == 200
+    assert "fetch('/apps/hermespeek/api/auth/telegram/launch'" in home.text
+    assert "location.replace(`/apps/hermespeek/p/${previewId}`)" in home.text
+    assert 'href="/apps/hermespeek/static/app.css"' in shell.text
+    assert 'src="/apps/hermespeek/static/app.js"' in shell.text
+    assert str(tmp_path) not in home.text + shell.text
