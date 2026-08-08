@@ -325,6 +325,26 @@ GET    /hermespeek/static/*
 
 ### 阶段 3：端到端回归与生命周期兼容
 
+#### 阶段 3 验收记录
+
+- [x] `TASK 3.1` 增加剥离前缀代理契约集成测试
+  - Status: ✅ 已验收
+  - Implementation: 最小 ASGI 测试代理模拟 `/apps/hermespeek/* -> /*` 剥离；完整覆盖公共 health、home、Preview shell、static、launch auth、metadata、text/raw 文件，同时保留内部 `/healthz` 并拒绝未带前缀的公共请求。
+  - Acceptance command: `uv run pytest tests/integration/test_base_path_proxy.py tests/integration/test_local_service.py -q`
+  - Acceptance result: 3 passed
+  - Commit: `5ee9507`
+  - Updated: 2026-08-08
+- [x] `TASK 3.2` 验证 setup/reconfigure/update 配置保真
+  - Status: ✅ 已验收
+  - Implementation: fresh setup 写入规范化 Base Path；单字段重配保留既有 Base Path；失败事务恢复旧基址；`--plan` 保留并展示 Base Path 且不写配置；update reapply 在既有配置仍含 Base Path 时完成 setup/status/doctor。
+  - Acceptance command: `uv run pytest tests/integration/test_lifecycle_reconfigure.py tests/integration/test_lifecycle.py tests/integration/test_lifecycle_ux.py tests/integration/test_release_installer.py tests/unit/test_cli_update.py -q -rA`
+  - Acceptance result: 90 passed
+  - Commit: `5d4ce99`
+  - Updated: 2026-08-08
+- Phase regression command: `uv run pytest tests/integration/test_base_path_proxy.py tests/integration/test_local_service.py tests/integration/test_lifecycle_reconfigure.py tests/integration/test_lifecycle.py tests/integration/test_lifecycle_ux.py tests/integration/test_release_installer.py tests/unit/test_cli_update.py -q -rA`
+- Phase regression result: 93 passed
+- Phase regression updated: 2026-08-08
+
 #### TASK 3.1：增加剥离前缀代理契约集成测试
 
 **来源：** §3.2、§4
