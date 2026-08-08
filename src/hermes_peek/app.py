@@ -108,7 +108,7 @@ def create_app(
             httponly=True,
             secure=not settings.development,
             samesite="lax",
-            path="/",
+            path=base_path,
         )
         response.status_code = 204
         return response
@@ -133,7 +133,7 @@ def create_app(
         )
         response.set_cookie(
             "hermes_peek_session", token, max_age=900, httponly=True,
-            secure=not settings.development, samesite="lax", path="/",
+            secure=not settings.development, samesite="lax", path=base_path,
         )
         response.headers["X-HermesPeek-Preview-Id"] = record.preview_id
         response.status_code = 204
@@ -146,7 +146,7 @@ def create_app(
     ) -> Response:
         if session_token is not None:
             sessions.pop(_token_hash(session_token), None)
-        response.delete_cookie("hermes_peek_session", path="/")
+        response.delete_cookie("hermes_peek_session", path=base_path)
         response.status_code = 204
         return response
 
