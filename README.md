@@ -83,13 +83,13 @@ See [`docs/03-security.md`](docs/03-security.md) for the detailed security model
 
 ## Installation paths
 
-HermesPeek v0.2.15 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
+HermesPeek v0.3.0 publishes a verified Linux Release payload set (`wheel`, `sdist`, and `SHA256SUMS`). The repository/tag is the single source for `install.sh`, which downloads and verifies the matching fixed Release wheel. The one-command lifecycle supports Linux with a running systemd user manager. macOS, Windows, and Linux without a systemd user manager remain `PENDING_BACKEND`.
 
 The complete onboarding and security contract is in [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md), lifecycle behavior is authoritative in [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md), and rollout status is tracked in [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md).
 
 ## Operator quickstart
 
-> The `main` installer tracks the current stable Release, v0.2.15. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.2.15`.
+> The `main` installer tracks the current stable Release, v0.3.0. It verifies the fixed wheel against the published `SHA256SUMS` before installing and does not use `sudo`. For a version-fixed installer source, replace `main` with `v0.3.0`.
 
 ### 1. Install and run the setup wizard
 
@@ -165,7 +165,7 @@ hermes-peek update --plan
 hermes-peek update
 ```
 
-`upgrade` is an alias for `update`. Automatic update is supported for installations created by the repository `install.sh`; it downloads and verifies the selected Release, switches the CLI atomically, reapplies the committed integration, and runs `status` and `doctor`. Use `--yes` for non-interactive execution or `--version 0.2.15` to select a fixed Release.
+`upgrade` is an alias for `update`. Automatic update is supported for installations created by the repository `install.sh`; it downloads and verifies the selected Release, switches the CLI atomically, reapplies the committed integration, and runs `status` and `doctor`. Use `--yes` for non-interactive execution or `--version 0.3.0` to select a fixed Release.
 
 Roll back a committed setup with its transaction ID:
 

@@ -6,6 +6,24 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-08
+
+### Added
+
+- Support deploying HermesPeek under an optional external HTTPS path prefix, including multi-level base paths for Preview, API, static asset, authentication, and health-check URLs.
+- Add centralized external-base-URL helpers and stripped-prefix reverse-proxy integration coverage.
+
+### Changed
+
+- Scope Telegram Preview session cookies to the configured public base path instead of the whole origin.
+- Preserve normalized base paths across setup, reconfiguration, update reapply, diagnostics, and rollback.
+- Document root and path-prefix deployments in English and Simplified Chinese, including the proxy prefix-stripping contract and separate internal/external health checks.
+
+### Security
+
+- Reject credentials, query strings, fragments, traversal, encoded paths, backslashes, and non-ASCII path prefixes in external base URLs.
+- Keep base-path and Cookie Path decisions configuration-bound rather than trusting forwarded-prefix request headers.
+
 ## [0.2.15] - 2026-08-07
 
 ### Fixed
@@ -194,7 +212,8 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). 
 - Telegram identity and owner checks remain required even when a Preview ID is known.
 - HTML is sandboxed and sanitized; workspace access remains read-only.
 
-[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.2.15...HEAD
+[Unreleased]: https://github.com/KumaCool/HermesPeek/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.3.0
 [0.2.15]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.15
 [0.2.14]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.14
 [0.2.13]: https://github.com/KumaCool/HermesPeek/releases/tag/v0.2.13

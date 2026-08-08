@@ -83,13 +83,13 @@ Preview ID 不是授权凭据。用户仍需通过有效的 Telegram 身份验�
 
 ## 安装方式
 
-HermesPeek v0.2.15 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
+HermesPeek v0.3.0 已发布并验证 Linux Release 资产（`wheel`、`sdist` 和 `SHA256SUMS`）。仓库/tag 是 `install.sh` 的唯一来源；脚本会下载并校验匹配的固定 Release wheel。一键生命周期支持具有运行中 systemd user manager 的 Linux；macOS、Windows 和没有 systemd user manager 的 Linux 仍为 `PENDING_BACKEND`。
 
 完整 onboarding 与安全契约见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md)，生命周期行为的权威来源是 [`docs/06-installation-uninstallation.md`](docs/06-installation-uninstallation.md)，实施状态见 [`docs/plan/05-one-click-ai-telegram-onboarding-rollout.md`](docs/plan/05-one-click-ai-telegram-onboarding-rollout.md)。
 
 ## 普通用户快速开始
 
-> `main` 安装器跟随当前稳定版 v0.2.15，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.2.15`。
+> `main` 安装器跟随当前稳定版 v0.3.0，安装前会用已发布的 `SHA256SUMS` 校验固定 wheel，并且不使用 `sudo`。如需固定安装器来源，请将 `main` 替换为 `v0.3.0`。
 
 ### 1. 安装并启动向导
 
@@ -165,7 +165,7 @@ hermes-peek update --plan
 hermes-peek update
 ```
 
-`upgrade` 是 `update` 的别名。自动更新仅支持通过仓库 `install.sh` 创建的安装；它会下载并校验目标 Release、原子切换 CLI、重新应用已提交的集成，并运行 `status` 和 `doctor`。无人交互执行时使用 `--yes`；固定目标版本时使用 `--version 0.2.15`。
+`upgrade` 是 `update` 的别名。自动更新仅支持通过仓库 `install.sh` 创建的安装；它会下载并校验目标 Release、原子切换 CLI、重新应用已提交的集成，并运行 `status` 和 `doctor`。无人交互执行时使用 `--yes`；固定目标版本时使用 `--version 0.3.0`。
 
 setup 返回的 transaction ID 可用于回滚：
 
