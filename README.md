@@ -97,7 +97,7 @@ The complete onboarding and security contract is in [`docs/08-one-click-ai-teleg
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-The installer uses POSIX `sh`, so it can be started from Fish, Bash, Zsh, or another shell. With no setup arguments it reopens the terminal for an interactive wizard. `setup` discovers Hermes profiles and asks for an approved preview workspace and a Telegram-reachable HTTPS origin. After validation it proceeds directly, prints each installation phase, and finishes with one concise success line. It does not show internal setup/result JSON or ask for a redundant yes/no confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
+The installer uses POSIX `sh`, so it can be started from Fish, Bash, Zsh, or another shell. With no setup arguments it reopens the terminal for an interactive wizard. `setup` discovers Hermes profiles and asks for an approved preview workspace and a Telegram-reachable external HTTPS base URL. That URL may be an origin such as `https://preview.example.test` or include a proxy path prefix such as `https://example.test/apps/hermespeek/`. After validation it proceeds directly, prints each installation phase, and finishes with one concise success line. It does not show internal setup/result JSON or ask for a redundant yes/no confirmation. Never paste a Bot Token into chat, command arguments, or README examples.
 
 For a non-interactive installation, pass setup arguments after `sh -s --`. They are forwarded to the same `hermes-peek setup` lifecycle and no prompt is opened:
 
@@ -137,7 +137,7 @@ tailscale serve --bg http://127.0.0.1:8765
 tailscale serve status
 ```
 
-The command prints a URL such as `https://your-device.your-tailnet.ts.net`. Enter that origin without a path when setup asks for `External HTTPS origin`; after setup, verify it with `curl -fsS https://your-device.your-tailnet.ts.net/healthz`. Tailscale Serve is not a public-internet endpoint: the phone or desktop running Telegram must also be connected to the same tailnet. HermesPeek does not manage existing Serve rules. See [Installation, upgrade, uninstall, and purge: Tailscale Serve HTTPS](docs/06-installation-uninstallation.md#tailscale-serve-https) for the full procedure, Funnel distinction, and cleanup warning.
+The command prints a URL such as `https://your-device.your-tailnet.ts.net`. Enter it as the external HTTPS base URL; after setup, verify it with `curl -fsS https://your-device.your-tailnet.ts.net/healthz`. This root deployment uses the current `tailscale serve --bg <target>` CLI form. If an existing reverse proxy instead publishes HermesPeek below a path, pass the complete base URL (for example `https://example.test/apps/hermespeek/`) and configure the proxy to **strip `/apps/hermespeek`** before forwarding to `http://127.0.0.1:8765`. Verify the public path at `https://example.test/apps/hermespeek/healthz`. Tailscale Serve is not a public-internet endpoint: the phone or desktop running Telegram must also be connected to the same tailnet. HermesPeek does not create, replace, or delete Serve or proxy rules. See [Installation, upgrade, uninstall, and purge: Tailscale Serve HTTPS](docs/06-installation-uninstallation.md#tailscale-serve-https) for the full procedure, path-prefix contract, Funnel distinction, and cleanup warning.
 
 ### 3. Complete Hermes and Telegram configuration
 
@@ -204,7 +204,7 @@ Installer options:
 | Option | Purpose |
 |---|---|
 | `--allowed-root PATH` | Allow Preview access below `PATH`; repeat for multiple roots. |
-| `--external-url HTTPS_ORIGIN` | Telegram-reachable HTTPS origin, without a path, query, or fragment. |
+| `--external-url HTTPS_BASE_URL` | Telegram-reachable external HTTPS base URL; an optional ASCII path prefix is supported, but credentials, query, and fragment are rejected. |
 | `--telegram-bot-username NAME` | Bot username used for Telegram Mini App links. |
 | `--telegram-mini-app-short-name NAME` | Optional named Mini App short name. |
 | `--telegram-mini-app-mode compact` | Mini App display mode; currently only `compact` is supported. |
@@ -393,7 +393,7 @@ hermes-peek setup \
 
 Use `--configure-telegram-menu` only when you explicitly want setup to change the bot menu. Telegram's first Main Mini App binding still requires the bot owner to configure it in BotFather; it cannot be safely automated by this repository alone.
 
-Before setup, configure the Telegram Bot in Hermes, restrict allowed users, and prepare a Telegram-reachable HTTPS Origin. Private-chat Preview does not require a Main Mini App binding. Before using Preview in a group or Forum Topic, bind the same Bot's Main Mini App in BotFather. For Privacy Mode, optional short names, Gateway activation, and the first real Preview test, follow [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-complete-configuration).
+Before setup, configure the Telegram Bot in Hermes, restrict allowed users, and prepare a Telegram-reachable external HTTPS base URL. Private-chat Preview does not require a Main Mini App binding. Before using Preview in a group or Forum Topic, bind the same Bot's Main Mini App in BotFather. For Privacy Mode, optional short names, Gateway activation, and the first real Preview test, follow [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-complete-configuration).
 
 Check the installation:
 
@@ -449,7 +449,7 @@ The most commonly used settings are environment variables:
 |---|---:|---|---|
 | `HERMES_PEEK_ALLOWED_ROOTS` | yes | `os.pathsep`-separated directories that may be previewed | — |
 | `HERMES_PEEK_STATE_DIR` | no | Registry, sessions, launch references, and logs | XDG state directory |
-| `HERMES_PEEK_EXTERNAL_BASE_URL` | no | HTTPS origin used to build Preview URLs | — |
+| `HERMES_PEEK_EXTERNAL_BASE_URL` | no | External HTTPS base URL, optionally including a proxy path prefix, used to build Preview URLs | — |
 | `HERMES_PEEK_MAX_FILE_BYTES` | no | Maximum previewable file size | 2 MiB |
 | `HERMES_PEEK_DEFAULT_TTL_SECONDS` | no | Preview lifetime | 7 days |
 | `HERMES_PEEK_TELEGRAM_BOT_TOKEN` | for Telegram | Bot API credential | — |

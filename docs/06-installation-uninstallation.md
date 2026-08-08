@@ -79,7 +79,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
 | 参数 | 作用 |
 |---|---|
 | `--allowed-root PATH` | 添加允许预览的根目录；可重复传入 |
-| `--external-url HTTPS_ORIGIN` | Telegram 客户端可达的 HTTPS Origin |
+| `--external-url HTTPS_BASE_URL` | Telegram 客户端可达的外部 HTTPS 基址，可包含代理路径前缀 |
 | `--telegram-bot-username NAME` | Telegram Bot username |
 | `--telegram-mini-app-short-name NAME` | 可选 Mini App short name |
 | `--telegram-mini-app-mode compact` | Mini App 显示模式；当前仅支持 `compact` |
@@ -91,7 +91,7 @@ curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh
 
 <a id="tailscale-serve-https"></a>
 
-#### 使用 Tailscale Serve 获取 HTTPS Origin
+#### 使用 Tailscale Serve 获取外部 HTTPS 基址
 
 如果没有现成的 HTTPS 域名，可以把 HermesPeek 只监听在本机的服务（`127.0.0.1:8765`）通过 [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve) 发布到自己的 tailnet：
 
@@ -108,7 +108,7 @@ tailscale serve status
 https://your-device.your-tailnet.ts.net
 ```
 
-把该 URL（不要附加 `/healthz` 或其他路径）填入交互向导的 `External HTTPS origin`，或传给：
+把该 URL 作为根路径外部 HTTPS 基址（不要附加 `/healthz`）填入交互向导，或传给：
 
 ```bash
 hermes-peek setup \
@@ -122,10 +122,27 @@ setup 完成、HermesPeek 服务启动后验证：
 curl -fsS https://your-device.your-tailnet.ts.net/healthz
 ```
 
+如果共享 HTTPS 域名已由 Nginx 等反向代理管理，也可以使用路径基址：
+
+```bash
+hermes-peek setup \
+  --allowed-root /path/to/approved/workspace \
+  --external-url https://example.test/apps/hermespeek/
+```
+
+代理必须匹配并剥离 `/apps/hermespeek`，再把余下路径转发到 `http://127.0.0.1:8765`。因此公共 `/apps/hermespeek/healthz` 到达上游时必须是 `/healthz`。内部探活保持不变：
+
+```bash
+curl -fsS http://127.0.0.1:8765/healthz
+curl -fsS https://example.test/apps/hermespeek/healthz
+```
+
+HermesPeek 不支持让代理保留该前缀，也不根据 `X-Forwarded-Prefix` 动态改变行为。setup、update 和 uninstall 只保留应用配置，不创建、修改或删除代理规则。
+
 重要边界：
 
 - **Tailscale Serve 只在 tailnet 内可达。** 打开 Preview 的手机或桌面 Telegram 客户端所在设备也必须登录并连接同一个 tailnet；否则应使用你自己的反向代理/域名，或在理解公网暴露风险后另行配置 Tailscale Funnel。
-- 不要把 `http://127.0.0.1:8765` 作为 `--external-url`；它只是 Serve 的本地上游，不是 Telegram 使用的 HTTPS Origin。
+- 不要把 `http://127.0.0.1:8765` 作为 `--external-url`；它只是 Serve/代理的本地上游，不是 Telegram 使用的外部 HTTPS 基址。
 - HermesPeek 不会创建、接管或删除现有 Tailscale 规则。以上命令会修改本机 Tailscale Serve 配置，应由设备所有者明确执行。
 - 不再使用时先查看现有规则，再删除；`reset` 会清除本机的**全部** Serve 配置，不应在共享配置的设备上盲目执行：
 

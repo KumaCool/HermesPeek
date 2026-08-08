@@ -89,7 +89,7 @@ hermes-peek setup
 1. 发现 Hermes 安装及 profile；有多个 profile 时让用户明确选择；
 2. 发现目标 profile 的 Telegram 配置，只显示 Bot username 和脱敏状态，不显示 Token；
 3. 让用户选择允许预览的目录，拒绝 `/`、整个 home、Secret 目录和不安全 symlink；
-4. 要求填写 Telegram 客户端可访问的 HTTPS Origin；没有现成域名时，可按 [`docs/06-installation-uninstallation.md`](06-installation-uninstallation.md#tailscale-serve-https) 的 Tailscale Serve 方案获取 tailnet 内 HTTPS URL；
+4. 要求填写 Telegram 客户端可访问的外部 HTTPS 基址；它可包含代理路径前缀。没有现成域名时，可按 [`docs/06-installation-uninstallation.md`](06-installation-uninstallation.md#tailscale-serve-https) 的 Tailscale Serve 方案获取 tailnet 内 HTTPS URL；
 5. 在线检查 `/healthz`、TLS 和 Telegram Bot 身份；
 6. 分层报告 Main Mini App 状态：Bot 身份是否验证、是否有可信配置证据、URL 匹配是否仍未验证，以及是否仍需 Telegram 客户端现场打开；不得根据 `getMe` 成功或能够构造 Direct Link 推断 BotFather 已配置完成；
 7. 普通 CLI 在必要输入通过验证后直接执行事务化 setup，并持续显示当前安装阶段；显式 `--plan` 仍提供只读、脱敏的机器可读计划；
@@ -190,17 +190,19 @@ Hermes Telegram 配置的最新权威步骤以 [Hermes Agent Telegram 文档](ht
 
 ### 4.3 准备 HTTPS 地址
 
-Telegram Mini App 必须使用 Telegram 客户端可访问且证书受信任的 HTTPS Origin，例如：
+Telegram Mini App 必须使用 Telegram 客户端可访问且证书受信任的外部 HTTPS 基址，例如：
 
 ```text
 https://preview.example.com
+https://example.com/apps/hermespeek/
 ```
 
 要求：
 
-- 只填写 Origin，不带 Token、用户名、密码、query 或 fragment；
+- 可以使用站点根路径或 ASCII 路径前缀，但不能包含 Token、用户名、密码、query、fragment、路径穿越或编码路径；
 - 手机和桌面 Telegram 都应能访问；
 - HermesPeek 应继续只监听受控地址，由现有 HTTPS 入口转发；
+- 使用路径前缀时，代理必须剥离该前缀后转发到 HermesPeek 根路由；公共 `<base>/healthz` 与内部 `/healthz` 应分别验证；
 - 安装器只验证该地址，不自动创建或修改网络入口。
 
 如果尚无 HTTPS 地址，应先停止 HermesPeek 安装，并单独设计入口。不得为了“一键安装”静默开放公网端口。
@@ -215,7 +217,7 @@ https://preview.example.com
 2. 进入 Bot Settings / Configure Mini App；
 3. 选择同一个 Hermes Bot；
 4. 设置 Mini App 标题和说明；
-5. Web App URL 填写 §4.3 的 HermesPeek HTTPS Origin；
+5. Web App URL 填写 §4.3 的完整 HermesPeek 外部 HTTPS 基址，包括已配置的路径前缀；
 6. 保存后验证 Main Mini App 入口可以打开；HermesPeek 默认使用不带 short name 的 Main Mini App Direct Link：
 
    ```text

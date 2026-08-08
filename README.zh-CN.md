@@ -97,7 +97,7 @@ HermesPeek v0.2.15 已发布并验证 Linux Release 资产（`wheel`、`sdist` �
 curl -fsSL https://raw.githubusercontent.com/KumaCool/HermesPeek/main/install.sh | sh
 ```
 
-安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，安装器会重新打开当前终端启动交互向导。`setup` 会发现 Hermes profile，并询问允许预览的工作目录和 Telegram 客户端可访问的 HTTPS Origin。验证通过后会直接执行，并持续显示安装阶段，最后只输出一行简洁的成功信息；默认不会显示内部 setup/result JSON，也不会再询问无意义的 yes/no。不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
+安装器使用 POSIX `sh`，因此可以从 Fish、Bash、Zsh 或其他外壳启动。没有 setup 参数时，安装器会重新打开当前终端启动交互向导。`setup` 会发现 Hermes profile，并询问允许预览的工作目录和 Telegram 客户端可访问的外部 HTTPS 基址。该地址既可以是 `https://preview.example.test`，也可以包含代理路径前缀，例如 `https://example.test/apps/hermespeek/`。验证通过后会直接执行，并持续显示安装阶段，最后只输出一行简洁的成功信息；默认不会显示内部 setup/result JSON，也不会再询问无意义的 yes/no。不要把 Bot Token 粘贴到聊天、命令参数或 README 示例中。
 
 无人交互安装时，可在 `sh -s --` 后传入 setup 参数。参数会转交给同一个 `hermes-peek setup` 生命周期，不会启动询问：
 
@@ -137,13 +137,13 @@ tailscale serve --bg http://127.0.0.1:8765
 tailscale serve status
 ```
 
-命令会显示一个 `https://your-device.your-tailnet.ts.net` 地址。将这个不带路径的地址填入 `External HTTPS origin`；setup 完成后用 `curl -fsS https://your-device.your-tailnet.ts.net/healthz` 验证。Tailscale Serve 不是公网入口：手机或桌面 Telegram 所在设备也必须连接同一 tailnet。HermesPeek 不管理既有 Serve 规则；完整步骤、Funnel 区别和安全卸载说明见[安装、升级、卸载与 Purge：使用 Tailscale Serve 获取 HTTPS Origin](docs/06-installation-uninstallation.md#tailscale-serve-https)。
+命令会显示一个 `https://your-device.your-tailnet.ts.net` 地址。将它作为外部 HTTPS 基址；setup 完成后用 `curl -fsS https://your-device.your-tailnet.ts.net/healthz` 验证。这个根路径部署使用当前 `tailscale serve --bg <target>` CLI 形式。如果已有反向代理需要把 HermesPeek 发布到子路径，则传入完整基址（例如 `https://example.test/apps/hermespeek/`），并配置代理在转发到 `http://127.0.0.1:8765` 前**剥离 `/apps/hermespeek`**；公共探活地址为 `https://example.test/apps/hermespeek/healthz`。Tailscale Serve 不是公网入口：手机或桌面 Telegram 所在设备也必须连接同一 tailnet。HermesPeek 不会创建、替换或删除既有 Serve/代理规则；完整步骤、路径前缀契约、Funnel 区别和安全卸载说明见[安装、升级、卸载与 Purge：使用 Tailscale Serve 获取 HTTPS](docs/06-installation-uninstallation.md#tailscale-serve-https)。
 
 ### 3. 完成 Hermes 与 Telegram 配置
 
 1. 按 [Hermes Telegram 配置文档](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram)启用 Telegram，并把自己的 Telegram user ID 加入允许用户（allowed users）；HermesPeek 不会擅自放宽授权。
 2. 私聊 Preview 不要求 Main Mini App。群组或 Forum Topic 使用 Direct Link 前，Bot owner 必须在 BotFather 中为同一个 Bot 配置 Main Mini App；`setChatMenuButton` 不能替代这一步。
-3. HTTPS Origin 必须能从实际 Telegram 客户端访问。Privacy Mode、BotFather 和网络配置都需要 owner 单独操作或确认。
+3. 外部 HTTPS 基址必须能从实际 Telegram 客户端访问。Privacy Mode、BotFather 和网络配置都需要 owner 单独操作或确认。
 4. setup 完成后，根据其待办清单处理 Gateway 激活；然后开启一个新的 Hermes 会话，让新会话重新发现 Skill 和 Tool。
 
 ### 4. 检查是否真的可用
@@ -204,7 +204,7 @@ Purge 不会删除允许根目录中的原始项目文件。更完整的保留�
 | 参数 | 作用 |
 |---|---|
 | `--allowed-root PATH` | 允许预览 `PATH` 下的文件；配置多个目录时重复传入。 |
-| `--external-url HTTPS_ORIGIN` | Telegram 客户端可访问的 HTTPS Origin，不能包含路径、query 或 fragment。 |
+| `--external-url HTTPS_BASE_URL` | Telegram 客户端可访问的外部 HTTPS 基址；可包含 ASCII 路径前缀，但拒绝凭据、query 和 fragment。 |
 | `--telegram-bot-username NAME` | 用于 Telegram Mini App 链接的 Bot username。 |
 | `--telegram-mini-app-short-name NAME` | 可选的具名 Mini App short name。 |
 | `--telegram-mini-app-mode compact` | Mini App 显示模式；当前只支持 `compact`。 |
@@ -393,7 +393,7 @@ hermes-peek setup \
 
 只有在明确希望 setup 修改 Bot 菜单时才使用 `--configure-telegram-menu`。Telegram Main Mini App 的首次绑定仍需 Bot owner 在 BotFather 中完成，无法仅依靠本仓库安全地自动配置。
 
-执行 setup 前，需要在 Hermes 中配置 Telegram Bot 和 allowed users，并准备 Telegram 客户端可访问的 HTTPS Origin。私聊 Preview 不要求绑定 Main Mini App；在群组或 Forum Topic 使用 Preview 前，必须在 BotFather 中为同一个 Bot 绑定 Main Mini App。Privacy Mode、可选 short name、Gateway 激活以及首条真实 Preview 的完整步骤见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-完整配置)。
+执行 setup 前，需要在 Hermes 中配置 Telegram Bot 和 allowed users，并准备 Telegram 客户端可访问的外部 HTTPS 基址。私聊 Preview 不要求绑定 Main Mini App；在群组或 Forum Topic 使用 Preview 前，必须在 BotFather 中为同一个 Bot 绑定 Main Mini App。Privacy Mode、可选 short name、Gateway 激活以及首条真实 Preview 的完整步骤见 [`docs/08-one-click-ai-telegram-onboarding.md`](docs/08-one-click-ai-telegram-onboarding.md#4-telegram-完整配置)。
 
 检查安装状态：
 
@@ -449,7 +449,7 @@ hermes-peek uninstall \
 |---|---:|---|---|
 | `HERMES_PEEK_ALLOWED_ROOTS` | 是 | 使用 `os.pathsep` 分隔的允许预览目录 | — |
 | `HERMES_PEEK_STATE_DIR` | 否 | Registry、会话、launch reference 和日志目录 | XDG 状态目录 |
-| `HERMES_PEEK_EXTERNAL_BASE_URL` | 否 | 用于生成 Preview URL 的 HTTPS Origin | — |
+| `HERMES_PEEK_EXTERNAL_BASE_URL` | 否 | 用于生成 Preview URL 的外部 HTTPS 基址，可包含代理路径前缀 | — |
 | `HERMES_PEEK_MAX_FILE_BYTES` | 否 | 可预览文件的最大大小 | 2 MiB |
 | `HERMES_PEEK_DEFAULT_TTL_SECONDS` | 否 | Preview 有效期 | 7 天 |
 | `HERMES_PEEK_TELEGRAM_BOT_TOKEN` | Telegram 必需 | Bot API 凭据 | — |

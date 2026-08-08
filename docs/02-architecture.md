@@ -36,6 +36,7 @@ Telegram Mini App
 | 组件 | 职责 | 不负责 |
 |---|---|---|
 | `config.py` | 类型化行为配置和 Secret 引用 | 保存真实 Secret |
+| `urls.py` | 规范化外部 HTTPS 基址，并统一生成公开 URL、Base Path 和 Cookie Path | 根据请求头猜测代理前缀 |
 | `paths.py` | 允许根、敏感路径、类型、MIME、大小和软链接检查 | 用户身份认证 |
 | `models.py` | 内部记录和公开 DTO | 文件 I/O |
 | `registry.py` | 每条记录独立 JSON、原子写入、读取、撤销和过期 | 内容渲染 |
@@ -128,3 +129,7 @@ GET    /api/previews/{preview_id}/files/{file_id}/raw
 ## 9. 部署边界
 
 应用默认只绑定经批准的本地地址。TLS、域名、WireGuard、Cloudflare Tunnel、反向代理、防火墙和 BotFather 配置属于外层网络设施，均不由应用启动时自动修改，实施前需要单独授权。
+
+`external_base_url` 是公开 URL 的唯一来源，可以是根路径基址 `https://preview.example.test/`，也可以包含规范化后的路径前缀，例如 `https://example.test/apps/hermespeek/`。HermesPeek 注册的内部 ASGI 路由仍位于 `/`、`/p`、`/api`、`/static` 和 `/healthz`；当公开基址包含前缀时，外层代理必须先匹配该前缀，再剥离前缀后转发到回环上游。HermesPeek 不读取 `X-Forwarded-Prefix` 等请求头动态改变 URL 或 Cookie 范围，以免伪造头导致路径或安全边界漂移。
+
+内部健康检查始终访问 `http://127.0.0.1:8765/healthz`。外部健康检查则使用完整公开基址，例如 `https://example.test/apps/hermespeek/healthz`。代理未剥离前缀属于不受支持的部署，会得到上游 404；不得通过在应用内重复注册前缀路由来掩盖错误代理配置。

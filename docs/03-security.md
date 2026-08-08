@@ -70,6 +70,7 @@ HermesPeek：身份验证 + Preview 状态 + 路径策略 + 安全渲染
 - `Secure`（非 development）；
 - 合适的 `SameSite`；
 - 明确过期；
+- `Path` 固定为已配置外部 HTTPS 基址的 Base Path（根部署为 `/`）；
 - 服务端保存哈希，不保存可直接复用的明文 Token。
 
 默认授权模式是仅任务发起人。群组其他成员即使拿到按钮 URL 也不能读取文件。
@@ -151,6 +152,10 @@ Bot Token、会话签名密钥和其他 Secret 只从 secret env 注入，不写
 
 生产入口必须使用受信任 HTTPS。公网只暴露读取与认证所需路径，不暴露工作区、Registry、管理 CLI 或目录索引。
 
+外部 HTTPS 基址可包含经过严格校验的 ASCII 路径前缀；拒绝凭据、query、fragment、路径穿越、反斜杠、percent-encoded 或 Unicode 路径。路径前缀只来自本地已提交配置，不信任 `X-Forwarded-Prefix` 或其他客户端可伪造请求头。代理必须剥离公开前缀后再转发到回环上游；Cookie Path、静态资源、API、Preview 与外部健康检查必须使用同一规范化基址。
+
+HermesPeek 不拥有外层代理规则。setup、update、rollback 和 uninstall 均不得创建、修改或删除 Nginx、Tailscale Serve、Tunnel、DNS、证书或防火墙配置。
+
 ## 10. 关键安全回归
 
 必须自动化覆盖：
@@ -163,6 +168,7 @@ Bot Token、会话签名密钥和其他 Secret 只从 secret env 注入，不写
 - 篡改/过期 `initData` 和错误 owner；
 - XSS、危险 Markdown URL、HTML sandbox/CSP；
 - 未授权 raw 和缓存；
+- root 与多级 Base Path 下的 URL、Cookie 和剥离前缀代理契约；
 - 日志与 API 响应中的 Secret/绝对路径泄漏。
 
 真实 Telegram、HTTPS 或外部入口验收不能由 Mock 或离线测试替代；未执行时必须明确写为未验收。

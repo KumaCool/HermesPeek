@@ -31,7 +31,7 @@ install -m 0600 deploy/systemd/hermes-peek.env.example \
 
 - `HERMES_PEEK_ALLOWED_ROOTS` 只能列出明确批准的只读工作目录；
 - `HERMES_PEEK_STATE_DIR` 应与 unit 的 `ReadWritePaths` 一致，默认使用用户的 `~/.local/state/hermes-peek`；
-- `HERMES_PEEK_EXTERNAL_BASE_URL` 必须是后续经批准入口的 HTTPS URL；
+- `HERMES_PEEK_EXTERNAL_BASE_URL` 必须是后续经批准入口的外部 HTTPS 基址；可包含由代理提供的路径前缀；
 - Bot Token（仅显式通知 CLI 或旧独立通知兼容路径需要）只能存在权限为 `0600` 的环境文件或等价 secret store；阶段 6 `final_message_actions` 路径不需要 Bot Token；
 - 生产环境保持 `HERMES_PEEK_DEVELOPMENT=false`。
 
@@ -75,6 +75,37 @@ ss -ltn | grep '127.0.0.1:8765'
 ```
 
 必须确认没有 `0.0.0.0:8765` 或 `[::]:8765` 监听。服务重启后再次执行健康检查。
+
+### 5.1 使用路径前缀的外部入口
+
+根路径部署可配置为 `https://preview.example.test/`。共享域名下的路径部署可配置为：
+
+```text
+HERMES_PEEK_EXTERNAL_BASE_URL=https://example.test/apps/hermespeek/
+```
+
+代理契约固定为：
+
+```text
+公共 /apps/hermespeek/*  →  剥离 /apps/hermespeek  →  127.0.0.1:8765/*
+```
+
+例如 Nginx location 必须以尾斜杠 `proxy_pass` 执行前缀替换：
+
+```nginx
+location /apps/hermespeek/ {
+    proxy_pass http://127.0.0.1:8765/;
+}
+```
+
+这只是配置示例；HermesPeek 不会写入或接管 Nginx。任何真实代理、端口、证书、Tailscale 或防火墙变更都需单独授权。配置完成后分别验证：
+
+```bash
+curl -fsS http://127.0.0.1:8765/healthz
+curl -fsS https://example.test/apps/hermespeek/healthz
+```
+
+第一条证明内部服务健康，第二条证明 HTTPS、前缀匹配和剥离链路健康。若代理把 `/apps/hermespeek` 原样传给上游，得到 404 是预期的部署错误，不应修改 HermesPeek 内部路由来兼容。
 
 ## 6. 日志和轮转
 
