@@ -210,7 +210,8 @@ def create_app(
             '<script src="https://telegram.org/js/telegram-web-app.js"></script>'
             f'<script src="{app_path("static/app.js")}" defer></script></head>'
             f"<body><header><h1>{_escape(record.title)}</h1></header><main>"
-            f'<div id="preview-app" class="state loading" data-preview-id="{_escape(record.preview_id)}">'
+            f'<div id="preview-app" class="state loading" '
+            f'data-preview-id="{_escape(record.preview_id)}" data-base-path="{_escape(base_path)}">'
             "<p>正在加载预览…</p></div></main></body></html>"
         )
 

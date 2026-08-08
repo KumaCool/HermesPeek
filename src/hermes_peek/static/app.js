@@ -1,8 +1,14 @@
 const root = document.querySelector('#preview-app');
 const previewId = root?.dataset.previewId;
+const basePath = root?.dataset.basePath || '/';
 const tg = window.Telegram?.WebApp;
 let preview;
 let activeFile;
+
+function appUrl(path) {
+  const suffix = path.replace(/^\/+/, '');
+  return basePath === '/' ? `/${suffix}` : `${basePath}/${suffix}`;
+}
 
 function setState(name, message = '') {
   root.className = `state ${name}`;
@@ -18,7 +24,7 @@ async function request(url, options = {}) {
 
 async function authenticate() {
   if (!tg?.initData) return;
-  await fetch(`/api/auth/telegram`, {
+  await fetch(appUrl('api/auth/telegram'), {
     method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({preview_id: previewId, init_data: Telegram.WebApp.initData}),
   }).then(async response => {
@@ -36,15 +42,15 @@ async function showFile(file) {
   if (file.kind === 'image') {
     const image = document.createElement('img');
     image.alt = file.display_path;
-    image.src = `/api/previews/${previewId}/files/${file.id}/raw`;
+    image.src = appUrl(`api/previews/${previewId}/files/${file.id}/raw`);
     panel.append(image);
   } else if (file.kind === 'pdf') {
     const frame = document.createElement('iframe');
     frame.title = file.display_path;
-    frame.src = `/api/previews/${previewId}/files/${file.id}/raw`;
+    frame.src = appUrl(`api/previews/${previewId}/files/${file.id}/raw`);
     panel.append(frame);
   } else {
-    const body = await request(`/api/previews/${previewId}/files/${file.id}`);
+    const body = await request(appUrl(`api/previews/${previewId}/files/${file.id}`));
     if (body.kind === 'html') {
       const frame = document.createElement('iframe');
       frame.sandbox = body.sandbox;
@@ -88,7 +94,7 @@ async function start() {
   try {
     tg?.ready();
     await authenticate();
-    preview = await request(`/api/previews/${previewId}`);
+    preview = await request(appUrl(`api/previews/${previewId}`));
     root.replaceChildren(buildToolbar());
     root.className = 'state ready';
     const panel = document.createElement('section');

@@ -39,7 +39,7 @@ def test_preview_shell_is_a_mobile_telegram_app_with_auth_loading_and_error_stat
     assert 'id="preview-app"' in shell.text
     assert 'data-preview-id="' + preview_id + '"' in shell.text
     assert "Mini Preview" in shell.text
-    assert "fetch(`/api/auth/telegram`" in script.text
+    assert "fetch(appUrl('api/auth/telegram')" in script.text
     assert "Telegram.WebApp.initData" in script.text
     assert ".expand(" not in script.text
     assert "loading" in script.text and "error" in script.text
@@ -102,4 +102,17 @@ def test_base_path_is_rendered_in_shell_assets_launch_auth_and_redirects(tmp_pat
     assert "location.replace(`/apps/hermespeek/p/${previewId}`)" in home.text
     assert 'href="/apps/hermespeek/static/app.css"' in shell.text
     assert 'src="/apps/hermespeek/static/app.js"' in shell.text
-    assert str(tmp_path) not in home.text + shell.text
+    assert 'data-base-path="/apps/hermespeek"' in shell.text
+
+    script = client.get("/static/app.js")
+    assert script.status_code == 200
+    assert "function appUrl(path)" in script.text
+    assert "root?.dataset.basePath" in script.text
+    assert "fetch(appUrl('api/auth/telegram')" in script.text
+    assert "request(appUrl(`api/previews/${previewId}`))" in script.text
+    assert "appUrl(`api/previews/${previewId}/files/${file.id}/raw`)" in script.text
+    assert "fetch('/api" not in script.text
+    assert "fetch(`/api" not in script.text
+    assert "src = '/api" not in script.text
+    assert "src = `/api" not in script.text
+    assert str(tmp_path) not in home.text + shell.text + script.text
