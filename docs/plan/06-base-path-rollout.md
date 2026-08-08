@@ -260,6 +260,30 @@ GET    /hermespeek/static/*
 
 ### 阶段 2：Web 应用 Base Path 感知
 
+#### 阶段 2 验收记录
+
+- [x] `TASK 2.1` 修复 HTML、静态资源与 launch 跳转
+  - Status: ✅ 已验收
+  - Implementation: home 和 Preview shell 统一按配置的 Base Path 生成 launch auth、Preview 跳转及静态资源 URL；root 部署保持原路径。
+  - Acceptance command: `uv run pytest tests/test_app.py tests/integration/test_mini_app.py -q`
+  - Acceptance result: 6 passed
+  - Commit: `83a97d6`
+  - Updated: 2026-08-08
+- [x] `TASK 2.2` 修复前端 API 与 raw 文件 URL
+  - Status: ✅ 已验收
+  - Implementation: shell 向前端传递规范化 Base Path；auth、metadata、文本文件及 image/PDF raw 请求统一经 `appUrl()` 生成，无根路径硬编码。
+  - Acceptance command: `uv run pytest tests/integration/test_mini_app.py -q`
+  - Acceptance result: 3 passed
+  - Commit: `15afa7e`
+  - Updated: 2026-08-08
+- [x] `TASK 2.3` 收窄 Session Cookie Path
+  - Status: ✅ 已验收
+  - Implementation: 直接登录、launch 登录及 logout 删除均使用配置的 Base Path；root 部署继续使用 `/`。
+  - Acceptance command: `uv run pytest tests/integration/test_auth_api.py -q`
+  - Acceptance result: 4 passed
+  - Commit: `e89a06a`
+  - Updated: 2026-08-08
+
 #### TASK 2.1：修复 HTML、静态资源与 launch 跳转
 
 **来源：** §3.2、§3.3
