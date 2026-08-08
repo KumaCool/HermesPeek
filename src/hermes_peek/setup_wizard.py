@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Callable, Sequence
-from urllib.parse import urlparse
 
 from .lifecycle import InstallPaths, LifecycleError
+from .urls import external_url, normalize_external_base_url
 
 _SECRET_DIRECTORY_NAMES = {".ssh", ".gnupg", ".aws", ".config"}
 
@@ -35,19 +35,11 @@ def validate_allowed_roots(roots: Sequence[Path], *, home: Path | None = None) -
 
 
 def validate_https_origin(value: str) -> str:
-    parsed = urlparse(value)
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.username
-        or parsed.password
-        or parsed.path not in ("", "/")
-        or parsed.params
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise LifecycleError("external URL must be an HTTPS origin without credentials, path, query, or fragment")
-    return value.rstrip("/")
+    """Backward-compatible setup entry point for validating an external base URL."""
+    try:
+        return normalize_external_base_url(value)
+    except ValueError as exc:
+        raise LifecycleError(str(exc)) from exc
 
 
 def validate_secret_file(path: Path) -> Path:
@@ -119,7 +111,7 @@ def read_existing_setup(paths: InstallPaths) -> dict[str, Any]:
         raise LifecycleError("existing HermesPeek configuration is invalid")
     return {
         "allowed_roots": tuple(Path(item) for item in roots) if isinstance(roots, list) else (),
-        "external_url": origin.rstrip("/") if isinstance(origin, str) else None,
+        "external_url": normalize_external_base_url(origin) if isinstance(origin, str) else None,
         "telegram_bot_username": value.get("telegram_bot_username"),
         "telegram_mini_app_short_name": value.get("telegram_mini_app_short_name"),
         "telegram_mini_app_mode": value.get("telegram_mini_app_mode", "compact"),
@@ -166,11 +158,11 @@ def run_setup_wizard(
         roots = validate_allowed_roots(current_roots)
     origin_default = current.get("external_url") or ""
     if prompt_external_url:
-        origin_answer = input_fn(f"External HTTPS origin [{origin_default}]: ").strip()
+        origin_answer = input_fn(f"External HTTPS base URL [{origin_default}]: ").strip()
         origin = validate_https_origin(origin_answer or origin_default)
     else:
         origin = validate_https_origin(origin_default)
-    health = https_probe(f"{origin}/healthz")
+    health = https_probe(external_url(origin, "healthz"))
     if not health.get("reachable"):
         output_fn(
             "Preflight note: external /healthz is not reachable yet; "

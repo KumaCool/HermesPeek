@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Sequence
-from urllib.parse import urlparse
+
+from .urls import normalize_external_base_url
 
 
 class LifecycleError(RuntimeError):
@@ -127,11 +128,10 @@ def _validate_setup(allowed_roots: Sequence[Path], external_url: str, bot_token:
     roots = tuple(path.expanduser().resolve(strict=True) for path in allowed_roots)
     if not roots or any(not path.is_dir() for path in roots):
         raise LifecycleError("at least one existing allowed root directory is required")
-    parsed = urlparse(external_url)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-        raise LifecycleError("external URL must be an HTTPS origin without credentials")
-    if parsed.query or parsed.fragment:
-        raise LifecycleError("external URL must not contain a query or fragment")
+    try:
+        normalize_external_base_url(external_url)
+    except ValueError as exc:
+        raise LifecycleError(str(exc)) from exc
     if not _BOT_TOKEN.fullmatch(bot_token):
         raise LifecycleError("Telegram Bot Token has an invalid format")
     return roots
@@ -350,12 +350,13 @@ def _install_apply(
         0o644,
     )
 
-    _atomic_write(paths.env_file, _render_env(roots, paths, external_url, bot_token), 0o600)
+    normalized_external_url = normalize_external_base_url(external_url)
+    _atomic_write(paths.env_file, _render_env(roots, paths, normalized_external_url, bot_token), 0o600)
     config = {
         "schema_version": 1,
         "allowed_roots": [str(root) for root in roots],
         "state_dir": str(paths.state_dir),
-        "external_base_url": external_url.rstrip("/") + "/",
+        "external_base_url": normalized_external_url,
         "target": {"hermes_home": str(target.hermes_home), "identity": target.identity},
     }
     if telegram_bot_username:

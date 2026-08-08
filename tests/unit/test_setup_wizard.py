@@ -62,7 +62,7 @@ def test_profile_discovery_uses_root_as_default_and_ignores_default_state_direct
     assert "profiles/default" not in prompts[0]
 
 
-def test_setup_inputs_reject_unsafe_roots_and_non_origin_urls(tmp_path: Path):
+def test_setup_inputs_reject_unsafe_roots_and_invalid_external_base_urls(tmp_path: Path):
     from hermes_peek.setup_wizard import validate_allowed_roots, validate_https_origin
 
     home = tmp_path / "home"
@@ -79,15 +79,19 @@ def test_setup_inputs_reject_unsafe_roots_and_non_origin_urls(tmp_path: Path):
         with pytest.raises(LifecycleError, match="allowed root"):
             validate_allowed_roots((unsafe,), home=home)
 
-    assert validate_https_origin("https://preview.example.test") == "https://preview.example.test"
+    assert validate_https_origin("https://preview.example.test") == "https://preview.example.test/"
+    assert validate_https_origin("https://preview.example.test/hermespeek") == (
+        "https://preview.example.test/hermespeek/"
+    )
     for invalid in (
         "http://preview.example.test",
         "https://user@preview.example.test",
-        "https://preview.example.test/path",
         "https://preview.example.test?secret=value",
         "https://preview.example.test/#fragment",
+        "https://preview.example.test//hermespeek",
+        "https://preview.example.test/hermes%70eek",
     ):
-        with pytest.raises(LifecycleError, match="HTTPS origin"):
+        with pytest.raises(LifecycleError, match="external URL"):
             validate_https_origin(invalid)
 
 
@@ -116,7 +120,7 @@ def test_wizard_checks_https_and_continues_without_plan_or_confirmation(tmp_path
     rendered = "\n".join(output)
     assert probes == ["https://preview.example.test/healthz"]
     assert result["allowed_roots"] == (workspace.resolve(),)
-    assert result["external_url"] == "https://preview.example.test"
+    assert result["external_url"] == "https://preview.example.test/"
     assert "Setup plan" not in rendered
     assert "Apply this plan" not in rendered
     assert token not in rendered
@@ -172,7 +176,7 @@ def test_interactive_cli_discovers_profile_and_executes_without_confirmation(tmp
     output = capsys.readouterr().out
     assert captured["paths"].hermes_home == profile.resolve()
     assert captured["allowed_roots"] == (workspace.resolve(),)
-    assert captured["external_url"] == "https://preview.example.test"
+    assert captured["external_url"] == "https://preview.example.test/"
     assert captured["bot_token"] == token
     assert captured["final_verify"] is None
     assert callable(captured["progress"])

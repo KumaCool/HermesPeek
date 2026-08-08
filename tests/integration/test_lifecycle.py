@@ -359,10 +359,13 @@ def test_setup_writes_configuration_that_gateway_plugin_can_load(tmp_path: Path,
         integration_dir=PLUGIN,
         executable=executable,
         allowed_roots=(allowed,),
-        external_url="https://preview.example.test",
+        external_url="https://preview.example.test/apps/hermespeek",
         bot_token="123456789:" + "E" * 35,
         activate=False,
     )
+
+    config = json.loads(target.config_file.read_text(encoding="utf-8"))
+    assert config["external_base_url"] == "https://preview.example.test/apps/hermespeek/"
 
     monkeypatch.delenv("HERMES_PEEK_ALLOWED_ROOTS", raising=False)
     monkeypatch.delenv("HERMES_PEEK_STATE_DIR", raising=False)
