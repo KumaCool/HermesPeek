@@ -465,6 +465,44 @@ def test_fresh_setup_failure_accepts_missing_unit_when_service_state_is_restored
     assert not target.unit_file.exists()
 
 
+def test_setup_failure_restores_previous_base_path_configuration(tmp_path: Path) -> None:
+    target = paths(tmp_path)
+    allowed = tmp_path / "workspace"
+    allowed.mkdir()
+    executable = tmp_path / "hermes-peek"
+    executable.write_text("launcher", encoding="utf-8")
+    original_url = "https://preview.example.test/apps/hermespeek/"
+    replacement_url = "https://preview.example.test/reconfigured/"
+    token = "123456789:" + "Z" * 35
+    install(
+        paths=target,
+        integration_dir=PLUGIN,
+        executable=executable,
+        allowed_roots=(allowed,),
+        external_url=original_url,
+        bot_token=token,
+        activate=False,
+    )
+
+    def fail_verify():
+        raise RuntimeError("simulated verification failure")
+
+    with pytest.raises(LifecycleError):
+        install(
+            paths=target,
+            integration_dir=PLUGIN,
+            executable=executable,
+            allowed_roots=(allowed,),
+            external_url=replacement_url,
+            bot_token=token,
+            activate=False,
+            final_verify=fail_verify,
+        )
+
+    config = json.loads(target.config_file.read_text(encoding="utf-8"))
+    assert config["external_base_url"] == original_url
+
+
 def test_setup_failure_redacts_bot_token_from_error_and_journal(tmp_path: Path) -> None:
     target = paths(tmp_path); allowed = tmp_path / "workspace"; allowed.mkdir()
     executable = tmp_path / "hermes-peek"; executable.write_text("launcher")

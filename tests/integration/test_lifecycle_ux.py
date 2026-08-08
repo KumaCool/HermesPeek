@@ -317,11 +317,14 @@ def test_setup_plan_is_read_only_redacted_and_lists_actions(tmp_path, monkeypatc
     allowed=tmp_path/"workspace"; allowed.mkdir(); token_file=tmp_path/"telegram.env"; token="123456789:"+"X"*35; token_file.write_text(f"TELEGRAM_BOT_TOKEN={token}")
     monkeypatch.setattr(cli.InstallPaths,"for_user",classmethod(lambda cls,**kw:paths))
     calls=[]; monkeypatch.setattr(cli,"lifecycle_runner",lambda command:(calls.append(tuple(command)) or subprocess.CompletedProcess(command,1,"","")))
-    assert main(["setup","--allowed-root",str(allowed),"--external-url","https://preview.example.test","--telegram-env",str(token_file),"--plan"]) == 0
+    base_url = "https://preview.example.test/apps/hermespeek/"
+    assert main(["setup","--allowed-root",str(allowed),"--external-url",base_url,"--telegram-env",str(token_file),"--plan"]) == 0
     report=capsys.readouterr().out
     assert "HermesPeek setup plan (no changes made)" in report
     assert "Actions:" in report and "Rollback points:" in report
+    assert base_url in report
     assert token not in report
+    assert not paths.config_file.exists()
     assert all(not any(word in command for word in ("enable","restart","start")) for command in calls)
 
 

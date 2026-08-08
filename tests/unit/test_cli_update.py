@@ -39,6 +39,10 @@ mkdir -p "$(dirname "$launcher")"
 ln -sf /bin/sh "$interpreter"
 printf '#!%s\\n' "$interpreter" > "$launcher"
 cat >> "$launcher" <<'EOF'
+printf 'base=%s\n' "${HERMES_PEEK_TEST_EXTERNAL_BASE_URL:-}" >> "$HERMES_PEEK_TEST_LOG"
+if [ "${1:-}" = "setup" ]; then
+  test "$(python3 -c 'import json,os; print(json.load(open(os.environ["HERMES_PEEK_TEST_CONFIG"]))["external_base_url"])')" = "$HERMES_PEEK_TEST_EXTERNAL_BASE_URL" || exit 93
+fi
 if [ "${1:-}" = "--version" ]; then printf 'hermes-peek 9.9.9\\n'; exit 0; fi
 printf '%s\\n' "$1" >> "$HERMES_PEEK_TEST_LOG"
 exit 0
@@ -57,8 +61,13 @@ chmod +x "$launcher"
         else:
             destination.write_bytes(wheel_bytes)
 
+    base_url = "https://preview.example.test/apps/hermespeek/"
+    config = tmp_path / "config.json"
+    config.write_text('{"external_base_url": "' + base_url + '"}\n', encoding="utf-8")
     monkeypatch.setenv("HERMES_PEEK_INSTALL_ROOT", str(root))
     monkeypatch.setenv("HERMES_PEEK_TEST_LOG", str(log))
+    monkeypatch.setenv("HERMES_PEEK_TEST_EXTERNAL_BASE_URL", base_url)
+    monkeypatch.setenv("HERMES_PEEK_TEST_CONFIG", str(config))
     monkeypatch.setattr(cli, "resolve_current_executable", lambda: installed.resolve())
     monkeypatch.setattr(cli.shutil, "which", lambda name: str(fake_uv) if name == "uv" else None)
     monkeypatch.setattr(cli.urllib.request, "urlretrieve", download)
@@ -75,7 +84,16 @@ chmod +x "$launcher"
     result = cli._update_cli("9.9.9", apply=True)
 
     assert result["updated"] is True
-    assert log.read_text(encoding="utf-8").splitlines() == ["setup", "status", "doctor"]
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        f"base={base_url}",
+        f"base={base_url}",
+        f"base={base_url}",
+        "setup",
+        f"base={base_url}",
+        "status",
+        f"base={base_url}",
+        "doctor",
+    ]
     assert installed.read_text(encoding="utf-8").splitlines()[0] == f"#!{root}/hermes-peek/bin/python"
     assert command_link.resolve() == installed.resolve()
     assert lifecycle_stdin == [subprocess.DEVNULL, subprocess.DEVNULL, subprocess.DEVNULL]

@@ -16,13 +16,15 @@ def test_existing_setup_is_reused_for_single_field_patch(tmp_path, monkeypatch):
 
     target = paths(tmp_path)
     workspace = tmp_path / "workspace"
+    replacement = tmp_path / "replacement"
     workspace.mkdir()
+    replacement.mkdir()
     target.hermes_home.mkdir()
     (target.hermes_home / ".env").write_text("TELEGRAM_BOT_TOKEN=123456789:" + "X" * 35)
     target.config_dir.mkdir(parents=True)
     target.config_file.write_text(json.dumps({
         "allowed_roots": [str(workspace)],
-        "external_base_url": "https://old.example.test/",
+        "external_base_url": "https://old.example.test/apps/hermespeek/",
         "target": {"hermes_home": str(target.hermes_home)},
     }))
     captured = {}
@@ -31,9 +33,9 @@ def test_existing_setup_is_reused_for_single_field_patch(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "resolve_current_executable", lambda: tmp_path / "hermes-peek")
     monkeypatch.setattr(cli, "read_bot_token", lambda path: "123456789:" + "X" * 35)
     monkeypatch.setattr(cli, "install_application", lambda **kw: captured.update(kw) or {"installed": True})
-    assert cli.main(["setup", "--external-url", "https://new.example.test", "--no-activate"]) == 0
-    assert captured["allowed_roots"] == (workspace.resolve(),)
-    assert captured["external_url"] == "https://new.example.test"
+    assert cli.main(["setup", "--allowed-root", str(replacement), "--no-activate"]) == 0
+    assert captured["allowed_roots"] == (replacement.resolve(),)
+    assert captured["external_url"] == "https://old.example.test/apps/hermespeek/"
     assert captured["paths"].hermes_home == target.hermes_home
 
 
@@ -59,7 +61,7 @@ def test_interactive_wizard_prefills_existing_values(tmp_path):
         existing={"allowed_roots": (workspace,), "external_url": "https://preview.example.test"},
     )
     assert result["allowed_roots"] == (workspace.resolve(),)
-    assert result["external_url"] == "https://preview.example.test"
+    assert result["external_url"] == "https://preview.example.test/"
 
 
 def test_interactive_setup_only_prompts_for_value_missing_from_arguments(tmp_path, monkeypatch):
@@ -75,7 +77,7 @@ def test_interactive_setup_only_prompts_for_value_missing_from_arguments(tmp_pat
     monkeypatch.setattr("builtins.input", lambda prompt: prompts.append(prompt) or "https://preview.example.test")
 
     assert cli.main(["setup", "--allowed-root", str(workspace), "--plan"]) == 0
-    assert prompts == ["External HTTPS origin []: "]
+    assert prompts == ["External HTTPS base URL []: "]
 
 
 def test_interactive_setup_does_not_overwrite_explicit_external_url(tmp_path, monkeypatch):
