@@ -17,6 +17,7 @@ from .lifecycle import HermesTarget, InstallPaths, LifecycleError, _plugin_state
 from .telegram_lifecycle import TelegramLifecycle, UrllibTelegramTransport
 from .telegram import build_mini_app_direct_link
 from .service_backend import HealthProbe, PortProbe, Runner, SystemdUserBackend, _health_probe, _port_probe
+from .urls import external_url
 
 Probe = Callable[[], dict[str, Any]]
 HttpsProbe = Callable[[str], dict[str, Any]]
@@ -99,15 +100,16 @@ def _telegram_probe(paths: InstallPaths) -> dict[str, Any]:
 def _https_probe(url: str) -> dict[str, Any]:
     if not url:
         return {"reachable": False, "status": None, "configured": False}
+    health_url = external_url(url, "healthz")
     try:
-        request = urllib.request.Request(url.rstrip("/") + "/healthz", method="HEAD")
+        request = urllib.request.Request(health_url, method="HEAD")
         with urllib.request.urlopen(request, timeout=3) as response:
             return {"reachable": 200 <= response.status < 500, "status": response.status, "configured": True}
     except (OSError, urllib.error.URLError):
         # Some hosts use systemd-resolved split DNS (notably Tailscale MagicDNS)
         # while a locally managed /etc/resolv.conf bypasses NSS. Resolve through
         # resolvectl and keep TLS hostname verification intact as a safe fallback.
-        parsed = urllib.parse.urlsplit(url)
+        parsed = urllib.parse.urlsplit(health_url)
         hostname = parsed.hostname or ""
         if not hostname:
             return {"reachable": False, "status": None, "configured": True}
@@ -127,7 +129,7 @@ def _https_probe(url: str) -> dict[str, Any]:
                     raw = socket.create_connection((address, parsed.port or 443), self.timeout)
                     self.sock = context.wrap_socket(raw, server_hostname=hostname)
             connection = ResolvedHTTPSConnection(hostname, parsed.port or 443, timeout=3)
-            connection.request("HEAD", (parsed.path.rstrip("/") or "") + "/healthz", headers={"Host": hostname})
+            connection.request("HEAD", parsed.path, headers={"Host": hostname})
             response = connection.getresponse()
             status_code = response.status
             connection.close()
@@ -212,7 +214,7 @@ def doctor(paths: InstallPaths, runner: Runner, **probes: Any) -> dict[str, Any]
         {"name": "telegram", "ok": bool(report["telegram"].get("verified")), "suggestion": "verify the Bot token and BotFather prerequisites"},
         {"name": "group_topic_delivery", "ok": bool(report["telegram"].get("group_topic_delivery_ready")),
          "suggestion": "run setup to commit the verified Telegram Bot username for group and Topic delivery"},
-        {"name": "https", "ok": bool(report["https"].get("reachable")), "suggestion": "verify the configured external HTTPS origin"},
+        {"name": "https", "ok": bool(report["https"].get("reachable")), "suggestion": "verify the configured external HTTPS base URL"},
         {"name": "config_drift", "ok": not report["drift"]["detected"], "suggestion": "review modified installer-owned resources before repair"},
     ]
     return {"schema_version": 1, "checks": checks,

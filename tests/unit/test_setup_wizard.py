@@ -266,6 +266,21 @@ def test_setup_prints_only_critical_pending_action_after_success(tmp_path: Path,
     assert "telegram_onboarding_checklist" not in output
 
 
+def test_external_health_verification_preserves_base_path(monkeypatch):
+    import hermes_peek.cli as cli
+
+    probes = []
+    monkeypatch.setattr(
+        cli,
+        "setup_https_probe",
+        lambda url: probes.append(url) or {"reachable": True, "status": 200},
+    )
+
+    cli.verify_external_https_health("https://preview.example.test/apps/hermespeek/")
+
+    assert probes == ["https://preview.example.test/apps/hermespeek/healthz"]
+
+
 def test_external_health_failure_after_startup_is_a_lifecycle_error(monkeypatch):
     import hermes_peek.cli as cli
 

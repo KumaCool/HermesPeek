@@ -47,6 +47,25 @@ def test_publish_validates_files_builds_display_paths_and_url(tmp_path: Path) ->
     assert result.record.entry_file_id == result.record.files[0].id
 
 
+def test_publish_preserves_multilevel_base_path_without_a_trailing_slash(tmp_path: Path) -> None:
+    root = tmp_path / "files"
+    root.mkdir()
+    document = root / "readme.md"
+    document.write_text("# Readme", encoding="utf-8")
+    preview_service = PreviewService(
+        registry=PreviewRegistry(tmp_path / "state"),
+        path_policy=PathPolicy((root,), max_file_bytes=1024),
+        default_ttl_seconds=3600,
+        external_base_url="https://preview.example.test/apps/hermespeek",
+    )
+
+    result = preview_service.publish(
+        (document,), entry=document, title="Example", owner_telegram_user_id="123"
+    )
+
+    assert result.url == f"https://preview.example.test/apps/hermespeek/p/{result.record.preview_id}"
+
+
 def test_publish_rejects_missing_entry_duplicate_and_unpublished_entry(tmp_path: Path) -> None:
     root = tmp_path / "files"
     root.mkdir()

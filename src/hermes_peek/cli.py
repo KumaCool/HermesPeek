@@ -46,6 +46,7 @@ from hermes_peek.lifecycle_ux import (
     status as lifecycle_status,
 )
 from hermes_peek.service_backend import SystemdUserBackend
+from hermes_peek.urls import external_url
 from hermes_peek.setup_wizard import (
     discover_hermes_profiles,
     discover_installed_hermes_home,
@@ -479,8 +480,8 @@ def setup_https_probe(url: str) -> dict[str, object]:
 
 
 def verify_external_https_health(origin: str) -> None:
-    if not setup_https_probe(origin.rstrip("/") + "/healthz").get("reachable"):
-        raise LifecycleError("external HTTPS origin is not reachable at /healthz after service startup")
+    if not setup_https_probe(external_url(origin, "healthz")).get("reachable"):
+        raise LifecycleError("external HTTPS base URL is not reachable at /healthz after service startup")
 
 
 def verify_installed_plugin_runtime(paths: InstallPaths) -> None:

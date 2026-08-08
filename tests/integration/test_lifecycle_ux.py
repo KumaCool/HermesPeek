@@ -1,6 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 from hermes_peek.cli import main
 from hermes_peek.lifecycle import InstallPaths
@@ -264,6 +265,39 @@ def test_default_https_probe_is_read_only_and_redacted(monkeypatch):
     monkeypatch.setattr(ux.urllib.request, "urlopen", lambda request, timeout: seen.append((request.full_url, request.method)) or Response())
     assert ux._https_probe("https://preview.example.test/") == {"reachable": True, "status": 204, "configured": True}
     assert seen == [("https://preview.example.test/healthz", "HEAD")]
+
+
+def test_default_https_probe_preserves_multilevel_base_path(monkeypatch):
+    import hermes_peek.lifecycle_ux as ux
+    class Response:
+        status = 204
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    seen = []
+    monkeypatch.setattr(ux.urllib.request, "urlopen", lambda request, timeout: seen.append((request.full_url, request.method)) or Response())
+    assert ux._https_probe("https://preview.example.test/apps/hermespeek/") == {"reachable": True, "status": 204, "configured": True}
+    assert seen == [("https://preview.example.test/apps/hermespeek/healthz", "HEAD")]
+
+
+def test_magicdns_https_probe_preserves_multilevel_base_path(monkeypatch):
+    import hermes_peek.lifecycle_ux as ux
+
+    class Connection:
+        requests = []
+        def __init__(self, *args, **kwargs): pass
+        def connect(self): pass
+        def request(self, method, path, headers): self.requests.append((method, path, headers))
+        def getresponse(self): return SimpleNamespace(status=204)
+        def close(self): pass
+
+    monkeypatch.setattr(ux.urllib.request, "urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("dns")))
+    monkeypatch.setattr(ux.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(stdout="100.64.0.1\n"))
+    monkeypatch.setattr("http.client.HTTPSConnection", Connection)
+
+    assert ux._https_probe("https://preview.example.test/apps/hermespeek/")["reachable"] is True
+    assert Connection.requests == [
+        ("HEAD", "/apps/hermespeek/healthz", {"Host": "preview.example.test"})
+    ]
 
 
 def test_default_telegram_probe_reads_installed_token_and_redacts_failure(tmp_path, monkeypatch):

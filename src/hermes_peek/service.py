@@ -4,16 +4,17 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from urllib.parse import urljoin
 
 try:
     from .models import FileEntry, PreviewRecord, PublicPreview
     from .paths import InspectedFile, PathPolicy
     from .registry import PreviewRegistry
+    from .urls import external_url
 except ImportError:  # pragma: no cover - direct script compatibility
     from hermes_peek.models import FileEntry, PreviewRecord, PublicPreview
     from hermes_peek.paths import InspectedFile, PathPolicy
     from hermes_peek.registry import PreviewRegistry
+    from hermes_peek.urls import external_url
 
 
 class PublishError(ValueError):
@@ -106,5 +107,4 @@ class PreviewService:
     def _preview_url(self, preview_id: str) -> str | None:
         if self.external_base_url is None:
             return None
-        base = self.external_base_url.rstrip("/") + "/"
-        return urljoin(base, f"p/{preview_id}")
+        return external_url(self.external_base_url, f"p/{preview_id}")
