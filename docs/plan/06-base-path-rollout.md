@@ -375,6 +375,22 @@ GET    /hermespeek/static/*
 
 ### 阶段 4：文档与全量验收
 
+#### 阶段 4 验收记录
+
+- [x] `TASK 4.1` 同步架构、安全和普通用户文档
+  - Status: ✅ 已验收
+  - Implementation: 英文/简中 README、架构、安全、运维、生命周期与 Telegram onboarding 文档统一采用 External HTTPS base URL 术语，记录 root/Base Path 配置、剥离前缀代理契约、内外健康检查和代理规则所有权边界。
+  - Acceptance command: `git diff --check` + 文档契约脚本检查 7 个交付文件不存在冲突的 path 禁令，并包含 root/Base Path/代理契约。
+  - Acceptance result: Documentation acceptance passed: 7 files
+  - Commit: `eefaf35`
+  - Updated: 2026-08-08 23:51 CST
+- [x] `TASK 4.2` 全量回归和发布前检查
+  - Status: ✅ 已验收
+  - Acceptance commands: `uv run pytest -q`; `uv run python -m compileall -q src integrations`; `uv build`; wheel/sdist 内容脚本；`git diff --check`
+  - Acceptance result: 283 tests passed；compileall 通过；wheel/sdist 构建成功且均包含 `hermes_peek/urls.py` 和 `hermes_peek/static/app.js`；仅有 1 条既有 StarletteDeprecationWarning。
+  - Commit: 无（仅验收，无构建修复）
+  - Updated: 2026-08-08 23:51 CST
+
 #### TASK 4.1：同步架构、安全和普通用户文档
 
 **来源：** §2、§4
